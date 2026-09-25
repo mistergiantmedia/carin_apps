@@ -2,3 +2,8 @@
 # Holds the webhook secret; this repo is public, so it lives only on the server
 webhook/deploy.php
 webhook/deploy.log
+
+# Next.js source folders
+node_modules/
+.next/
+.env.local
