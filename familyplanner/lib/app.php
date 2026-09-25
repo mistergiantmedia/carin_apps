@@ -149,7 +149,7 @@ function current_user(): ?array
     if ($user === false) {
         $user = null;
         if (!empty($_SESSION['user_id'])) {
-            $stmt = db()->prepare('SELECT id, name, email, member_id FROM fp_users WHERE id = ?');
+            $stmt = db()->prepare('SELECT id, name, email, member_id, must_change_password FROM fp_users WHERE id = ?');
             $stmt->execute([$_SESSION['user_id']]);
             $user = $stmt->fetch() ?: null;
         }
@@ -162,6 +162,10 @@ function require_login(): array
     $user = current_user();
     if (!$user) {
         redirect('login.php?next=' . urlencode(basename($_SERVER['REQUEST_URI'] ?? '')));
+    }
+    // Accounts created with a temporary password must pick their own first
+    if (!empty($user['must_change_password']) && basename($_SERVER['SCRIPT_NAME'] ?? '') !== 'wachtwoord.php') {
+        redirect('wachtwoord.php');
     }
     return $user;
 }

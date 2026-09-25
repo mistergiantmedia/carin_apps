@@ -473,3 +473,4 @@ dialog.modal::backdrop{background:#1b152c66;backdrop-filter:blur(2px)}
   body{background:#fff}
   .card,.kid-day{box-shadow:none}
 }
+.login-page .sidebar,.login-page .bottombar{display:none}

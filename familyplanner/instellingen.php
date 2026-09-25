@@ -79,7 +79,7 @@ if (is_post()) {
             if (strlen($pw) < 8) {
                 throw new RuntimeException('Het nieuwe wachtwoord moet minimaal 8 tekens zijn.');
             }
-            db()->prepare('UPDATE fp_users SET password_hash = ? WHERE id = ?')->execute([password_hash($pw, PASSWORD_DEFAULT), $user['id']]);
+            db()->prepare('UPDATE fp_users SET password_hash = ?, must_change_password = 0 WHERE id = ?')->execute([password_hash($pw, PASSWORD_DEFAULT), $user['id']]);
             flash('Wachtwoord gewijzigd');
             redirect('instellingen.php#wachtwoord');
         }
