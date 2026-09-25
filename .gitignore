@@ -14,3 +14,5 @@ config.php
 # Conversation images: only on the server, never in git
 uploads/*
 !uploads/index.html
+*/uploads/*
+!*/uploads/index.html

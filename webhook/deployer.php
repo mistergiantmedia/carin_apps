@@ -192,17 +192,22 @@ if (!empty(TOKEN) && isset($_SERVER["HTTP_X_HUB_SIGNATURE"]) && $token !== hash_
             }
 
             /**
-             * Apply pending database migrations (migrations/*.sql), loading the freshly pulled code
+             * Apply pending database migrations of every app (<app>/migrate.php), loading the freshly pulled code.
+             * Each app's migrate.php returns a function that runs its migrations and returns log lines.
+             * All apps load into this one PHP process, so their migration code must not share global names.
              */
-            if (is_file($DIR . "migrate.php") && is_file($DIR . "config.php")) {
-                fputs($file, "*** DB MIGRATIONS INITIATED ***" . "\n");
+            foreach (glob($DIR . "*/migrate.php") ?: [] as $migrateFile) {
+                $app = basename(dirname($migrateFile));
+                fputs($file, "*** DB MIGRATIONS INITIATED: " . $app . " ***" . "\n");
                 try {
-                    require_once $DIR . "db.php";
-                    require_once $DIR . "migrate.php";
-                    $migrationOutput = implode("\n", run_migrations(db())) . "\n";
+                    $runner = (static function ($path) { return require $path; })($migrateFile);
+                    if (!is_callable($runner)) {
+                        throw new RuntimeException("migrate.php does not return a function");
+                    }
+                    $migrationOutput = implode("\n", $runner()) . "\n";
                 } catch (Throwable $e) {
                     http_response_code(500);
-                    $migrationOutput = "=== ERROR: DB migration failed ===\n" . $e->getMessage() . "\n";
+                    $migrationOutput = "=== ERROR: DB migration failed (" . $app . ") ===\n" . $e->getMessage() . "\n";
                 }
                 fputs($file, $migrationOutput);
                 echo $migrationOutput;

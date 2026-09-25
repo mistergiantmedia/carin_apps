@@ -1,16 +1,49 @@
 <?php
-// Database migrations: applies every migrations/*.sql file that hasn't run yet, in filename order.
-// Runs automatically after each push (webhook/deployer.php) and during install.php.
-// From the command line: php migrate.php
+// Database connection + migrations for the family planner.
+// Namespaced on purpose: webhook/deployer.php loads the migrations of every app into one
+// PHP process, so nothing here may clash with another app's global db()/run_migrations().
+// Keep this PHP 7.4 compatible.
+namespace Familie;
 
-const MIGRATIONS_DIR = __DIR__ . '/migrations';
+use PDO;
+use PDOException;
+use RuntimeException;
 
-/**
- * Split a migration file into statements. A statement ends with ; at the end of a line.
- */
+const CONFIG_FILE = __DIR__ . '/../config.php';
+const MIGRATIONS_DIR = __DIR__ . '/../migrations';
+
+/** Settings from config.php (written by install.php). It returns an array, no global constants. */
+function config(): array
+{
+    if (!is_file(CONFIG_FILE)) {
+        throw new RuntimeException('config.php ontbreekt. Open install.php om de database in te stellen.');
+    }
+    $config = require CONFIG_FILE;
+    if (!is_array($config)) {
+        throw new RuntimeException('config.php is ongeldig. Open install.php om de database opnieuw in te stellen.');
+    }
+    return $config;
+}
+
+function connect(?array $config = null): PDO
+{
+    $c = $config ?? config();
+    return new PDO(
+        'mysql:host=' . $c['host'] . ';dbname=' . $c['name'] . ';charset=utf8mb4',
+        $c['user'],
+        $c['pass'],
+        [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]
+    );
+}
+
+/** Split a migration file into statements. A statement ends with ; at the end of a line. */
 function migration_statements(string $sql): array
 {
-    $sql = preg_replace('/^\s*--.*$/m', '', $sql); // strip comment lines
+    $sql = preg_replace('/^\s*--.*$/m', '', $sql);
     $parts = preg_split('/;\s*(\r?\n|$)/', $sql);
     return array_values(array_filter(array_map('trim', $parts), 'strlen'));
 }
@@ -33,8 +66,7 @@ function pending_migrations(PDO $pdo): array
  */
 function run_migrations(PDO $pdo): array
 {
-    // Only one runner at a time (two quick pushes, or install.php during a deploy)
-    if (!$pdo->query("SELECT GET_LOCK('jouwschoolplein_migrate', 30)")->fetchColumn()) {
+    if (!$pdo->query("SELECT GET_LOCK('familyplanner_migrate', 30)")->fetchColumn()) {
         throw new RuntimeException('Kon migratie-lock niet krijgen: er draait al een migratie.');
     }
     try {
@@ -56,26 +88,6 @@ function run_migrations(PDO $pdo): array
         }
         return $log;
     } finally {
-        $pdo->query("SELECT RELEASE_LOCK('jouwschoolplein_migrate')");
+        $pdo->query("SELECT RELEASE_LOCK('familyplanner_migrate')");
     }
 }
-
-// webhook/deployer.php includes this file after each push and calls the function it returns.
-$runner = static function (): array {
-    if (!is_file(__DIR__ . '/config.php')) {
-        return ['config.php ontbreekt (nog niet geïnstalleerd), overgeslagen.'];
-    }
-    require_once __DIR__ . '/db.php';
-    return run_migrations(db());
-};
-
-if (PHP_SAPI === 'cli' && realpath($_SERVER['argv'][0] ?? '') === __FILE__) {
-    try {
-        echo implode(PHP_EOL, $runner()), PHP_EOL;
-    } catch (Throwable $e) {
-        fwrite(STDERR, $e->getMessage() . PHP_EOL);
-        exit(1);
-    }
-}
-
-return $runner;
