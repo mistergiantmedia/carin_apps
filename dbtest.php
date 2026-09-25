@@ -1,7 +1,12 @@
 <?php
-// Database connection check. Development only: remove or protect before going live.
-require __DIR__ . '/db.php';
-require __DIR__ . '/migrate.php';
+// Database status: connection, tables and migrations. Site admins only.
+require __DIR__ . '/lib/app.php';
+require_once __DIR__ . '/migrate.php';
+
+require_login();
+if (!is_site_admin()) {
+    redirect('./');
+}
 
 $ok = false;
 $error = null;
