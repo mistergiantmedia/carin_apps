@@ -40,9 +40,10 @@ Rules:
 - Beheerders get an 👤 Ouder / 🛠 Beheerder switch in the header (`wissel-rol.php`). In ouder mode `is_site_admin()` and `is_school_admin()` return false, so always check permissions through those functions, never through `users.role` directly.
 - Parents add their children once in their profile and tick which children come along to an activity.
 - Only the organiser and beheerders see who joins; everyone else sees totals.
+- Conversation (`activiteit.php` + `lib/chat.php` + `gesprek.js`): WhatsApp-style bubbles, emoji reactions on messages, images via Ctrl+V / drag & drop / 📎. Images are stored in `uploads/` (gitignored, server only) with random names, resized and re-encoded (strips GPS/EXIF), and only served through `afbeelding.php` to members of the square. When deleting messages, activities or users, call `delete_message_images()` first so files don't linger.
 
 ## Product rules (from the prototype)
 - One open square: activities are open to the whole community, not per school group.
 - Say "oud-leerlingen", not "alumni".
-- No WhatsApp groups, likes, followers or private DMs; conversation belongs to an activity.
+- No WhatsApp groups, likes, followers or private DMs; conversation belongs to an activity. Emoji reactions on *messages* are allowed (owner's choice); never add like counts or popularity rankings to activities or people.
 - Children are managed by their parent/guardian.

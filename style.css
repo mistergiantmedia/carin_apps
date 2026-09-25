@@ -60,3 +60,52 @@ form.inline{display:inline;margin-left:auto}
 .role-switch button.on{background:var(--green);color:#fff;cursor:default}
 .flash.info{background:#eaf1f7;color:#2f5673}
 @media(max-width:560px){header{flex-wrap:wrap;gap:12px}.role-switch button{padding:6px 8px}}
+
+/* ---------- Conversation (WhatsApp-style) ---------- */
+.chat{background:#efeae2;border-radius:16px;padding:10px 12px 14px;max-height:65vh;overflow-y:auto;display:flex;flex-direction:column}
+.day{text-align:center;margin:10px 0 6px}.day span{display:inline-block;background:#fff;padding:4px 10px;border-radius:8px;font-size:12px;color:#54656f;box-shadow:0 1px 1px #0000001a}
+.msg{display:flex;align-items:flex-start;gap:6px;margin-top:3px}
+.msg.first{margin-top:10px}
+.msg.mine{justify-content:flex-end}
+.msg-avatar{width:30px;height:30px;border-radius:50%;color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px;flex:none}
+.msg-avatar.blank{visibility:hidden;height:0}
+.msg-body{max-width:78%;display:flex;flex-direction:column;align-items:flex-start;position:relative}
+.msg.mine .msg-body{align-items:flex-end}
+.bubble{background:#fff;border-radius:10px;padding:6px 9px 7px;box-shadow:0 1px 1px #0000001a;position:relative;overflow-wrap:anywhere;min-width:64px}
+.msg.first .bubble{border-top-left-radius:2px}
+.msg.mine .bubble{background:#d9fdd3}
+.msg.mine.first .bubble{border-top-left-radius:10px;border-top-right-radius:2px}
+.msg-name{font-size:13px;font-weight:700;margin-bottom:2px}
+.msg-text{line-height:1.4;font-size:15px}
+.msg-time{float:right;font-size:11px;color:#667781;margin:7px 0 -4px 10px;line-height:1}
+.msg-image{display:block}.msg-image img{display:block;max-width:100%;max-height:320px;border-radius:7px;margin:0 0 3px}
+.msg-delete{position:absolute;top:-9px;right:-9px;display:none;margin:0}
+.msg-delete button{width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:11px;cursor:pointer;padding:0}
+.bubble:hover .msg-delete,.msg-delete:focus-within{display:block}
+.react-form{display:flex;align-items:center;gap:4px;margin:-3px 4px 0;flex-wrap:wrap;position:relative}
+.reactions{display:flex;gap:4px;flex-wrap:wrap}
+.reaction{border:1px solid var(--line);background:#fff;border-radius:999px;padding:1px 7px;font-size:14px;line-height:1.5;cursor:pointer;box-shadow:0 1px 1px #0000000f}
+.reaction.mine{background:#e7f3ee;border-color:var(--green)}
+.reaction span{font-size:12px;color:#54656f}
+.react-open{opacity:0;border:0;background:#fff;border-radius:999px;font-size:12px;color:#54656f;cursor:pointer;padding:2px 7px;box-shadow:0 1px 1px #0000001a}
+.msg:hover .react-open,.react-open:focus{opacity:1}
+.picker{position:absolute;bottom:calc(100% + 4px);left:0;z-index:5;background:#fff;border-radius:999px;padding:4px 6px;box-shadow:0 4px 18px #00000026;display:flex;gap:2px}
+.picker[hidden]{display:none}
+.msg.mine .picker{left:auto;right:0}
+.picker button{border:0;background:none;font-size:22px;cursor:pointer;padding:3px 5px;border-radius:50%;transition:transform .1s}
+.picker button:hover{transform:scale(1.25)}
+.composer{margin-top:12px}
+.composer-row{display:flex;align-items:flex-end;gap:8px}
+.composer textarea{flex:1;border:1px solid var(--line);border-radius:22px;padding:11px 15px;font:inherit;resize:none;max-height:160px;background:#fff;color:var(--ink)}
+.composer textarea:focus{outline:2px solid var(--green);border-color:transparent}
+.composer.dragging textarea{outline:2px dashed var(--green)}
+.attach{cursor:pointer;font-size:22px;padding:8px 4px;line-height:1}.attach input{display:none}
+.send{width:44px;height:44px;border-radius:50%;border:0;background:var(--green);color:#fff;font-size:18px;cursor:pointer;flex:none}
+.send:disabled{opacity:.5}
+.composer-preview{position:relative;display:inline-block;margin:0 0 8px 36px}
+.composer-preview[hidden]{display:none}
+.composer-preview img{display:block;max-height:140px;max-width:220px;border-radius:10px}
+.preview-remove{position:absolute;top:-8px;right:-8px;width:26px;height:26px;border-radius:50%;border:0;background:var(--ink);color:#fff;cursor:pointer;font-size:16px;line-height:1}
+.composer-hint{font-size:12px;margin:6px 0 0 36px}
+@media(hover:none){.react-open{opacity:.8}.composer-hint{display:none}}
+@media(max-width:560px){.msg-body{max-width:86%}.chat{margin:0 -8px;border-radius:12px}}

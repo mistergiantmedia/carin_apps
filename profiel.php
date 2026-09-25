@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . '/lib/app.php';
+require __DIR__ . '/lib/chat.php';
 
 $user = require_login();
 $error = null;
@@ -62,6 +63,7 @@ if (is_post()) {
         } else {
             // Children, memberships, participation and messages go with it (ON DELETE CASCADE);
             // activities they organised stay, without organiser.
+            delete_message_images('user_id = ?', [$user['id']]);
             $pdo->prepare('DELETE FROM users WHERE id = ?')->execute([$user['id']]);
             $_SESSION = [];
             session_destroy();

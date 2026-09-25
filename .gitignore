@@ -10,3 +10,7 @@ node_modules/
 
 # Holds the DB password; lives only on the server
 config.php
+
+# Conversation images: only on the server, never in git
+uploads/*
+!uploads/index.html

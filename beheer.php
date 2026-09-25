@@ -1,6 +1,7 @@
 <?php
 // Beheer of the current square. Site admins (users.role = ADMIN) can also create squares.
 require __DIR__ . '/lib/app.php';
+require __DIR__ . '/lib/chat.php';
 
 $user = require_login();
 $school = current_school();
@@ -20,6 +21,7 @@ if (is_post()) {
             $pdo->prepare("UPDATE activities SET status = 'PUBLISHED' WHERE id = ? AND school_id = ?")->execute([$activityId, $schoolId]);
             flash('Activiteit goedgekeurd.');
         } else {
+            delete_message_images("activity_id IN (SELECT id FROM activities WHERE id = ? AND school_id = ? AND status = 'PENDING')", [$activityId, $schoolId]);
             $pdo->prepare("DELETE FROM activities WHERE id = ? AND school_id = ? AND status = 'PENDING'")->execute([$activityId, $schoolId]);
             flash('Activiteit afgewezen en verwijderd.');
         }

@@ -313,7 +313,7 @@ function page_start(string $title, array $options = []): void
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($title) ?> · Schoolplein</title>
 <meta name="description" content="Het digitale dorpsplein rond school">
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 <main class="shell<?= !empty($options['narrow']) ? ' narrow' : '' ?>">
