@@ -192,6 +192,23 @@ if (!empty(TOKEN) && isset($_SERVER["HTTP_X_HUB_SIGNATURE"]) && $token !== hash_
             }
 
             /**
+             * Apply pending database migrations (migrations/*.sql), loading the freshly pulled code
+             */
+            if (is_file($DIR . "migrate.php") && is_file($DIR . "config.php")) {
+                fputs($file, "*** DB MIGRATIONS INITIATED ***" . "\n");
+                try {
+                    require_once $DIR . "db.php";
+                    require_once $DIR . "migrate.php";
+                    $migrationOutput = implode("\n", run_migrations(db())) . "\n";
+                } catch (Throwable $e) {
+                    http_response_code(500);
+                    $migrationOutput = "=== ERROR: DB migration failed ===\n" . $e->getMessage() . "\n";
+                }
+                fputs($file, $migrationOutput);
+                echo $migrationOutput;
+            }
+
+            /**
              * Attempt to execute AFTER_PULL if specified
              */
             if (!empty(AFTER_PULL)) {

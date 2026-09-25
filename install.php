@@ -2,6 +2,7 @@
 // One-time setup: writes config.php and creates the first admin account.
 // Locks itself as soon as an admin exists.
 require __DIR__ . '/db.php';
+require __DIR__ . '/migrate.php';
 
 const CONFIG_FILE = __DIR__ . '/config.php';
 
@@ -17,21 +18,9 @@ function write_config(string $host, string $name, string $user, string $pass): v
     }
 }
 
-function create_users_table(PDO $pdo): void
-{
-    $pdo->exec("CREATE TABLE IF NOT EXISTS users (
-        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        email VARCHAR(190) NOT NULL UNIQUE,
-        password_hash VARCHAR(255) NOT NULL,
-        role ENUM('ADMIN','PARENT','STUDENT','FORMER_STUDENT','VOLUNTEER','ORGANIZER') NOT NULL DEFAULT 'PARENT',
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-}
-
 function admin_exists(PDO $pdo): bool
 {
-    create_users_table($pdo);
+    run_migrations($pdo);
     return (bool) $pdo->query("SELECT 1 FROM users WHERE role = 'ADMIN' LIMIT 1")->fetchColumn();
 }
 
@@ -47,7 +36,7 @@ try {
     $step = !$pdo ? 'db' : (admin_exists($pdo) ? 'done' : 'admin');
 } catch (Throwable $e) {
     $step = 'admin';
-    $error = 'Kan de tabel users niet aanmaken: ' . $e->getMessage();
+    $error = 'Database bijwerken mislukt: ' . $e->getMessage();
 }
 $values = ['host' => 'localhost', 'name' => 'jouwschoolplein', 'user' => 'jouwschoolplein', 'admin_name' => '', 'admin_email' => ''];
 

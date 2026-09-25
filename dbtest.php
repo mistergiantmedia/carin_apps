@@ -1,17 +1,22 @@
 <?php
 // Database connection check. Development only: remove or protect before going live.
 require __DIR__ . '/db.php';
+require __DIR__ . '/migrate.php';
 
 $ok = false;
 $error = null;
 $info = [];
 $tables = [];
+$applied = [];
+$pending = [];
 
 try {
     $pdo = db();
     $ok = true;
     $info = $pdo->query('SELECT DATABASE() AS db, VERSION() AS version, CURRENT_USER() AS user, @@character_set_database AS charset')->fetch();
     $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
+    $pending = pending_migrations($pdo);
+    $applied = $pdo->query('SELECT filename, applied_at FROM schema_migrations ORDER BY filename')->fetchAll();
 } catch (Throwable $e) {
     $error = $e->getMessage();
 }
@@ -44,6 +49,17 @@ pre{white-space:pre-wrap;background:#fdf1ee;padding:12px;border-radius:12px}
           <dt>Server</dt><dd><?= htmlspecialchars($info['version']) ?></dd>
           <dt>Charset</dt><dd><?= htmlspecialchars($info['charset']) ?></dd>
           <dt>Tabellen</dt><dd><?= $tables ? htmlspecialchars(implode(', ', $tables)) : '(nog geen)' ?></dd>
+        </dl>
+        <h3 style="margin-top:24px">Migraties</h3>
+        <?php if ($pending): ?>
+          <p class="status fail">⚠ <?= count($pending) ?> nog niet uitgevoerd: <?= htmlspecialchars(implode(', ', $pending)) ?></p>
+        <?php else: ?>
+          <p class="status ok">✓ Database is up-to-date</p>
+        <?php endif; ?>
+        <dl>
+          <?php foreach ($applied as $m): ?>
+            <dt><?= htmlspecialchars($m['applied_at']) ?></dt><dd><?= htmlspecialchars($m['filename']) ?></dd>
+          <?php endforeach; ?>
         </dl>
       <?php else: ?>
         <span class="status fail">✗ Geen verbinding</span>
