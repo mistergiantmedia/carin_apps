@@ -7,3 +7,6 @@ webhook/deploy.log
 node_modules/
 .next/
 .env.local
+
+# Holds the DB password; lives only on the server
+config.php
