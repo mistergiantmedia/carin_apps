@@ -27,7 +27,8 @@ Rules:
 - **Never edit or rename a migration that has already been pushed.** It has already run on the server and won't run again. To fix a mistake, add a new migration.
 - Never delete data (`DROP TABLE`, `DROP COLUMN`, `DELETE`) without asking the user first and explaining what will be lost.
 - Use `utf8mb4` for new tables and `ENGINE=InnoDB`.
-- If a migration fails, it is not recorded, so it runs again on the next push. MySQL can't undo half a migration, so prefer one change per file. If a failed migration partly ran, make the file safe to rerun (`IF NOT EXISTS`) before pushing the fix.
+- The server runs **MySQL 5.7**: no MySQL 8-only features (no `ADD COLUMN IF NOT EXISTS`, CTEs, window functions, or enforced `CHECK`).
+- If a migration fails, it is not recorded, so it runs again on the next push. MySQL can't undo half a migration, so prefer one change per file. If a failed migration partly ran, don't edit it. Add a new migration that finishes the job, and remove the broken file only if it never succeeded (check `dbtest.php`).
 - The deploy log is on the server at `webhook/deploy.log`.
 
 ## Product rules (from the prototype)
