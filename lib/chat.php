@@ -90,6 +90,13 @@ function load_reactions(array $messageIds, int $userId): array
         $item['names'][] = $r['name'];
         unset($item);
     }
+    // Stable order: same as the picker
+    foreach ($result as &$perMessage) {
+        uksort($perMessage, function ($a, $b) {
+            return array_search($a, REACTIONS, true) <=> array_search($b, REACTIONS, true);
+        });
+    }
+    unset($perMessage);
     return $result;
 }
 
