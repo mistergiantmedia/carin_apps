@@ -10,7 +10,7 @@ function db(): PDO
 
     $config = __DIR__ . '/config.php';
     if (!is_file($config)) {
-        throw new RuntimeException('config.php ontbreekt. Kopieer config.sample.php naar config.php en vul het wachtwoord in.');
+        throw new RuntimeException('config.php ontbreekt. Open install.php om de database in te stellen.');
     }
     require_once $config;
 
