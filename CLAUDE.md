@@ -37,6 +37,7 @@ Rules:
 ## How the app works
 - Several squares (`schools`) can exist. Each has its own settings, edited in `beheer.php`: who may post activities (everyone / after approval / admins only) and who may register (anyone / only with the school code).
 - `users.role = 'ADMIN'` is the site-wide beheerder (manages every square); `school_memberships.role = 'ADMIN'` is beheerder of one square.
+- Beheerders get an 👤 Ouder / 🛠 Beheerder switch in the header (`wissel-rol.php`). In ouder mode `is_site_admin()` and `is_school_admin()` return false, so always check permissions through those functions, never through `users.role` directly.
 - Parents add their children once in their profile and tick which children come along to an activity.
 - Only the organiser and beheerders see who joins; everyone else sees totals.
 

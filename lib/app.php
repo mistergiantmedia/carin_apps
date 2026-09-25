@@ -122,10 +122,42 @@ function log_in(int $userId): void
     $_SESSION['user_id'] = $userId;
 }
 
-function is_site_admin(): bool
+/**
+ * Site-wide beheerder by account, regardless of the ouder/beheerder switch.
+ */
+function is_real_site_admin(): bool
 {
     $user = current_user();
     return $user && $user['role'] === 'ADMIN';
+}
+
+/**
+ * Beheerder of the site or of any square: may use the ouder/beheerder switch.
+ */
+function can_switch_role(): bool
+{
+    if (is_real_site_admin()) {
+        return true;
+    }
+    foreach (user_schools() as $school) {
+        if ($school['member_role'] === 'ADMIN') {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Admin chose "view as ouder": all admin rights and admin UI are hidden until switched back.
+ */
+function viewing_as_parent(): bool
+{
+    return !empty($_SESSION['view_as_parent']);
+}
+
+function is_site_admin(): bool
+{
+    return is_real_site_admin() && !viewing_as_parent();
 }
 
 /**
@@ -133,6 +165,9 @@ function is_site_admin(): bool
  */
 function safe_next(string $next): string
 {
+    if (preg_match('/^\?[A-Za-z0-9=&%_.-]+$/', $next)) {
+        return './' . $next; // the square with a tab, e.g. ?tab=agenda
+    }
     return preg_match('/^[a-z-]+\.php(\?[A-Za-z0-9=&%_.-]*)?$/', $next) ? $next : './';
 }
 
@@ -149,7 +184,8 @@ function user_schools(): array
         if (!$user) {
             return [];
         }
-        if (is_site_admin()) {
+        // Real role here, so switching to ouder keeps the same squares available
+        if (is_real_site_admin()) {
             $schools = db()->query("SELECT s.*, 'ADMIN' AS member_role FROM schools s ORDER BY s.name")->fetchAll();
         } else {
             $stmt = db()->prepare('SELECT s.*, m.role AS member_role FROM schools s JOIN school_memberships m ON m.school_id = s.id WHERE m.user_id = ? ORDER BY s.name');
@@ -185,7 +221,7 @@ function array_key_first_compat(array $array)
 
 function is_school_admin(?array $school): bool
 {
-    return $school && (is_site_admin() || $school['member_role'] === 'ADMIN');
+    return $school && !viewing_as_parent() && (is_site_admin() || $school['member_role'] === 'ADMIN');
 }
 
 function can_post_activity(array $school): bool
@@ -277,7 +313,7 @@ function page_start(string $title, array $options = []): void
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($title) ?> · Schoolplein</title>
 <meta name="description" content="Het digitale dorpsplein rond school">
-<link rel="stylesheet" href="style.css?v=2">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 <main class="shell<?= !empty($options['narrow']) ? ' narrow' : '' ?>">
@@ -298,11 +334,22 @@ function page_start(string $title, array $options = []): void
     </div>
     <?php if ($user): ?>
       <nav class="usernav">
+        <?php if (can_switch_role()): ?>
+          <form class="role-switch" method="post" action="wissel-rol.php" title="Bekijk het plein als ouder of als beheerder">
+            <?= csrf_field() ?>
+            <input type="hidden" name="next" value="<?= e(basename($_SERVER['REQUEST_URI'] ?? '')) ?>">
+            <button name="role" value="parent"<?= viewing_as_parent() ? ' class="on" disabled' : '' ?>>👤 Ouder</button>
+            <button name="role" value="admin"<?= viewing_as_parent() ? '' : ' class="on" disabled' ?>>🛠 Beheerder</button>
+          </form>
+        <?php endif; ?>
         <?php if (is_school_admin($school)): ?><a href="beheer.php">Beheer</a><?php endif; ?>
         <a class="avatar" href="profiel.php" title="Mijn profiel"><?= e(initial($user['name'])) ?></a>
       </nav>
     <?php endif; ?>
   </header>
+  <?php if ($user && viewing_as_parent() && can_switch_role()): ?>
+    <div class="flash info">Je bekijkt het plein als ouder. Beheerfuncties zijn verborgen tot je terugschakelt naar 🛠 Beheerder.</div>
+  <?php endif; ?>
   <?php foreach ($flashes as $f): ?>
     <div class="flash <?= e($f['type']) ?>"><?= e($f['message']) ?></div>
   <?php endforeach; ?>

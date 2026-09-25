@@ -55,3 +55,8 @@ form.inline{display:inline;margin-left:auto}
 .danger-zone{margin-top:18px}.danger-zone summary{cursor:pointer;color:#9b3d28;font-weight:700}
 .empty{text-align:center}
 @media(max-width:800px){.principle,.flash,.back{margin-left:18px;margin-right:18px}.back{padding:0 18px;margin-left:0}.shell.narrow>article{margin-left:18px;margin-right:18px}.agenda-row{flex-wrap:wrap}.agenda-when{min-width:0;width:100%}.list-row{flex-wrap:wrap}}
+.role-switch{display:flex;background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px;margin:0}
+.role-switch button{font:inherit;font-size:13px;font-weight:700;border:0;background:none;color:var(--muted);padding:6px 11px;border-radius:999px;cursor:pointer}
+.role-switch button.on{background:var(--green);color:#fff;cursor:default}
+.flash.info{background:#eaf1f7;color:#2f5673}
+@media(max-width:560px){header{flex-wrap:wrap;gap:12px}.role-switch button{padding:6px 8px}}
