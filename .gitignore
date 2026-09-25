@@ -1,0 +1,4 @@
+.DS_Store
+# Holds the webhook secret; this repo is public, so it lives only on the server
+webhook/deploy.php
+webhook/deploy.log
