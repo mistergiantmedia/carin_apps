@@ -30,7 +30,7 @@ try {
         $step = 'db';
     } else {
         run_migrations($pdo);
-        $step = $pdo->query('SELECT 1 FROM users LIMIT 1')->fetchColumn() ? 'done' : 'account';
+        $step = $pdo->query('SELECT 1 FROM fp_users LIMIT 1')->fetchColumn() ? 'done' : 'account';
     }
 } catch (Throwable $e) {
     $step = 'account';
@@ -64,8 +64,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step !== 'done') {
             if ($pw !== ($_POST['acc_pass2'] ?? '')) {
                 throw new RuntimeException('De wachtwoorden komen niet overeen.');
             }
-            $pdo->prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)')
+            $pdo->prepare('INSERT INTO fp_users (name, email, password_hash) VALUES (?, ?, ?)')
                 ->execute([$values['acc_name'], strtolower($values['acc_email']), password_hash($pw, PASSWORD_DEFAULT)]);
+            // Link the account to the family member with the same name (Carin, Rene)
+            $pdo->prepare('UPDATE fp_users u JOIN fp_members m ON m.name = u.name SET u.member_id = m.id WHERE u.id = ?')
+                ->execute([(int) $pdo->lastInsertId()]);
         }
         header('Location: install.php');
         exit;

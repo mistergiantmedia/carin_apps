@@ -50,11 +50,11 @@ function migration_statements(string $sql): array
 
 function pending_migrations(PDO $pdo): array
 {
-    $pdo->exec("CREATE TABLE IF NOT EXISTS schema_migrations (
+    $pdo->exec("CREATE TABLE IF NOT EXISTS fp_schema_migrations (
         filename VARCHAR(190) PRIMARY KEY,
         applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    $applied = $pdo->query('SELECT filename FROM schema_migrations')->fetchAll(PDO::FETCH_COLUMN);
+    $applied = $pdo->query('SELECT filename FROM fp_schema_migrations')->fetchAll(PDO::FETCH_COLUMN);
     $files = array_map('basename', glob(MIGRATIONS_DIR . '/*.sql') ?: []);
     sort($files, SORT_STRING);
     return array_values(array_diff($files, $applied));
@@ -83,7 +83,7 @@ function run_migrations(PDO $pdo): array
                     throw new RuntimeException("Migratie $file, statement " . ($i + 1) . ' mislukt: ' . $e->getMessage());
                 }
             }
-            $pdo->prepare('INSERT INTO schema_migrations (filename) VALUES (?)')->execute([$file]);
+            $pdo->prepare('INSERT INTO fp_schema_migrations (filename) VALUES (?)')->execute([$file]);
             $log[] = "Uitgevoerd: $file";
         }
         return $log;
