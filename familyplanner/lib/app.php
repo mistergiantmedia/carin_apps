@@ -456,7 +456,7 @@ function page_start(string $title, array $options = []): void
 <nav class="bottombar" aria-label="Snelmenu">
   <a href="./" class="<?= $active === 'index.php' ? 'on' : '' ?>"><span>🏠</span>Vandaag</a>
   <a href="agenda.php" class="<?= $active === 'agenda.php' ? 'on' : '' ?>"><span>📅</span>Agenda</a>
-  <a href="event.php?new=1&amp;next=<?= e(urlencode(basename($_SERVER['REQUEST_URI'] ?? 'index.php'))) ?>" class="add"><span>＋</span></a>
+  <a href="event.php?new=1" class="add" data-new-event="{}" aria-label="Nieuwe afspraak"><span>＋</span></a>
   <a href="taken.php" class="<?= $active === 'taken.php' ? 'on' : '' ?>"><span>✅</span>Taken</a>
   <button type="button" class="menu-toggle" onclick="document.body.classList.toggle('menu-open')"><span>☰</span>Meer</button>
 </nav>
@@ -472,11 +472,37 @@ function page_start(string $title, array $options = []): void
 function page_end(array $scripts = []): void
 {
     echo "\n</main>\n";
+    if (current_user()) {
+        echo '<script>window.FP_DATA = ' . json_encode(front_end_data(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) . ';</script>' . "\n";
+    }
     echo '<script src="app.js?v=' . ASSET_VERSION . '"></script>' . "\n";
     foreach ($scripts as $s) {
         echo '<script src="' . e($s) . '?v=' . ASSET_VERSION . '"></script>' . "\n";
     }
     echo "</body>\n</html>\n";
+}
+
+/** Members and fixed lists for app.js / calendar.js. */
+function front_end_data(): array
+{
+    $types = [];
+    foreach (EVENT_TYPES as $k => [$label, $emoji, $color]) {
+        $types[$k] = ['label' => $label, 'emoji' => $emoji, 'color' => $color];
+    }
+    $members = [];
+    foreach (members() as $m) {
+        $members[] = ['id' => (int) $m['id'], 'name' => $m['name'], 'role' => $m['role'], 'color' => $m['color'], 'emoji' => $m['emoji'], 'photo' => $m['photo']];
+    }
+    $user = current_user();
+    return [
+        'members' => $members,
+        'me' => $user && $user['member_id'] ? (int) $user['member_id'] : null,
+        'types' => $types,
+        'recurrences' => RECURRENCES,
+        'hosts' => HOSTS,
+        'rsvps' => RSVPS,
+        'today' => today(),
+    ];
 }
 
 /** Page header with title, optional subtitle and action buttons (html). */

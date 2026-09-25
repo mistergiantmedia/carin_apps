@@ -243,7 +243,8 @@ function normalise_event(array $in): array
 {
     $allDay = !empty($in['all_day']);
     $title = trim((string) ($in['title'] ?? ''));
-    $type = isset(EVENT_TYPES[$in['type'] ?? '']) ? $in['type'] : 'OTHER';
+    $type = (string) ($in['type'] ?? '');
+    $type = isset(EVENT_TYPES[$type]) ? $type : 'OTHER';
     if ($title === '') {
         $title = event_type($type)[0];
     }
@@ -265,7 +266,8 @@ function normalise_event(array $in): array
         $startAt = date('Y-m-d H:i:00', $start);
         $endAt = date('Y-m-d H:i:00', $end);
     }
-    $recurrence = isset(RECURRENCES[$in['recurrence'] ?? '']) ? (string) $in['recurrence'] : '';
+    $recurrence = (string) ($in['recurrence'] ?? '');
+    $recurrence = isset(RECURRENCES[$recurrence]) ? $recurrence : '';
     $until = !empty($in['recur_until']) && strtotime($in['recur_until']) ? date('Y-m-d', strtotime($in['recur_until'])) : null;
     $color = preg_match('/^#[0-9a-fA-F]{6}$/', (string) ($in['color'] ?? '')) ? $in['color'] : null;
     $memberIds = array_values(array_intersect(array_map('intval', (array) ($in['members'] ?? [])), array_keys(members())));
@@ -290,7 +292,7 @@ function normalise_event(array $in): array
         'end_at' => $endAt,
         'all_day' => $allDay ? 1 : 0,
         'location' => trim((string) ($in['location'] ?? '')) ?: null,
-        'host' => isset(HOSTS[$in['host'] ?? '']) ? (string) $in['host'] : '',
+        'host' => isset(HOSTS[(string) ($in['host'] ?? '')]) ? (string) ($in['host'] ?? '') : '',
         'description' => trim((string) ($in['description'] ?? '')) ?: null,
         'color' => $color,
         'recurrence' => $recurrence,
@@ -354,6 +356,13 @@ function set_event_people(int $id, array $members, array $contacts): void
 /** Copy one occurrence of a repeating event into its own single event and hide it in the series. */
 function detach_occurrence(array $ev, string $occ): int
 {
+    db()->prepare('INSERT IGNORE INTO fp_event_exceptions (event_id, occurs_on) VALUES (?, ?)')->execute([$ev['id'], $occ]);
+    return copy_occurrence($ev, $occ);
+}
+
+/** A new single event with everything of $ev (guests, checklist) on the date of occurrence $occ. */
+function copy_occurrence(array $ev, string $occ): int
+{
     $pdo = db();
     $startTime = substr($ev['start_at'], 11);
     $durationDays = (int) round((strtotime(substr($ev['end_at'], 0, 10)) - strtotime(substr($ev['start_at'], 0, 10))) / 86400);
@@ -362,7 +371,6 @@ function detach_occurrence(array $ev, string $occ): int
     $end = $ev['all_day']
         ? date('Y-m-d 23:59:00', strtotime("$occ +$durationDays day"))
         : date('Y-m-d H:i:s', strtotime($start) + $duration);
-    $pdo->prepare('INSERT IGNORE INTO fp_event_exceptions (event_id, occurs_on) VALUES (?, ?)')->execute([$ev['id'], $occ]);
     $data = [
         'title' => $ev['title'], 'type' => $ev['type'], 'start' => $start, 'end' => $end, 'all_day' => $ev['all_day'],
         'location' => $ev['location'], 'host' => $ev['host'], 'description' => $ev['description'], 'color' => $ev['color'],
@@ -476,6 +484,7 @@ function event_json(array $ev): array
         'emoji' => $t[1],
         'typeLabel' => $t[0],
         'color' => event_color($ev),
+        'customColor' => $ev['color'],
         'start' => substr($ev['start_at'], 0, 16),
         'end' => substr($ev['end_at'], 0, 16),
         'allDay' => (bool) $ev['all_day'],

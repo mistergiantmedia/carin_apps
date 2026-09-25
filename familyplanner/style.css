@@ -395,7 +395,7 @@ dialog.modal::backdrop{background:#1b152c66;backdrop-filter:blur(2px)}
 .cal-col.today{background-color:color-mix(in srgb,var(--accent) 4%,transparent)}
 .cal-now{position:absolute;left:-1px;right:0;height:2px;background:var(--now);z-index:4;pointer-events:none}
 .cal-now::before{content:'';position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--now)}
-.cal-ev{position:absolute;border-radius:8px;padding:3px 6px;font-size:12px;line-height:1.25;overflow:hidden;cursor:pointer;color:var(--ev-ink,#1d1b24);background:color-mix(in srgb,var(--c) 22%,var(--card));border-left:4px solid var(--c);box-shadow:0 1px 2px #0001;z-index:2;touch-action:none}
+.cal-ev{position:absolute;border-radius:8px;padding:3px 6px;font-size:12px;line-height:1.25;overflow:hidden;cursor:pointer;color:var(--ev-ink,#1d1b24);background:color-mix(in srgb,var(--c) 22%,var(--card));border-left:4px solid var(--c);box-shadow:0 1px 2px #0001;z-index:2}
 @media (prefers-color-scheme:dark){.cal-ev{--ev-ink:#f3f1fa;background:color-mix(in srgb,var(--c) 38%,var(--card))}}
 .cal-ev:hover{z-index:6;box-shadow:0 4px 14px #0002}
 .cal-ev .t{font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -414,7 +414,7 @@ dialog.modal::backdrop{background:#1b152c66;backdrop-filter:blur(2px)}
 .cal-ev.ghost{opacity:.35}
 .cal-ev.selection{background:color-mix(in srgb,var(--accent) 28%,transparent);border-left-color:var(--accent);pointer-events:none;z-index:10}
 .cal-ev.pending-touch{outline:2px solid var(--accent)}
-.cal-aev{position:absolute;height:22px;border-radius:6px;padding:2px 6px;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;pointer-events:auto;background:color-mix(in srgb,var(--c) 26%,var(--card));border-left:4px solid var(--c);color:var(--ink);touch-action:none}
+.cal-aev{position:absolute;height:22px;border-radius:6px;padding:2px 6px;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;pointer-events:auto;background:color-mix(in srgb,var(--c) 26%,var(--card));border-left:4px solid var(--c);color:var(--ink)}
 .cal-aev.bday{background:#fde7ef;border-left-color:#E0568A;color:#8a1d45}
 @media (prefers-color-scheme:dark){.cal-aev.bday{background:#4a1f30;color:#ffd2e2}}
 .cal-aev .rz{position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize}
@@ -438,7 +438,7 @@ dialog.modal::backdrop{background:#1b152c66;backdrop-filter:blur(2px)}
 .cal-mcell.drop{background:var(--accent-soft)}
 .cal-mcell.sel{background:color-mix(in srgb,var(--accent) 16%,transparent)}
 .cal-week-events{position:absolute;left:0;right:0;top:30px;pointer-events:none}
-.cal-mev{position:absolute;height:21px;font-size:12px;line-height:17px;padding:2px 6px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;pointer-events:auto;touch-action:none}
+.cal-mev{position:absolute;height:21px;font-size:12px;line-height:17px;padding:2px 6px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;pointer-events:auto}
 .cal-mev.timed{color:var(--ink)}
 .cal-mev.timed::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:5px;vertical-align:0}
 .cal-mev.timed:hover{background:var(--card2)}
@@ -455,6 +455,11 @@ dialog.modal::backdrop{background:#1b152c66;backdrop-filter:blur(2px)}
   .cal-mev.timed::before{display:none}
   .cal-scroll{height:calc(100vh - 290px)}
   .cal-toolbar h1{font-size:19px;min-width:0;flex-basis:100%;order:-1}
+  .cal-toolbar .spacer{display:none}
+  .cal-views{flex-wrap:nowrap;overflow-x:auto;max-width:100%;order:5;flex-basis:100%}
+  .cal-toolbar [data-act=new],.cal-filters .tabs,.cal-page .page>p.muted{display:none}
+  .cal-filters{gap:4px}
+  .cal-filters .pick span{padding:3px 8px;font-size:12px}
 }
 
 /* Year view */

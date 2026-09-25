@@ -149,7 +149,7 @@ try {
                 reply(['error' => 'Deze afspraak bestaat niet meer.'], 404);
             }
             $occ = in_str($in, 'occ');
-            $newId = detach_occurrence_copy($ev, valid_date($occ) ? $occ : substr($ev['start_at'], 0, 10));
+            $newId = copy_occurrence($ev, valid_date($occ) ? $occ : substr($ev['start_at'], 0, 10));
             reply(['ok' => true, 'id' => $newId]);
 
         case 'contacts':
