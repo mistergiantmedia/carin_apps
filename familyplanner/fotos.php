@@ -120,7 +120,7 @@ foreach ($shownMembers as $m):
     <div><label>Datum <small>(optioneel)</small></label><input type="date" name="taken_on"></div>
   </div>
   <label>Titel <small>(optioneel, bijv. “Groep 5”)</small></label><input name="title">
-  <label>Foto's</label><input type="file" name="photos[]" accept="image/*" multiple required>
+  <label>Foto's</label><input type="file" name="photos[]" accept="image/*" multiple required data-photo-label="Schoolfoto's" data-aspect="0.8">
   <button class="btn" style="margin-top:14px">Uploaden</button>
 </form>
 <?php page_end();

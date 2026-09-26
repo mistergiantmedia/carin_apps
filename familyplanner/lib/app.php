@@ -480,6 +480,7 @@ function page_end(array $scripts = []): void
         echo '<script>window.FP_DATA = ' . json_encode(front_end_data(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) . ';</script>' . "\n";
     }
     echo '<script src="app.js?v=' . ASSET_VERSION . '"></script>' . "\n";
+    echo '<script src="photo.js?v=' . ASSET_VERSION . '"></script>' . "\n";
     foreach ($scripts as $s) {
         echo '<script src="' . e($s) . '?v=' . ASSET_VERSION . '"></script>' . "\n";
     }

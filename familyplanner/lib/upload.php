@@ -133,14 +133,14 @@ function delete_photo(?string $name): void
 }
 
 /** File input + preview of the current photo, with an option to remove it. */
-function photo_field(?string $current, string $label = 'Foto'): string
+function photo_field(?string $current, string $label = 'Foto', string $pasteLabel = ''): string
 {
     $html = '<label>' . e($label) . '</label><div class="photo-field">';
     if ($current) {
         $html .= '<img src="foto.php?f=' . e($current) . '&amp;s=t" alt="">'
             . '<label class="check"><input type="checkbox" name="remove_photo" value="1"> Foto verwijderen</label>';
     }
-    return $html . '<input type="file" name="photo" accept="image/*"></div>';
+    return $html . '<input type="file" name="photo" accept="image/*"' . ($pasteLabel !== '' ? ' data-photo-label="' . e($pasteLabel) . '"' : '') . '></div>';
 }
 
 /**

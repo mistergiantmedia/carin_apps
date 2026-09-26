@@ -474,3 +474,22 @@ dialog.modal::backdrop{background:#1b152c99}
   .card,.kid-day{box-shadow:none}
 }
 .login-page .sidebar,.login-page .bottombar{display:none}
+
+/* Photo picker (photo.js) */
+.photo-modal{width:min(540px,calc(100vw - 24px))}
+.photo-drop{border:2px dashed var(--line);border-radius:18px;padding:30px 16px;text-align:center;margin-top:10px}
+.photo-drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.photo-drop .pd-icon{font-size:40px}
+kbd{background:var(--card2);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font:12px ui-monospace,monospace}
+.crop-frame{position:relative;overflow:hidden;margin:12px auto 0;background:#111;border-radius:12px;cursor:grab;touch-action:none;user-select:none}
+.crop-frame:active{cursor:grabbing}
+.crop-frame img{position:absolute;left:0;top:0;max-width:none;transform-origin:0 0;pointer-events:none}
+.crop-frame.round .crop-grid{border-radius:50%;box-shadow:0 0 0 999px #0007}
+.crop-grid{position:absolute;inset:0;pointer-events:none;border:2px solid #fff9;border-radius:12px}
+.crop-tools{display:flex;flex-direction:column;gap:10px;align-items:center;margin-top:12px}
+.zoom-row{display:flex;align-items:center;gap:8px;width:100%;max-width:340px}
+.zoom-row input{flex:1;accent-color:var(--accent)}
+.photo-previews{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.photo-previews .pp{position:relative}
+.photo-previews img{width:64px;height:64px;object-fit:cover;border-radius:12px;display:block}
+.photo-previews button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:var(--bad);color:#fff;cursor:pointer;line-height:1}

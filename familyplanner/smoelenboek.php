@@ -189,7 +189,7 @@ page_header('🏫 Smoelenboek', 'Wie zit er bij Kaila en Bodi in de klas? Met fo
           <?php if (!$c['photo']): ?>
             <form method="post" enctype="multipart/form-data" class="no-print" style="margin-top:6px">
               <?= csrf_field() ?><input type="hidden" name="action" value="photo_for"><input type="hidden" name="contact_id" value="<?= (int) $c['id'] ?>"><input type="hidden" name="class_id" value="<?= (int) $current['id'] ?>">
-              <label class="btn small secondary" style="cursor:pointer">📷 Foto<input type="file" name="photo" accept="image/*" hidden onchange="this.form.submit()"></label>
+              <label class="btn small secondary" style="cursor:pointer">📷 Foto<input type="file" name="photo" accept="image/*" hidden onchange="this.form.submit()" data-photo-label="Foto van <?= e(contact_name($c, false)) ?>"></label>
             </form>
           <?php endif; ?>
         </div>
@@ -212,7 +212,7 @@ page_header('🏫 Smoelenboek', 'Wie zit er bij Kaila en Bodi in de klas? Met fo
       <?= csrf_field() ?><input type="hidden" name="action" value="class_photo"><input type="hidden" name="class_id" value="<?= (int) $current['id'] ?>">
       <h2>📸 Klassenfoto</h2>
       <p class="hint">Upload de klassenfoto. Hij komt ook bij de schoolfoto's van <?= e($kid['name'] ?? 'je kind') ?>.</p>
-      <input type="file" name="photos[]" accept="image/*" multiple required>
+      <input type="file" name="photos[]" accept="image/*" multiple required data-photo-label="Klassenfoto">
       <button class="btn" style="margin-top:10px">Uploaden</button>
     </form>
   </div>

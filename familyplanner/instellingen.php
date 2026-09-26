@@ -129,7 +129,7 @@ function member_form(array $m): string
         <div><label>Kleur</label><input type="color" name="color" value="<?= e($m['color']) ?>"></div>
       </div>
       <label>Verjaardag</label><?= birthday_fields($m) ?>
-      <?= photo_field($m['photo'] ?? null) ?>
+      <?= photo_field($m['photo'] ?? null, 'Foto', $m['name'] !== '' ? 'Foto van ' . $m['name'] : 'Foto nieuw gezinslid') ?>
       <div class="form-actions"><button class="btn">Opslaan</button></div>
     </form>
     <?php return (string) ob_get_clean();
