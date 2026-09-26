@@ -488,5 +488,32 @@
     if (ok) { f.dataset.confirmed = '1'; f.requestSubmit ? f.requestSubmit(e.submitter) : f.submit(); }
   });
 
+  // ---------- Auto refresh (handy on a tablet or smart TV) ----------
+  // Every minute: ask the server for a fingerprint of the data. When someone else changed something,
+  // or the day changed, refresh — but never while someone is busy on this screen.
+  let dirty = false;
+  document.addEventListener('input', (e) => { if (e.target.closest('form') && !e.target.closest('.cal-filters')) dirty = true; });
+  document.addEventListener('submit', () => { dirty = false; });
+  let lastStamp = null;
+  const busy = () => dirty || document.querySelector('dialog[open], .popover, .cal-ev.ghost, .selection, .pending-touch, details.more[open] form input:focus')
+    || (document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && document.activeElement.type !== 'checkbox');
+  async function checkForChanges() {
+    if (document.hidden || !DATA.today) return;
+    let r;
+    try { r = await api('stamp'); } catch (e) { return; }
+    const changed = lastStamp !== null && r.stamp !== lastStamp;
+    const newDay = r.today !== DATA.today;
+    if (!changed && !newDay) return;
+    if (busy()) return; // try again next round; lastStamp stays old so the change isn't forgotten
+    lastStamp = r.stamp;
+    if (window.FP_CAL && !newDay) document.dispatchEvent(new CustomEvent('fp:changed'));
+    else location.reload();
+  }
+  if (DATA.today) {
+    api('stamp').then((r) => { lastStamp = r.stamp; }).catch(() => {});
+    setInterval(checkForChanges, 60000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForChanges(); });
+  }
+
   window.FP = { api, toast, choose, askScope, openEditor, deleteEvent, peopleSelect, avatarHtml, esc, pad, ymd, hm, parse, local, DAYS, MONTHS, DATA, memberById };
 })();

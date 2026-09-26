@@ -55,6 +55,23 @@ function occurrence_json(int $id, string $occ): ?array
 
 try {
     switch ($action) {
+        case 'stamp':
+            // Fingerprint of everything shown in the app; pages poll it and refresh when it changes
+            $parts = db()->query("SELECT CONCAT_WS('|',
+                (SELECT CONCAT_WS('-', COUNT(*), MAX(id), MAX(updated_at), SUM(done)) FROM fp_events),
+                (SELECT CONCAT_WS('-', COUNT(*), SUM(event_id * 7 + member_id)) FROM fp_event_members),
+                (SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', event_id, contact_id, rsvp)))) FROM fp_event_contacts),
+                (SELECT COUNT(*) FROM fp_event_done), (SELECT COUNT(*) FROM fp_event_exceptions),
+                (SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', id, title, due_date, member_id, recurrence, done_at)))) FROM fp_tasks),
+                (SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', id, first_name, last_name, nickname, photo, birth_day, birth_month, birth_year, household_id, relation, is_favorite)))) FROM fp_contacts),
+                (SELECT COUNT(*) FROM fp_contact_members), (SELECT COUNT(*) FROM fp_class_contacts),
+                (SELECT SUM(CRC32(CONCAT_WS(',', id, name, photo, color, emoji, birth_day, birth_month, birth_year, sort))) FROM fp_members),
+                (SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', id, name, street, city)))) FROM fp_households),
+                (SELECT CONCAT_WS('-', COUNT(*), COUNT(done_at)) FROM fp_ideas),
+                (SELECT CONCAT_WS('-', COUNT(*), COUNT(returned_on)) FROM fp_friendbook),
+                (SELECT COUNT(*) FROM fp_birthday_checks), (SELECT COUNT(*) FROM fp_photos), (SELECT COUNT(*) FROM fp_classes))")->fetchColumn();
+            reply(['stamp' => md5((string) $parts), 'today' => today()]);
+
         case 'events':
             $from = (string) ($_GET['from'] ?? '');
             $to = (string) ($_GET['to'] ?? '');
