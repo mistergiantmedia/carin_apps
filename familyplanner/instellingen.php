@@ -96,7 +96,7 @@ if (is_post()) {
         if ($action === 'demo_remove') {
             remove_demo();
             flash('Alle voorbeelddata is verwijderd. Jullie eigen gegevens zijn gebleven.');
-            redirect('instellingen.php#voorbeeld');
+            redirect(post('next') === 'index.php' ? 'index.php' : 'instellingen.php#voorbeeld');
         }
     } catch (RuntimeException $e) {
         flash($e->getMessage(), 'error');

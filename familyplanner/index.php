@@ -93,6 +93,15 @@ page_start('Vandaag');
   </div>
 </div>
 
+<?php if (db()->query('SELECT 1 FROM fp_contacts WHERE is_demo = 1 LIMIT 1')->fetchColumn()): ?>
+  <div class="flash warn" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <span style="flex:1;min-width:220px">🧪 Er staan nu <b>voorbeeldgegevens</b> in de app (verzonnen vriendjes, klassen, afspraken en taken).</span>
+    <form method="post" action="instellingen.php" class="inline" data-confirm="Alle voorbeeldgegevens worden verwijderd. Wat jullie zelf hebben toegevoegd blijft staan.">
+      <?= csrf_field() ?><input type="hidden" name="action" value="demo_remove"><input type="hidden" name="next" value="index.php">
+      <button class="btn small danger">🧹 Voorbeelden weghalen</button>
+    </form>
+  </div>
+<?php endif; ?>
 <?php
 // Until everyone in the family has a photo and a birthday, show who still needs one
 $incomplete = array_filter(members(), function ($m) {
