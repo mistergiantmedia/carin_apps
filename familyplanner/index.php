@@ -94,21 +94,22 @@ page_start('Vandaag');
 </div>
 
 <?php
-$isEmpty = !db()->query('SELECT 1 FROM fp_contacts LIMIT 1')->fetchColumn() && !db()->query('SELECT 1 FROM fp_events LIMIT 1')->fetchColumn();
-$noBirthdays = array_filter(members(), function ($m) {
-    return !$m['birth_day'];
+// Until everyone in the family has a photo and a birthday, show who still needs one
+$incomplete = array_filter(members(), function ($m) {
+    return !$m['photo'] || !$m['birth_day'] || !$m['birth_month'];
 });
-if ($isEmpty): ?>
-  <div class="card" style="margin-bottom:18px;border:2px dashed var(--accent)">
-    <h2>👋 Welkom in jullie Familie Planner!</h2>
-    <p>De app is nog leeg. Wil je eerst zien hoe alles werkt met voorbeeldvriendjes, klassen, speelafspraken en taken? Je kunt ze later met één klik weer weghalen.</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <form method="post" action="instellingen.php" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="demo_load"><button class="btn">🧪 Laat voorbeelden zien</button></form>
-      <a class="btn secondary" href="instellingen.php">⚙️ Zelf beginnen: gezin instellen</a>
+if ($incomplete): ?>
+  <div class="card" style="margin-bottom:18px">
+    <h2>👨‍👩‍👧‍👦 Maak jullie gezin compleet</h2>
+    <p class="muted" style="margin-top:0">Met een foto en verjaardag zie je iedereen terug in de agenda en de overzichten, en hoe oud iedereen is.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <?php foreach ($incomplete as $m): ?>
+        <a class="quick-member" href="instellingen.php#m<?= (int) $m['id'] ?>" style="display:flex;gap:8px;align-items:center;padding:8px 12px;border:1px solid var(--line);border-radius:14px;color:inherit">
+          <?= avatar($m, 34) ?><span><b><?= e($m['name']) ?></b><br><span class="small muted"><?= e(implode(' + ', array_filter([!$m['photo'] ? '📷 foto' : '', !$m['birth_day'] || !$m['birth_month'] ? '🎂 verjaardag' : '']))) ?></span></span>
+        </a>
+      <?php endforeach; ?>
     </div>
   </div>
-<?php elseif ($noBirthdays): ?>
-  <div class="flash warn">🎂 Vul de verjaardagen van <?= e(implode(', ', array_column($noBirthdays, 'name'))) ?> in bij <a href="instellingen.php">Instellingen</a>, dan zie je hoe oud iedereen is en hoeveel nachtjes het nog is.</div>
 <?php endif; ?>
 
 <div class="family-strip">
