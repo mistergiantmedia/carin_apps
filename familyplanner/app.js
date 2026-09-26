@@ -239,18 +239,21 @@
               <div><label>Begin</label><div class="row2" style="gap:6px"><input type="date" name="startDate" value="${ymd(s)}"><input type="time" name="startTime" step="300" value="${hm(s)}" class="t"></div></div>
               <div><label>Eind</label><div class="row2" style="gap:6px"><input type="date" name="endDate" value="${ymd(e)}"><input type="time" name="endTime" step="300" value="${ev.allDay ? '' : hm(e)}" class="t"></div></div>
             </div>
+            <div class="label">🔁 Herhalen</div>
+            <div class="picker repeat-picker">${Object.entries(DATA.recurrences).map(([k, v]) =>
+              `<label class="pick sm"><input type="radio" name="recurrence" value="${k}"${k === (ev.recurrence || '') ? ' checked' : ''}><span>${esc(k ? v : 'Eenmalig')}</span></label>`).join('')}</div>
+            <div class="repeat-until" style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+              <span class="repeat-text small muted"></span>
+              <label class="small" style="margin:0;font-weight:600">tot en met</label><input type="date" name="recurUntil" value="${esc(ev.recurUntil || '')}" style="width:auto;min-height:36px;padding:5px 10px" title="Leeg laten = blijft altijd herhalen"><span class="small muted">(leeg = altijd door)</span>
+            </div>
             <div class="label">Met wie <small>(vriendjes, familie, gasten)</small></div>
             <div class="people-select" data-members="${ev.members.join(',')}"></div>
             <div class="row2">
               <div><label>Waar</label><input name="location" value="${esc(ev.location || '')}" placeholder="Adres of plek"></div>
               <div><label>Bij wie</label><select name="host">${opts(DATA.hosts, ev.host)}</select></div>
             </div>
-            <details class="more"${ev.recurrence || ev.dropMember || ev.pickupMember || ev.cost || ev.description ? ' open' : ''}>
+            <details class="more"${ev.dropMember || ev.pickupMember || ev.cost || ev.description ? ' open' : ''}>
               <summary>Meer opties</summary>
-              <div class="row2">
-                <div><label>Herhalen</label><select name="recurrence">${opts(DATA.recurrences, ev.recurrence)}</select></div>
-                <div><label>Tot en met <small>(leeg = altijd)</small></label><input type="date" name="recurUntil" value="${esc(ev.recurUntil || '')}"></div>
-              </div>
               <div class="row2">
                 <div><label>🚗 Wie brengt</label><select name="dropMember">${memberOpts(ev.dropMember)}</select></div>
                 <div><label>🏠 Wie haalt op</label><select name="pickupMember">${memberOpts(ev.pickupMember)}</select></div>
@@ -301,6 +304,20 @@
       };
       f.elements.allDay.addEventListener('change', syncAllDay);
       syncAllDay();
+      // Repeat: readable summary ("Elke week op woensdag") and the end date only when repeating
+      const syncRepeat = () => {
+        const rule = f.elements.recurrence.value;
+        const d = parse(f.elements.startDate.value || ymd(new Date()));
+        const day = DAYS[d.getDay()];
+        const texts = { DAILY: 'Elke dag', WEEKLY: 'Elke week op ' + day, BIWEEKLY: 'Om de week op ' + day,
+          MONTHLY: 'Elke maand op de ' + d.getDate() + 'e', YEARLY: 'Elk jaar op ' + d.getDate() + ' ' + MONTHS[d.getMonth()] };
+        const box = f.querySelector('.repeat-until');
+        box.hidden = !rule;
+        box.querySelector('.repeat-text').textContent = rule ? texts[rule] + ',' : '';
+      };
+      f.querySelectorAll('[name=recurrence]').forEach((r) => r.addEventListener('change', syncRepeat));
+      f.elements.startDate.addEventListener('change', syncRepeat);
+      syncRepeat();
       // Keep the length when the start moves (like Google Calendar)
       let lastStart = parse(f.elements.startDate.value + 'T' + (f.elements.startTime.value || '00:00'));
       const onStartChange = () => {
