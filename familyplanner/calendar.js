@@ -302,6 +302,12 @@
     });
 
     const scroller = cal.querySelector('.cal-scroll');
+    const sbw = scroller.offsetWidth - scroller.clientWidth;
+    if (sbw > 0) {
+      cal.querySelector('.cal-head').style.paddingRight = sbw + 'px';
+      cal.querySelector('.cal-allday').style.paddingRight = sbw + 'px';
+      cal.querySelector('.cal-allday-events').style.right = sbw + 'px';
+    }
     const firstHour = days.some(isToday) ? Math.max(0, new Date().getHours() - 2) : 7;
     scroller.scrollTop = (state.scrollTop != null ? state.scrollTop : firstHour * HOUR);
     scroller.addEventListener('scroll', () => { state.scrollTop = scroller.scrollTop; }, { passive: true });
@@ -661,6 +667,12 @@
       return c ? { day: c.day, min: null, el: c.el } : null;
     }
     const scroller = cal.querySelector('.cal-scroll');
+    const sbw = scroller.offsetWidth - scroller.clientWidth;
+    if (sbw > 0) {
+      cal.querySelector('.cal-head').style.paddingRight = sbw + 'px';
+      cal.querySelector('.cal-allday').style.paddingRight = sbw + 'px';
+      cal.querySelector('.cal-allday-events').style.right = sbw + 'px';
+    }
     const scrollDelta = (scroller ? scroller.scrollTop : 0) - g.cells.scrollTop;
     const c = cols.find((c) => x >= c.rect.left && x < c.rect.right) || nearest(cols, x, y);
     if (!c) return null;

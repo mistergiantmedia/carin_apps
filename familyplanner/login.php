@@ -51,8 +51,8 @@ page_start('Inloggen', ['narrow' => true, 'bodyClass' => 'login-page']);
   <form method="post" class="card form">
     <?= csrf_field() ?>
     <?php if ($error): ?><div class="flash error"><?= e($error) ?></div><?php endif; ?>
-    <label for="login">Naam <small>(of e-mailadres)</small></label>
-    <input id="login" name="login" type="text" value="<?= e($login) ?>" autocomplete="username" autocapitalize="words" autocorrect="off" spellcheck="false" placeholder="bijv. Carin" required autofocus>
+    <label for="login">Account</label>
+    <input id="login" name="login" type="text" value="<?= e($login) ?>" autocomplete="username" autocapitalize="words" autocorrect="off" spellcheck="false" placeholder="Naam of e-mailadres" required autofocus>
     <label for="password">Wachtwoord</label>
     <input id="password" name="password" type="password" autocomplete="current-password" required>
     <button class="btn wide" type="submit">Inloggen</button>

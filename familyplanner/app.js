@@ -6,6 +6,41 @@
   const DATA = window.FP_DATA || { members: [], types: {}, recurrences: {}, hosts: {}, rsvps: {} };
   const csrf = (document.querySelector('meta[name=csrf]') || {}).content || '';
 
+  // ---------- Older browsers: flex "gap" (Chrome < 84, e.g. LG webOS TVs) ----------
+  // Measure support once; without it, give the children of every flex container with a gap a margin.
+  (function flexGapFallback() {
+    const t = document.createElement('div');
+    t.style.cssText = 'display:flex;flex-direction:column;row-gap:1px;position:absolute;visibility:hidden';
+    t.appendChild(document.createElement('div'));
+    t.appendChild(document.createElement('div'));
+    document.documentElement.appendChild(t);
+    const supported = t.scrollHeight === 1;
+    t.remove();
+    if (supported) return;
+    document.documentElement.classList.add('no-flexgap');
+    const fix = (root) => {
+      [root].concat(Array.from(root.querySelectorAll ? root.querySelectorAll('*') : [])).forEach((el) => {
+        if (el.nodeType !== 1) return;
+        const cs = getComputedStyle(el);
+        if (cs.display.indexOf('flex') === -1) return;
+        const col = cs.columnGap && cs.columnGap !== 'normal' ? cs.columnGap : '';
+        const row = cs.rowGap && cs.rowGap !== 'normal' ? cs.rowGap : '';
+        if (!col && !row) return;
+        const vertical = cs.flexDirection.indexOf('column') === 0;
+        Array.prototype.forEach.call(el.children, (c, i) => {
+          if (vertical) { if (i) c.style.marginTop = row || col; return; }
+          c.classList.add('fg-item');
+          c.style.setProperty('--fg-col', col || '0px');
+          c.style.setProperty('--fg-row', cs.flexWrap === 'wrap' ? (row || col || '0px') : '0px');
+        });
+      });
+    };
+    const run = () => fix(document.body);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
+    new MutationObserver((list) => list.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType === 1) fix(n.parentNode || n); })))
+      .observe(document.documentElement, { childList: true, subtree: true });
+  })();
+
   // ---------- Small utilities ----------
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const pad = (n) => String(n).padStart(2, '0');
@@ -72,7 +107,8 @@
     return new Promise((resolve) => {
       const d = document.createElement('dialog');
       d.className = 'modal';
-      d.style.width = 'min(420px, calc(100vw - 24px))';
+      d.style.width = '420px';
+      d.style.maxWidth = 'calc(100vw - 24px)';
       d.innerHTML = `<div class="modal-head"><h2>${esc(title)}</h2><button class="x" value="" aria-label="Sluiten">×</button></div>
         <div class="modal-body">${text ? `<p class="muted">${esc(text)}</p>` : ''}<div class="stack choose-opts"></div></div>`;
       const box = d.querySelector('.choose-opts');
