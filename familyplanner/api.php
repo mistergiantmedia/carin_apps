@@ -62,6 +62,7 @@ try {
                 (SELECT CONCAT_WS('-', COUNT(*), SUM(event_id * 7 + member_id)) FROM fp_event_members),
                 (SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', event_id, contact_id, rsvp)))) FROM fp_event_contacts),
                 (SELECT COUNT(*) FROM fp_event_done), (SELECT COUNT(*) FROM fp_event_exceptions),
+                (SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', event_id, occurs_on, role, member_id)))) FROM fp_event_duties),
                 (SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', id, title, due_date, member_id, recurrence, done_at)))) FROM fp_tasks),
                 (SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', id, first_name, last_name, nickname, photo, birth_day, birth_month, birth_year, household_id, relation, is_favorite)))) FROM fp_contacts),
                 (SELECT COUNT(*) FROM fp_contact_members), (SELECT COUNT(*) FROM fp_class_contacts),
@@ -154,6 +155,15 @@ try {
             $data = normalise_event($in);
             $newId = save_event($data);
             reply(['ok' => true, 'id' => $newId]);
+
+        case 'duty':
+            // Who brings / picks up for one occurrence of a "per keer bepalen" event
+            $occ = in_str($in, 'occ');
+            if (!valid_date($occ)) {
+                reply(['error' => 'Ongeldige datum.'], 400);
+            }
+            set_duty((int) ($in['id'] ?? 0), $occ, in_str($in, 'role'), !empty($in['member']) ? (int) $in['member'] : null);
+            reply(['ok' => true, 'event' => occurrence_json((int) ($in['id'] ?? 0), $occ)]);
 
         case 'done':
             $occ = in_str($in, 'occ');

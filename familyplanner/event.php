@@ -54,6 +54,11 @@ if (is_post()) {
                 ->execute([isset(RSVPS[post('rsvp')]) ? post('rsvp') : '', $id, post_int('contact_id')]);
             redirect('event.php?id=' . $id . '&occ=' . $occ . '#gasten');
         }
+        if ($action === 'duty' && $ev) {
+            set_duty($id, $occ ?: substr($ev['start_at'], 0, 10), post('role'), post_int('member'));
+            flash(post_int('member') ? 'Geregeld voor deze keer ✓' : 'Weer open gezet');
+            redirect('event.php?id=' . $id . '&occ=' . $occ);
+        }
         if ($action === 'done' && $ev) {
             set_event_done($id, $occ ?: substr($ev['start_at'], 0, 10), post('done') === '1');
             redirect('event.php?id=' . $id . '&occ=' . $occ);
@@ -68,13 +73,17 @@ if (is_post()) {
     }
 }
 
-// The occurrence we're looking at (for repeating events)
+// The occurrence we're looking at (for repeating events). $occDrop/$occPickup: who does it this time.
+$occDrop = $ev['drop_member_id'] ?? null;
+$occPickup = $ev['pickup_member_id'] ?? null;
 if ($ev && $occ && $ev['recurring']) {
     foreach (load_events($occ, date('Y-m-d', strtotime("$occ +1 day")), ['ids' => [$id]]) as $o) {
         if ($o['occ'] === $occ) {
             $ev['start_at'] = $o['start_at'];
             $ev['end_at'] = $o['end_at'];
             $ev['done'] = $o['done'];
+            $occDrop = $o['drop_member_id'];
+            $occPickup = $o['pickup_member_id'];
         }
     }
 }
@@ -95,7 +104,7 @@ if (!$ev) {
         'start_at' => $date . ' ' . ($type === 'PLAYDATE' ? '14:00' : '09:00') . ':00',
         'end_at' => $date . ' ' . ($type === 'PLAYDATE' ? '17:00' : '10:00') . ':00',
         'all_day' => in_array($type, ['HOLIDAY'], true) ? 1 : 0, 'location' => '', 'host' => $type === 'PLAYDATE' ? 'HOME' : '',
-        'description' => '', 'color' => null, 'recurrence' => '', 'recur_until' => null, 'drop_member_id' => null, 'pickup_member_id' => null,
+        'description' => '', 'color' => null, 'recurrence' => '', 'recur_until' => null, 'drop_member_id' => null, 'pickup_member_id' => null, 'drop_each' => 0, 'pickup_each' => 0,
         'cost' => null, 'paid' => 0, 'done' => 0, 'members' => get_int('member') ? [get_int('member')] : [], 'contacts' => $preContacts, 'recurring' => false,
     ];
 }
@@ -136,8 +145,19 @@ page_start($isNew ? 'Nieuwe afspraak' : $ev['title'], ['active' => 'agenda.php']
   </div>
   <ul class="list" style="margin-top:14px">
     <?php if ($ev['location']): ?><li>📍 <a href="https://maps.google.com/?q=<?= e(urlencode($ev['location'])) ?>" target="_blank" rel="noopener"><?= e($ev['location']) ?></a></li><?php endif; ?>
-    <?php if ($ev['drop_member_id'] || $ev['pickup_member_id']): ?>
-      <li>🚗 Brengen: <b><?= e(member((int) $ev['drop_member_id'])['name'] ?? '—') ?></b> &nbsp; 🏠 Halen: <b><?= e(member((int) $ev['pickup_member_id'])['name'] ?? '—') ?></b></li>
+    <?php if ($ev['drop_each'] || $ev['pickup_each']): ?>
+      <li style="display:block">
+        <div class="duty-now" style="margin:0">
+          <b>Deze keer:</b>
+          <?php foreach (['DROP' => ['drop_each', $occDrop, '🚗 brengt'], 'PICKUP' => ['pickup_each', $occPickup, '🏠 haalt']] as $role => [$flag, $current, $label]): if (!$ev[$flag]) continue; ?>
+            <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="duty"><input type="hidden" name="role" value="<?= $role ?>">
+              <label><?= $label ?> <select name="member" onchange="this.form.submit()"><option value="">❓ nog beslissen</option><?= options(member_options(), $current) ?></select></label></form>
+          <?php endforeach; ?>
+        </div>
+      </li>
+    <?php endif; ?>
+    <?php if (($occDrop && !$ev['drop_each']) || ($occPickup && !$ev['pickup_each'])): ?>
+      <li>🚗 Brengen: <b><?= e(member((int) $occDrop)['name'] ?? '—') ?></b> &nbsp; 🏠 Halen: <b><?= e(member((int) $occPickup)['name'] ?? '—') ?></b></li>
     <?php endif; ?>
     <?php if ($ev['cost'] !== null): ?><li>💶 <?= e(money((float) $ev['cost'])) ?> <?= $ev['paid'] ? '<span class="badge ok">betaald</span>' : '<span class="badge warn">nog betalen</span>' ?></li><?php endif; ?>
     <?php if ($ev['description']): ?><li style="white-space:pre-line;display:block"><?= e($ev['description']) ?></li><?php endif; ?>
@@ -221,8 +241,8 @@ page_start($isNew ? 'Nieuwe afspraak' : $ev['title'], ['active' => 'agenda.php']
       <div><label>Tot en met</label><input type="date" name="recur_until" value="<?= e($ev['recur_until']) ?>"></div>
     </div>
     <div class="row2">
-      <div><label>🚗 Wie brengt</label><select name="drop_member_id"><?= options(member_options(), $ev['drop_member_id'], true) ?></select></div>
-      <div><label>🏠 Wie haalt op</label><select name="pickup_member_id"><?= options(member_options(), $ev['pickup_member_id'], true) ?></select></div>
+      <div><label>🚗 Wie brengt</label><select name="drop_member_id"><?= options(['EACH' => '🔁 Per keer bepalen'] + member_options(), $ev['drop_each'] ? 'EACH' : $ev['drop_member_id'], true) ?></select></div>
+      <div><label>🏠 Wie haalt op</label><select name="pickup_member_id"><?= options(['EACH' => '🔁 Per keer bepalen'] + member_options(), $ev['pickup_each'] ? 'EACH' : $ev['pickup_member_id'], true) ?></select></div>
     </div>
     <div class="row2">
       <div><label>Kosten (€)</label><input name="cost" inputmode="decimal" value="<?= $ev['cost'] !== null ? e(str_replace('.', ',', $ev['cost'])) : '' ?>"></div>

@@ -114,6 +114,20 @@ function load_events(string $from, string $to, array $filter = []): array
         }
     }
 
+    // Who brings / picks up, per occurrence, for events set to "per keer bepalen"
+    $duties = [];
+    $eachIds = [];
+    foreach ($events as $ev) {
+        if (!empty($ev['drop_each']) || !empty($ev['pickup_each'])) {
+            $eachIds[] = (int) $ev['id'];
+        }
+    }
+    if ($eachIds) {
+        foreach (db()->query('SELECT event_id, occurs_on, role, member_id FROM fp_event_duties WHERE event_id IN (' . implode(',', $eachIds) . ')') as $r) {
+            $duties[$r['event_id']][$r['occurs_on']][$r['role']] = $r['member_id'] ? (int) $r['member_id'] : null;
+        }
+    }
+
     $out = [];
     foreach ($events as $ev) {
         $ev['members'] = $members[$ev['id']] ?? [];
@@ -122,7 +136,7 @@ function load_events(string $from, string $to, array $filter = []): array
         if (!$ev['recurring']) {
             $ev['occ'] = substr($ev['start_at'], 0, 10);
             $ev['done'] = (bool) $ev['done'];
-            $out[] = $ev;
+            $out[] = apply_duties($ev, $duties);
             continue;
         }
         $base = new DateTime($ev['start_at']);
@@ -154,13 +168,49 @@ function load_events(string $from, string $to, array $filter = []): array
             $o['start_at'] = $s->format('Y-m-d H:i:s');
             $o['end_at'] = $e->format('Y-m-d H:i:s');
             $o['done'] = isset($doneDates[$ev['id']][$occ]);
-            $out[] = $o;
+            $out[] = apply_duties($o, $duties);
         }
     }
     usort($out, function ($a, $b) {
         return [$b['all_day'], $a['start_at']] <=> [$a['all_day'], $b['start_at']];
     });
     return $out;
+}
+
+/**
+ * For "per keer bepalen": fill drop/pickup of this occurrence from fp_event_duties, and mark what is
+ * still undecided (drop_open / pickup_open).
+ */
+function apply_duties(array $o, array $duties): array
+{
+    $o['drop_open'] = false;
+    $o['pickup_open'] = false;
+    foreach (['drop' => 'DROP', 'pickup' => 'PICKUP'] as $key => $role) {
+        if (empty($o[$key . '_each'])) {
+            continue;
+        }
+        $member = $duties[$o['id']][$o['occ']][$role] ?? null;
+        $o[$key . '_member_id'] = $member;
+        $o[$key . '_open'] = $member === null;
+    }
+    return $o;
+}
+
+/** Decide who brings (DROP) or picks up (PICKUP) for one occurrence; null = undecided again. */
+function set_duty(int $id, string $occ, string $role, ?int $member): void
+{
+    if (!in_array($role, ['DROP', 'PICKUP'], true)) {
+        throw new InvalidArgumentException('Ongeldige taak.');
+    }
+    if ($member && !member($member)) {
+        $member = null;
+    }
+    if ($member) {
+        db()->prepare('INSERT INTO fp_event_duties (event_id, occurs_on, role, member_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE member_id = VALUES(member_id)')
+            ->execute([$id, $occ, $role, $member]);
+    } else {
+        db()->prepare('DELETE FROM fp_event_duties WHERE event_id = ? AND occurs_on = ? AND role = ?')->execute([$id, $occ, $role]);
+    }
 }
 
 /** Events of one day, all-day first. */
@@ -297,8 +347,11 @@ function normalise_event(array $in): array
         'color' => $color,
         'recurrence' => $recurrence,
         'recur_until' => $recurrence ? $until : null,
-        'drop_member_id' => $memberOrNull($in['drop_member_id'] ?? null),
-        'pickup_member_id' => $memberOrNull($in['pickup_member_id'] ?? null),
+        // 'EACH' = decide per occurrence (only for repeating events)
+        'drop_member_id' => ($in['drop_member_id'] ?? '') === 'EACH' ? null : $memberOrNull($in['drop_member_id'] ?? null),
+        'pickup_member_id' => ($in['pickup_member_id'] ?? '') === 'EACH' ? null : $memberOrNull($in['pickup_member_id'] ?? null),
+        'drop_each' => ($in['drop_member_id'] ?? '') === 'EACH' && $recurrence !== '' ? 1 : 0,
+        'pickup_each' => ($in['pickup_member_id'] ?? '') === 'EACH' && $recurrence !== '' ? 1 : 0,
         'cost' => $cost,
         'paid' => !empty($in['paid']) ? 1 : 0,
         '_members' => $memberIds,
@@ -360,6 +413,14 @@ function detach_occurrence(array $ev, string $occ): int
     return copy_occurrence($ev, $occ);
 }
 
+function duty_of(int $id, string $occ, string $role): ?int
+{
+    $stmt = db()->prepare('SELECT member_id FROM fp_event_duties WHERE event_id = ? AND occurs_on = ? AND role = ?');
+    $stmt->execute([$id, $occ, $role]);
+    $m = $stmt->fetchColumn();
+    return $m ? (int) $m : null;
+}
+
 /** A new single event with everything of $ev (guests, checklist) on the date of occurrence $occ. */
 function copy_occurrence(array $ev, string $occ): int
 {
@@ -374,7 +435,8 @@ function copy_occurrence(array $ev, string $occ): int
     $data = [
         'title' => $ev['title'], 'type' => $ev['type'], 'start' => $start, 'end' => $end, 'all_day' => $ev['all_day'],
         'location' => $ev['location'], 'host' => $ev['host'], 'description' => $ev['description'], 'color' => $ev['color'],
-        'drop_member_id' => $ev['drop_member_id'], 'pickup_member_id' => $ev['pickup_member_id'],
+        'drop_member_id' => $ev['drop_each'] ? duty_of((int) $ev['id'], $occ, 'DROP') : $ev['drop_member_id'],
+        'pickup_member_id' => $ev['pickup_each'] ? duty_of((int) $ev['id'], $occ, 'PICKUP') : $ev['pickup_member_id'],
         'cost' => $ev['cost'], 'paid' => $ev['paid'], 'members' => $ev['members'],
         'contacts' => array_map(function ($c) {
             return ['id' => $c['id'], 'rsvp' => $c['rsvp']];
@@ -418,9 +480,12 @@ function move_event(int $id, string $occ, string $newStart, string $newEnd, bool
         $shift = $ns - $occStart;
         $ns = strtotime($ev['start_at']) + $shift;
         $ne = $ns + ($ne - strtotime(str_replace('T', ' ', $newStart)));
-        if ($shift !== 0 && abs($shift) >= 86400) {
-            // Moving a series to another day: done/exception dates no longer line up
-            db()->prepare('DELETE FROM fp_event_done WHERE event_id = ?')->execute([$id]);
+        $days = (int) round($shift / 86400);
+        if ($days !== 0) {
+            // Moving a series to another day: move the per-date ticks and decisions along with it
+            $order = $days > 0 ? 'DESC' : 'ASC';
+            db()->prepare("UPDATE fp_event_done SET occurs_on = DATE_ADD(occurs_on, INTERVAL ? DAY) WHERE event_id = ? ORDER BY occurs_on $order")->execute([$days, $id]);
+            db()->prepare("UPDATE fp_event_duties SET occurs_on = DATE_ADD(occurs_on, INTERVAL ? DAY) WHERE event_id = ? ORDER BY occurs_on $order")->execute([$days, $id]);
         }
     }
     if ($allDay) {
@@ -498,6 +563,10 @@ function event_json(array $ev): array
         'members' => array_map('intval', $ev['members']),
         'dropMember' => $ev['drop_member_id'] ? (int) $ev['drop_member_id'] : null,
         'pickupMember' => $ev['pickup_member_id'] ? (int) $ev['pickup_member_id'] : null,
+        'dropEach' => !empty($ev['drop_each']),
+        'pickupEach' => !empty($ev['pickup_each']),
+        'dropOpen' => !empty($ev['drop_open']),
+        'pickupOpen' => !empty($ev['pickup_open']),
         'cost' => $ev['cost'] !== null ? (float) $ev['cost'] : null,
         'paid' => (bool) $ev['paid'],
         'contacts' => array_map(function ($c) {

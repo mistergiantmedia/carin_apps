@@ -137,6 +137,16 @@ function build_suggestions(): array
         if ($ev['start_at'] < $now || $ev['start_at'] > date('Y-m-d H:i:s', strtotime('+7 day')) || $ev['all_day']) {
             continue;
         }
+        if (!empty($ev['drop_each']) || !empty($ev['pickup_each'])) {
+            // "Per keer bepalen": remind when this time is still undecided
+            if ($ev['drop_open'] || $ev['pickup_open']) {
+                $what = $ev['drop_open'] && $ev['pickup_open'] ? 'brengt en haalt' : ($ev['drop_open'] ? 'brengt' : 'haalt');
+                $out[] = suggestion('❓', 'Nog beslissen wie ' . $what . ' bij <b>' . e($ev['title']) . '</b> (' . e(day_label($ev['start_at'])) . ' ' . substr($ev['start_at'], 11, 5) . ').', [
+                    ['Beslissen', 'taken.php#beslissen'],
+                ], 9, 'duty-' . $ev['id'] . $ev['occ']);
+            }
+            continue;
+        }
         $kids = array_intersect(array_map('intval', array_keys(children())), $ev['members']);
         if (!$kids || $ev['drop_member_id'] || $ev['pickup_member_id'] || $ev['host'] === 'HOME' || !in_array($ev['type'], ['PLAYDATE', 'PARTY', 'SPORT', 'ACTIVITY'], true)) {
             continue;

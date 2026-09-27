@@ -8,6 +8,11 @@ require_login();
 
 if (is_post()) {
     $action = post('action');
+    if ($action === 'duty') {
+        set_duty((int) post_int('id'), post('occ'), post('role'), post_int('member'));
+        flash(post_int('member') ? 'Geregeld ✓' : 'Weer open gezet');
+        redirect('taken.php#beslissen');
+    }
     if ($action === 'toggle') {
         $next = toggle_task((int) post_int('id'), post('done') === '1');
         if ($next) {
@@ -118,6 +123,38 @@ page_start('Wie doet wat');
 page_header('✅ Wie doet wat wanneer', 'Taken, klusjes en wie brengt of haalt, voor het hele gezin.',
     '<a class="btn soft" href="#nieuw">＋ Taak</a>');
 ?>
+<?php
+// Repeating events with "per keer bepalen": who brings / picks up (open ones first)
+$dutyEvents = array_values(array_filter(load_events(today(), date('Y-m-d', strtotime('+21 day'))), function ($ev) {
+    return !empty($ev['drop_each']) || !empty($ev['pickup_each']);
+}));
+$undecided = array_values(array_filter($dutyEvents, function ($ev) {
+    return $ev['drop_open'] || $ev['pickup_open'];
+}));
+$decided = array_values(array_filter($dutyEvents, function ($ev) {
+    return !$ev['drop_open'] && !$ev['pickup_open'];
+}));
+if ($dutyEvents): ?>
+<div class="card" id="beslissen" style="margin-bottom:14px;<?= $undecided ? 'border:2px solid var(--warn)' : '' ?>">
+  <h2>🤔 Nog te beslissen: wie brengt en haalt? <?php if ($undecided): ?><span class="badge warn"><?= count($undecided) ?></span><?php else: ?><span class="badge ok">alles geregeld</span><?php endif; ?></h2>
+  <p class="muted small" style="margin-top:0">Voor vaste afspraken waarbij je “per keer bepalen” hebt gekozen (komende 3 weken).</p>
+  <ul class="list">
+    <?php foreach (array_merge($undecided, array_slice($decided, 0, 6)) as $ev): $t = event_type($ev['type']); ?>
+      <li style="flex-wrap:wrap">
+        <div style="min-width:86px"><b><?= e(ucfirst(day_label($ev['start_at']))) ?></b><br><span class="muted small"><?= e(format_date_short($ev['start_at'])) ?> · <?= e(substr($ev['start_at'], 11, 5)) ?></span></div>
+        <div class="grow" style="min-width:140px"><a class="title" href="event.php?id=<?= (int) $ev['id'] ?>&amp;occ=<?= e($ev['occ']) ?>" style="color:inherit"><?= $t[1] ?> <?= e($ev['title']) ?></a>
+          <span class="avatars"><?php foreach ($ev['members'] as $mid): if ($m = member($mid)): ?><?= avatar($m, 24) ?><?php endif; endforeach; ?></span></div>
+        <?php foreach (['DROP' => ['drop', '🚗 brengt'], 'PICKUP' => ['pickup', '🏠 haalt']] as $role => [$key, $label]): if (empty($ev[$key . '_each'])) continue; ?>
+          <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="duty"><input type="hidden" name="id" value="<?= (int) $ev['id'] ?>"><input type="hidden" name="occ" value="<?= e($ev['occ']) ?>"><input type="hidden" name="role" value="<?= $role ?>">
+            <label class="small" style="display:flex;gap:6px;align-items:center;margin:0;font-weight:600"><?= $label ?>
+              <select name="member" onchange="this.form.submit()" style="width:auto;min-height:34px;padding:4px 8px<?= $ev[$key . '_open'] ? ';border-color:var(--warn)' : '' ?>"><option value="">❓ nog beslissen</option><?= options(member_options(), $ev[$key . '_member_id']) ?></select></label></form>
+        <?php endforeach; ?>
+      </li>
+    <?php endforeach; ?>
+  </ul>
+</div>
+<?php endif; ?>
+
 <div class="card" id="nieuw">
   <form method="post" class="form">
     <?= csrf_field() ?><input type="hidden" name="action" value="add">

@@ -261,7 +261,15 @@
         `<label class="pick" style="--c:${t.color}"><input type="radio" name="type" value="${k}"${k === ev.type ? ' checked' : ''}><span>${t.emoji} ${esc(t.label)}</span></label>`).join('');
       const memberChips = DATA.members.map((m) =>
         `<label class="pick" style="--c:${m.color}"><input type="checkbox" name="members" value="${m.id}"${ev.members.includes(m.id) ? ' checked' : ''}><span>${esc(m.emoji)} ${esc(m.name)}</span></label>`).join('');
-      const memberOpts = (sel) => '<option value="">—</option>' + DATA.members.map((m) => `<option value="${m.id}"${m.id === sel ? ' selected' : ''}>${esc(m.emoji + ' ' + m.name)}</option>`).join('');
+      const memberOpts = (sel, each) => '<option value="">—</option>'
+        + (each !== undefined ? `<option value="EACH"${each ? ' selected' : ''}>🔁 Per keer bepalen</option>` : '')
+        + DATA.members.map((m) => `<option value="${m.id}"${m.id === sel && !each ? ' selected' : ''}>${esc(m.emoji + ' ' + m.name)}</option>`).join('');
+      // For one occurrence of a "per keer bepalen" series: choose right here who does it this time
+      const dutyNow = ev.id && (ev.dropEach || ev.pickupEach) ? `<div class="duty-now">
+          <b>Deze keer (${esc(DAYS[s.getDay()])} ${s.getDate()} ${esc(MONTHS[s.getMonth()])}):</b>
+          ${ev.dropEach ? `<label>🚗 brengt <select data-duty="DROP">${memberOpts(ev.dropMember)}</select></label>` : ''}
+          ${ev.pickupEach ? `<label>🏠 haalt <select data-duty="PICKUP">${memberOpts(ev.pickupMember)}</select></label>` : ''}
+        </div>` : '';
       const opts = (obj, sel) => Object.entries(obj).map(([k, v]) => `<option value="${k}"${k === (sel || '') ? ' selected' : ''}>${esc(v)}</option>`).join('');
       d.innerHTML = `
         <form method="dialog" class="form" novalidate>
@@ -288,12 +296,14 @@
               <div><label>Waar</label><input name="location" value="${esc(ev.location || '')}" placeholder="Adres of plek"></div>
               <div><label>Bij wie</label><select name="host">${opts(DATA.hosts, ev.host)}</select></div>
             </div>
-            <details class="more"${ev.dropMember || ev.pickupMember || ev.cost || ev.description ? ' open' : ''}>
+            <details class="more"${ev.dropMember || ev.pickupMember || ev.dropEach || ev.pickupEach || ev.cost || ev.description ? ' open' : ''}>
               <summary>Meer opties</summary>
               <div class="row2">
-                <div><label>🚗 Wie brengt</label><select name="dropMember">${memberOpts(ev.dropMember)}</select></div>
-                <div><label>🏠 Wie haalt op</label><select name="pickupMember">${memberOpts(ev.pickupMember)}</select></div>
+                <div><label>🚗 Wie brengt</label><select name="dropMember">${memberOpts(ev.dropMember, !!ev.dropEach)}</select></div>
+                <div><label>🏠 Wie haalt op</label><select name="pickupMember">${memberOpts(ev.pickupMember, !!ev.pickupEach)}</select></div>
               </div>
+              <p class="hint each-hint">🔁 <b>Per keer bepalen</b> (bij herhalende afspraken): bij elke keer staat dan ❓ tot iemand gekozen is. Kiezen kan in de agenda of bij Wie doet wat.</p>
+              ${dutyNow}
               <div class="row2">
                 <div><label>Kosten (€)</label><input name="cost" inputmode="decimal" value="${ev.cost != null ? String(ev.cost).replace('.', ',') : ''}" placeholder="bijv. 25,00"></div>
                 <div><label>Eigen kleur</label><div style="display:flex;gap:10px;align-items:center"><input type="color" name="color" value="${esc(ev.customColor || ev.color || '#6C5CE7')}"><label class="check"><input type="checkbox" name="useColor"${ev.customColor ? ' checked' : ''}> gebruiken</label></div></div>
@@ -373,6 +383,13 @@
       d.querySelectorAll('[data-close]').forEach((b) => { b.onclick = () => close(null); });
       d.addEventListener('cancel', (x) => { x.preventDefault(); close(null); });
 
+      d.querySelectorAll('[data-duty]').forEach((sel) => sel.addEventListener('change', async () => {
+        try {
+          await api('duty', { id: ev.id, occ: ev.occ, role: sel.dataset.duty, member: sel.value ? Number(sel.value) : null });
+          toast(sel.value ? 'Geregeld voor deze keer ✓' : 'Weer open gezet');
+          document.dispatchEvent(new CustomEvent('fp:changed'));
+        } catch (e2) { toast(e2.message); }
+      }));
       const del = d.querySelector('[data-delete]');
       if (del) del.onclick = async () => {
         const ok = await deleteEvent(ev);

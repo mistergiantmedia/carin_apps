@@ -520,6 +520,12 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 /* No flex gap (Chrome < 84): app.js adds .no-flexgap and gives children margins instead */
 .no-flexgap .fg-item{margin:0 8px 0 0!important}
 
+/* "Per keer bepalen": choose who brings / picks up for one occurrence */
+.duty-now{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;background:#FFF1DC;padding:8px 10px;border-radius:12px;margin-top:8px;font-size:13.5px}
+.duty-now label{display:flex;gap:6px;align-items:center;margin:0!important;font-weight:600}
+.duty-now select{width:auto;min-height:32px;padding:3px 8px}
+.open-duty{color:#A8650B;font-weight:700}
+
 /* Appended to legacy/style.css by build.js. Only old browsers (no ES modules) load that file.
    Old engines (Chrome 38 on webOS 3.x) have no CSS grid and no flex "gap": flexbox layouts with margins. */
 

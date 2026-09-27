@@ -235,7 +235,8 @@
     const who = ev.members.map(memberById).filter(Boolean).map((m) => m.emoji).join('');
     const guests = (ev.contacts || []).slice(0, 4).map((c) => avatarHtml(c, 18)).join('');
     const time = ev.allDay ? '' : fmtTime(ev.s) + '–' + fmtTime(ev.e);
-    return `<span class="t">${ev.emoji || ''} ${esc(ev.title)}</span>` +
+    const open = ev.dropOpen || ev.pickupOpen ? '<span title="Nog beslissen wie brengt/haalt">❓</span> ' : '';
+    return `<span class="t">${open}${ev.emoji || ''} ${esc(ev.title)}</span>` +
       (compact ? '' : `<span class="m">${time}${who ? ' · ' + who : ''}${ev.location ? ' · ' + esc(ev.location) : ''}</span>`) +
       (!compact && guests ? `<span class="faces-mini">${guests}</span>` : '');
   }
@@ -371,7 +372,8 @@
         if (lane >= maxLanes) { for (let k = it.a; k <= it.b; k++) hidden[k]++; return; }
         const ev = it.ev;
         const cls = ev.birthday ? 'bday' : it.span ? 'span' : 'timed';
-        const label = it.span ? esc(ev.title) : isSmall() ? `${ev.emoji || ''} ${esc(ev.title)}` : `<b>${fmtTime(ev.s)}</b> ${ev.emoji || ''} ${esc(ev.title)}`;
+        const q = ev.dropOpen || ev.pickupOpen ? '❓ ' : '';
+        const label = q + (it.span ? esc(ev.title) : isSmall() ? `${ev.emoji || ''} ${esc(ev.title)}` : `<b>${fmtTime(ev.s)}</b> ${ev.emoji || ''} ${esc(ev.title)}`);
         bars += `<div class="cal-mev ${cls}${ev.done ? ' done' : ''}" data-key="${esc(ev.key)}" style="--c:${colorOf(ev)};top:${lane * laneH}px;left:calc(${it.a / 7 * 100}% + 3px);width:calc(${(it.b - it.a + 1) / 7 * 100}% - 6px)">${label}${it.span && !ev.birthday ? '<span class="rz"></span>' : ''}</div>`;
       });
       hidden.forEach((n, k) => {
@@ -449,6 +451,13 @@
   function closePopover() { if (pop) { pop.remove(); pop = null; } }
   function findEvent(key) { return visibleEvents().find((ev) => ev.key === key); }
 
+  /** Select for "per keer bepalen": who does it this time (empty = ❓ nog beslissen). */
+  function dutySelect(role, current) {
+    return `<select data-duty="${role}" style="width:auto;min-height:32px;padding:3px 8px${current ? '' : ';border-color:var(--warn)'}">` +
+      `<option value="">❓ nog beslissen</option>` +
+      DATA.members.map((m) => `<option value="${m.id}"${m.id === current ? ' selected' : ''}>${esc(m.emoji + ' ' + m.name)}</option>`).join('') + '</select>';
+  }
+
   function showPopover(ev, anchor) {
     closePopover();
     pop = document.createElement('div');
@@ -472,7 +481,11 @@
         ${guests ? `<div class="pop-row">${guests}</div>` : ''}
         ${ev.location ? `<div class="pop-row">📍 <a href="https://maps.google.com/?q=${encodeURIComponent(ev.location)}" target="_blank" rel="noopener">${esc(ev.location)}</a></div>` : ''}
         ${ev.host ? `<div class="pop-row">${esc(DATA.hosts[ev.host])}</div>` : ''}
-        ${drop || pick ? `<div class="pop-row">${drop ? '🚗 brengen: <b>' + esc(drop.name) + '</b>' : ''} ${pick ? '🏠 halen: <b>' + esc(pick.name) + '</b>' : ''}</div>` : ''}
+        ${(drop && !ev.dropEach) || (pick && !ev.pickupEach) ? `<div class="pop-row">${drop && !ev.dropEach ? '🚗 brengen: <b>' + esc(drop.name) + '</b>' : ''} ${pick && !ev.pickupEach ? '🏠 halen: <b>' + esc(pick.name) + '</b>' : ''}</div>` : ''}
+        ${ev.dropEach || ev.pickupEach ? `<div class="pop-row duty-now">
+          ${ev.dropEach ? `<label>🚗 brengt ${dutySelect('DROP', ev.dropMember)}</label>` : ''}
+          ${ev.pickupEach ? `<label>🏠 haalt ${dutySelect('PICKUP', ev.pickupMember)}</label>` : ''}
+        </div>` : ''}
         ${ev.cost != null ? `<div class="pop-row">💶 € ${ev.cost.toFixed(2).replace('.', ',')} ${ev.paid ? '<span class="badge ok">betaald</span>' : '<span class="badge warn">nog betalen</span>'}</div>` : ''}
         ${ev.description ? `<div class="pop-row" style="white-space:pre-line">${esc(ev.description)}</div>` : ''}
         <div class="pop-actions">
@@ -500,6 +513,16 @@
     pop.style.left = left + 'px';
     pop.style.top = Math.max(8, Math.min(top, H - ph - 8)) + 'px';
 
+    pop.addEventListener('change', async (e) => {
+      const sel = e.target.closest('[data-duty]');
+      if (!sel) return;
+      try {
+        await api('duty', { id: ev.id, occ: ev.occ, role: sel.dataset.duty, member: sel.value ? Number(sel.value) : null });
+        toast(sel.value ? 'Geregeld voor deze keer ✓' : 'Weer open gezet');
+        closePopover();
+        refresh(true);
+      } catch (x) { toast(x.message); }
+    });
     pop.addEventListener('click', async (e) => {
       const b = e.target.closest('[data-pop]');
       if (!b) return;

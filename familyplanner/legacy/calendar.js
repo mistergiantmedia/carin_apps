@@ -314,55 +314,55 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     return _refresh.apply(this, arguments);
   }
   function _refresh() {
-    _refresh = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(force) {
-      var r, key, seq, q, data, _t3;
-      return _regenerator().w(function (_context2) {
-        while (1) switch (_context2.p = _context2.n) {
+    _refresh = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(force) {
+      var r, key, seq, q, data, _t4;
+      return _regenerator().w(function (_context3) {
+        while (1) switch (_context3.p = _context3.n) {
           case 0:
             closePopover();
             syncToolbar();
             r = range();
             key = [ymd(r.from), ymd(r.to), state.members.join(','), state.type].join('|');
             if (!(!force && key === state.loadedKey)) {
-              _context2.n = 1;
+              _context3.n = 1;
               break;
             }
             render();
-            return _context2.a(2);
+            return _context3.a(2);
           case 1:
             seq = ++loadSeq;
             if (!state.events.length) cal.innerHTML = '<div class="empty">Agenda laden…</div>';
-            _context2.p = 2;
+            _context3.p = 2;
             q = {
               from: ymd(r.from),
               to: ymd(r.to)
             };
             if (state.members.length) q.members = state.members.join(',');
             if (state.type) q.types = state.type;
-            _context2.n = 3;
+            _context3.n = 3;
             return api('events', undefined, q);
           case 3:
-            data = _context2.v;
+            data = _context3.v;
             if (!(seq !== loadSeq)) {
-              _context2.n = 4;
+              _context3.n = 4;
               break;
             }
-            return _context2.a(2);
+            return _context3.a(2);
           case 4:
             state.events = data.events.map(prep);
             state.birthdayItems = data.birthdays.map(prep);
             state.loadedKey = key;
             render();
-            _context2.n = 6;
+            _context3.n = 6;
             break;
           case 5:
-            _context2.p = 5;
-            _t3 = _context2.v;
-            cal.innerHTML = "<div class=\"empty\"><div class=\"empty-icon\">\uD83D\uDE15</div><p>".concat(esc(_t3.message), "</p></div>");
+            _context3.p = 5;
+            _t4 = _context3.v;
+            cal.innerHTML = "<div class=\"empty\"><div class=\"empty-icon\">\uD83D\uDE15</div><p>".concat(esc(_t4.message), "</p></div>");
           case 6:
-            return _context2.a(2);
+            return _context3.a(2);
         }
-      }, _callee2, null, [[2, 5]]);
+      }, _callee3, null, [[2, 5]]);
     }));
     return _refresh.apply(this, arguments);
   }
@@ -400,7 +400,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       return avatarHtml(c, 18);
     }).join('');
     var time = ev.allDay ? '' : fmtTime(ev.s) + '–' + fmtTime(ev.e);
-    return "<span class=\"t\">".concat(ev.emoji || '', " ").concat(esc(ev.title), "</span>") + (compact ? '' : "<span class=\"m\">".concat(time).concat(who ? ' · ' + who : '').concat(ev.location ? ' · ' + esc(ev.location) : '', "</span>")) + (!compact && guests ? "<span class=\"faces-mini\">".concat(guests, "</span>") : '');
+    var open = ev.dropOpen || ev.pickupOpen ? '<span title="Nog beslissen wie brengt/haalt">❓</span> ' : '';
+    return "<span class=\"t\">".concat(open).concat(ev.emoji || '', " ").concat(esc(ev.title), "</span>") + (compact ? '' : "<span class=\"m\">".concat(time).concat(who ? ' · ' + who : '').concat(ev.location ? ' · ' + esc(ev.location) : '', "</span>")) + (!compact && guests ? "<span class=\"faces-mini\">".concat(guests, "</span>") : '');
   }
 
   // --- Week / day / 3-day time grid ---
@@ -595,7 +596,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
         }
         var ev = it.ev;
         var cls = ev.birthday ? 'bday' : it.span ? 'span' : 'timed';
-        var label = it.span ? esc(ev.title) : isSmall() ? "".concat(ev.emoji || '', " ").concat(esc(ev.title)) : "<b>".concat(fmtTime(ev.s), "</b> ").concat(ev.emoji || '', " ").concat(esc(ev.title));
+        var q = ev.dropOpen || ev.pickupOpen ? '❓ ' : '';
+        var label = q + (it.span ? esc(ev.title) : isSmall() ? "".concat(ev.emoji || '', " ").concat(esc(ev.title)) : "<b>".concat(fmtTime(ev.s), "</b> ").concat(ev.emoji || '', " ").concat(esc(ev.title)));
         bars += "<div class=\"cal-mev ".concat(cls).concat(ev.done ? ' done' : '', "\" data-key=\"").concat(esc(ev.key), "\" style=\"--c:").concat(colorOf(ev), ";top:").concat(lane * laneH, "px;left:calc(").concat(it.a / 7 * 100, "% + 3px);width:calc(").concat((it.b - it.a + 1) / 7 * 100, "% - 6px)\">").concat(label).concat(it.span && !ev.birthday ? '<span class="rz"></span>' : '', "</div>");
       });
       hidden.forEach(function (n, k) {
@@ -701,6 +703,13 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       return ev.key === key;
     });
   }
+
+  /** Select for "per keer bepalen": who does it this time (empty = ❓ nog beslissen). */
+  function dutySelect(role, current) {
+    return "<select data-duty=\"".concat(role, "\" style=\"width:auto;min-height:32px;padding:3px 8px").concat(current ? '' : ';border-color:var(--warn)', "\">") + "<option value=\"\">\u2753 nog beslissen</option>" + DATA.members.map(function (m) {
+      return "<option value=\"".concat(m.id, "\"").concat(m.id === current ? ' selected' : '', ">").concat(esc(m.emoji + ' ' + m.name), "</option>");
+    }).join('') + '</select>';
+  }
   function showPopover(ev, anchor) {
     closePopover();
     pop = document.createElement('div');
@@ -722,7 +731,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       var drop = memberById(ev.dropMember);
       var pick = memberById(ev.pickupMember);
       var when = ev.allDay ? sameDay(ev.s, ev.e) ? dayLong(ev.s) + ' · hele dag' : dayLong(ev.s) + ' t/m ' + dayLong(ev.e) : dayLong(ev.s) + ' · ' + fmtTime(ev.s) + '–' + fmtTime(ev.e) + (sameDay(ev.s, ev.e) ? '' : ' (' + dayLong(ev.e) + ')');
-      pop.innerHTML = "<div class=\"pop-head\"><span class=\"pop-color\" style=\"background:".concat(colorOf(ev), "\"></span><h3>").concat(esc(ev.emoji), " ").concat(esc(ev.title), "</h3><button class=\"x\" data-pop=\"close\" aria-label=\"Sluiten\">\xD7</button></div>\n        <p class=\"pop-meta\">").concat(esc(when)).concat(ev.recurring ? '<br>🔁 ' + esc(DATA.recurrences[ev.recurrence] || '') : '', "</p>\n        ").concat(members ? "<div class=\"pop-row\">".concat(members, "</div>") : '', "\n        ").concat(guests ? "<div class=\"pop-row\">".concat(guests, "</div>") : '', "\n        ").concat(ev.location ? "<div class=\"pop-row\">\uD83D\uDCCD <a href=\"https://maps.google.com/?q=".concat(encodeURIComponent(ev.location), "\" target=\"_blank\" rel=\"noopener\">").concat(esc(ev.location), "</a></div>") : '', "\n        ").concat(ev.host ? "<div class=\"pop-row\">".concat(esc(DATA.hosts[ev.host]), "</div>") : '', "\n        ").concat(drop || pick ? "<div class=\"pop-row\">".concat(drop ? '🚗 brengen: <b>' + esc(drop.name) + '</b>' : '', " ").concat(pick ? '🏠 halen: <b>' + esc(pick.name) + '</b>' : '', "</div>") : '', "\n        ").concat(ev.cost != null ? "<div class=\"pop-row\">\uD83D\uDCB6 \u20AC ".concat(ev.cost.toFixed(2).replace('.', ','), " ").concat(ev.paid ? '<span class="badge ok">betaald</span>' : '<span class="badge warn">nog betalen</span>', "</div>") : '', "\n        ").concat(ev.description ? "<div class=\"pop-row\" style=\"white-space:pre-line\">".concat(esc(ev.description), "</div>") : '', "\n        <div class=\"pop-actions\">\n          <button class=\"btn small ").concat(ev.done ? 'secondary' : 'ok', "\" data-pop=\"done\">").concat(ev.done ? '↺ Niet gedaan' : '✓ Afvinken', "</button>\n          <button class=\"btn small soft\" data-pop=\"edit\">\u270F\uFE0F Bewerken</button>\n          <a class=\"btn small secondary\" href=\"event.php?id=").concat(ev.id, "&occ=").concat(ev.occ, "\">\uD83D\uDCCB Details</a>\n          <button class=\"btn small secondary\" data-pop=\"copy\" title=\"Dupliceren\">\u29C9</button>\n          <button class=\"btn small danger\" data-pop=\"delete\" title=\"Verwijderen\">\uD83D\uDDD1</button>\n        </div>");
+      pop.innerHTML = "<div class=\"pop-head\"><span class=\"pop-color\" style=\"background:".concat(colorOf(ev), "\"></span><h3>").concat(esc(ev.emoji), " ").concat(esc(ev.title), "</h3><button class=\"x\" data-pop=\"close\" aria-label=\"Sluiten\">\xD7</button></div>\n        <p class=\"pop-meta\">").concat(esc(when)).concat(ev.recurring ? '<br>🔁 ' + esc(DATA.recurrences[ev.recurrence] || '') : '', "</p>\n        ").concat(members ? "<div class=\"pop-row\">".concat(members, "</div>") : '', "\n        ").concat(guests ? "<div class=\"pop-row\">".concat(guests, "</div>") : '', "\n        ").concat(ev.location ? "<div class=\"pop-row\">\uD83D\uDCCD <a href=\"https://maps.google.com/?q=".concat(encodeURIComponent(ev.location), "\" target=\"_blank\" rel=\"noopener\">").concat(esc(ev.location), "</a></div>") : '', "\n        ").concat(ev.host ? "<div class=\"pop-row\">".concat(esc(DATA.hosts[ev.host]), "</div>") : '', "\n        ").concat(drop && !ev.dropEach || pick && !ev.pickupEach ? "<div class=\"pop-row\">".concat(drop && !ev.dropEach ? '🚗 brengen: <b>' + esc(drop.name) + '</b>' : '', " ").concat(pick && !ev.pickupEach ? '🏠 halen: <b>' + esc(pick.name) + '</b>' : '', "</div>") : '', "\n        ").concat(ev.dropEach || ev.pickupEach ? "<div class=\"pop-row duty-now\">\n          ".concat(ev.dropEach ? "<label>\uD83D\uDE97 brengt ".concat(dutySelect('DROP', ev.dropMember), "</label>") : '', "\n          ").concat(ev.pickupEach ? "<label>\uD83C\uDFE0 haalt ".concat(dutySelect('PICKUP', ev.pickupMember), "</label>") : '', "\n        </div>") : '', "\n        ").concat(ev.cost != null ? "<div class=\"pop-row\">\uD83D\uDCB6 \u20AC ".concat(ev.cost.toFixed(2).replace('.', ','), " ").concat(ev.paid ? '<span class="badge ok">betaald</span>' : '<span class="badge warn">nog betalen</span>', "</div>") : '', "\n        ").concat(ev.description ? "<div class=\"pop-row\" style=\"white-space:pre-line\">".concat(esc(ev.description), "</div>") : '', "\n        <div class=\"pop-actions\">\n          <button class=\"btn small ").concat(ev.done ? 'secondary' : 'ok', "\" data-pop=\"done\">").concat(ev.done ? '↺ Niet gedaan' : '✓ Afvinken', "</button>\n          <button class=\"btn small soft\" data-pop=\"edit\">\u270F\uFE0F Bewerken</button>\n          <a class=\"btn small secondary\" href=\"event.php?id=").concat(ev.id, "&occ=").concat(ev.occ, "\">\uD83D\uDCCB Details</a>\n          <button class=\"btn small secondary\" data-pop=\"copy\" title=\"Dupliceren\">\u29C9</button>\n          <button class=\"btn small danger\" data-pop=\"delete\" title=\"Verwijderen\">\uD83D\uDDD1</button>\n        </div>");
     }
     document.body.appendChild(pop);
     var r = anchor.getBoundingClientRect();
@@ -745,18 +754,58 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     }
     pop.style.left = left + 'px';
     pop.style.top = Math.max(8, Math.min(top, H - ph - 8)) + 'px';
-    pop.addEventListener('click', /*#__PURE__*/function () {
+    pop.addEventListener('change', /*#__PURE__*/function () {
       var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(e) {
-        var b, act, r2, copy, _t, _t2;
+        var sel, _t;
         return _regenerator().w(function (_context) {
           while (1) switch (_context.p = _context.n) {
             case 0:
-              b = e.target.closest('[data-pop]');
-              if (b) {
+              sel = e.target.closest('[data-duty]');
+              if (sel) {
                 _context.n = 1;
                 break;
               }
               return _context.a(2);
+            case 1:
+              _context.p = 1;
+              _context.n = 2;
+              return api('duty', {
+                id: ev.id,
+                occ: ev.occ,
+                role: sel.dataset.duty,
+                member: sel.value ? Number(sel.value) : null
+              });
+            case 2:
+              toast(sel.value ? 'Geregeld voor deze keer ✓' : 'Weer open gezet');
+              closePopover();
+              refresh(true);
+              _context.n = 4;
+              break;
+            case 3:
+              _context.p = 3;
+              _t = _context.v;
+              toast(_t.message);
+            case 4:
+              return _context.a(2);
+          }
+        }, _callee, null, [[1, 3]]);
+      }));
+      return function (_x2) {
+        return _ref0.apply(this, arguments);
+      };
+    }());
+    pop.addEventListener('click', /*#__PURE__*/function () {
+      var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(e) {
+        var b, act, r2, copy, _t2, _t3;
+        return _regenerator().w(function (_context2) {
+          while (1) switch (_context2.p = _context2.n) {
+            case 0:
+              b = e.target.closest('[data-pop]');
+              if (b) {
+                _context2.n = 1;
+                break;
+              }
+              return _context2.a(2);
             case 1:
               act = b.dataset.pop;
               if (act === 'close') closePopover();
@@ -765,26 +814,26 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
                 edit(ev);
               }
               if (!(act === 'delete')) {
-                _context.n = 3;
+                _context2.n = 3;
                 break;
               }
               closePopover();
-              _context.n = 2;
+              _context2.n = 2;
               return deleteEvent(ev);
             case 2:
-              if (!_context.v) {
-                _context.n = 3;
+              if (!_context2.v) {
+                _context2.n = 3;
                 break;
               }
               refresh(true);
             case 3:
               if (!(act === 'done')) {
-                _context.n = 7;
+                _context2.n = 7;
                 break;
               }
               closePopover();
-              _context.p = 4;
-              _context.n = 5;
+              _context2.p = 4;
+              _context2.n = 5;
               return api('done', {
                 id: ev.id,
                 occ: ev.occ,
@@ -794,27 +843,27 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               ev.done = !ev.done;
               render();
               toast(ev.done ? 'Afgevinkt ✓' : 'Weer open gezet');
-              _context.n = 7;
+              _context2.n = 7;
               break;
             case 6:
-              _context.p = 6;
-              _t = _context.v;
-              toast(_t.message);
+              _context2.p = 6;
+              _t2 = _context2.v;
+              toast(_t2.message);
             case 7:
               if (!(act === 'copy')) {
-                _context.n = 12;
+                _context2.n = 12;
                 break;
               }
               closePopover();
-              _context.p = 8;
-              _context.n = 9;
+              _context2.p = 8;
+              _context2.n = 9;
               return api('duplicate', {
                 id: ev.id,
                 occ: ev.occ
               });
             case 9:
-              r2 = _context.v;
-              _context.n = 10;
+              r2 = _context2.v;
+              _context2.n = 10;
               return refresh(true);
             case 10:
               toast('Kopie gemaakt: sleep hem naar een andere dag');
@@ -822,69 +871,69 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
                 return x.id === r2.id;
               });
               if (copy) edit(copy);
-              _context.n = 12;
+              _context2.n = 12;
               break;
             case 11:
-              _context.p = 11;
-              _t2 = _context.v;
-              toast(_t2.message);
+              _context2.p = 11;
+              _t3 = _context2.v;
+              toast(_t3.message);
             case 12:
-              return _context.a(2);
+              return _context2.a(2);
           }
-        }, _callee, null, [[8, 11], [4, 6]]);
+        }, _callee2, null, [[8, 11], [4, 6]]);
       }));
-      return function (_x2) {
-        return _ref0.apply(this, arguments);
+      return function (_x3) {
+        return _ref1.apply(this, arguments);
       };
     }());
   }
   document.addEventListener('pointerdown', function (e) {
     if (pop && !pop.contains(e.target) && !e.target.closest('[data-key]')) closePopover();
   });
-  function edit(_x3) {
+  function edit(_x4) {
     return _edit.apply(this, arguments);
   }
   function _edit() {
-    _edit = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(ev) {
-      var r, saved, _t4;
-      return _regenerator().w(function (_context3) {
-        while (1) switch (_context3.p = _context3.n) {
+    _edit = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(ev) {
+      var r, saved, _t5;
+      return _regenerator().w(function (_context4) {
+        while (1) switch (_context4.p = _context4.n) {
           case 0:
-            _context3.p = 0;
-            _context3.n = 1;
+            _context4.p = 0;
+            _context4.n = 1;
             return api('event', undefined, {
               id: ev.id,
               occ: ev.occ
             });
           case 1:
-            r = _context3.v;
-            _context3.n = 2;
+            r = _context4.v;
+            _context4.n = 2;
             return openEditor(r.event);
           case 2:
-            saved = _context3.v;
+            saved = _context4.v;
             if (saved) refresh(true);
-            _context3.n = 4;
+            _context4.n = 4;
             break;
           case 3:
-            _context3.p = 3;
-            _t4 = _context3.v;
-            toast(_t4.message);
+            _context4.p = 3;
+            _t5 = _context4.v;
+            toast(_t5.message);
           case 4:
-            return _context3.a(2);
+            return _context4.a(2);
         }
-      }, _callee3, null, [[0, 3]]);
+      }, _callee4, null, [[0, 3]]);
     }));
     return _edit.apply(this, arguments);
   }
-  function createAt(_x4, _x5, _x6, _x7) {
+  function createAt(_x5, _x6, _x7, _x8) {
     return _createAt.apply(this, arguments);
   } // ---------- Drag & drop ----------
   // One gesture object at a time. Mouse: drag starts after 4px. Touch: hold 350 ms first.
   function _createAt() {
-    _createAt = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(start, end, allDay, extra) {
+    _createAt = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(start, end, allDay, extra) {
       var s, e, preset, saved, d, r;
-      return _regenerator().w(function (_context4) {
-        while (1) switch (_context4.n) {
+      return _regenerator().w(function (_context5) {
+        while (1) switch (_context5.n) {
           case 0:
             s = start;
             e = end || (allDay ? s : addMinutes(s, 60));
@@ -895,10 +944,10 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               members: state.members.length === 1 ? state.members.slice() : [],
               type: state.type || 'OTHER'
             }, extra || {});
-            _context4.n = 1;
+            _context5.n = 1;
             return openEditor(preset);
           case 1:
-            saved = _context4.v;
+            saved = _context5.v;
             removeSelection();
             if (saved) {
               if (saved.start) {
@@ -909,9 +958,9 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               refresh(true);
             }
           case 2:
-            return _context4.a(2);
+            return _context5.a(2);
         }
-      }, _callee4);
+      }, _callee5);
     }));
     return _createAt.apply(this, arguments);
   }
@@ -1230,53 +1279,53 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     scrollTimer = null;
     document.body.style.cursor = '';
   }
-  function finishDrag(_x8) {
+  function finishDrag(_x9) {
     return _finishDrag.apply(this, arguments);
   } // Clicks on day headers / month day numbers / year days go to that day
   function _finishDrag() {
-    _finishDrag = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(gesture) {
-      var res, ev, scope, before, fmt, r, what, _t6;
-      return _regenerator().w(function (_context6) {
-        while (1) switch (_context6.p = _context6.n) {
+    _finishDrag = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(gesture) {
+      var res, ev, scope, before, fmt, r, what, _t7;
+      return _regenerator().w(function (_context7) {
+        while (1) switch (_context7.p = _context7.n) {
           case 0:
             res = gesture.result;
             if (res) {
-              _context6.n = 1;
+              _context7.n = 1;
               break;
             }
             render();
-            return _context6.a(2);
+            return _context7.a(2);
           case 1:
             if (!(gesture.mode === 'create')) {
-              _context6.n = 2;
+              _context7.n = 2;
               break;
             }
             createAt(res.s, res.e, res.allDay);
-            return _context6.a(2);
+            return _context7.a(2);
           case 2:
             ev = gesture.ev;
             if (!(+res.s === +ev.s && +res.e === +ev.e)) {
-              _context6.n = 3;
+              _context7.n = 3;
               break;
             }
             render();
-            return _context6.a(2);
+            return _context7.a(2);
           case 3:
             scope = 'all';
             if (!ev.recurring) {
-              _context6.n = 5;
+              _context7.n = 5;
               break;
             }
-            _context6.n = 4;
+            _context7.n = 4;
             return askScope('move');
           case 4:
-            scope = _context6.v;
+            scope = _context7.v;
             if (scope) {
-              _context6.n = 5;
+              _context7.n = 5;
               break;
             }
             render();
-            return _context6.a(2);
+            return _context7.a(2);
           case 5:
             before = {
               s: ev.s,
@@ -1288,8 +1337,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
             fmt = function fmt(d) {
               return res.allDay ? ymd(d) : local(d);
             };
-            _context6.p = 6;
-            _context6.n = 7;
+            _context7.p = 6;
+            _context7.n = 7;
             return api('move', {
               id: ev.id,
               occ: ev.occ,
@@ -1299,16 +1348,16 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               scope: scope
             });
           case 7:
-            r = _context6.v;
+            r = _context7.v;
             what = gesture.mode === 'move' ? 'Verplaatst naar ' + dayLong(res.s) + (res.allDay ? '' : ' ' + fmtTime(res.s)) : 'Tijd aangepast: ' + (res.allDay ? dayLong(res.e) : fmtTime(res.s) + '–' + fmtTime(res.e));
             if (!ev.recurring) {
-              toast(what, 'Ongedaan maken', /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
-                var _t5;
-                return _regenerator().w(function (_context5) {
-                  while (1) switch (_context5.p = _context5.n) {
+              toast(what, 'Ongedaan maken', /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
+                var _t6;
+                return _regenerator().w(function (_context6) {
+                  while (1) switch (_context6.p = _context6.n) {
                     case 0:
-                      _context5.p = 0;
-                      _context5.n = 1;
+                      _context6.p = 0;
+                      _context6.n = 1;
                       return api('move', {
                         id: r.id,
                         occ: ymd(res.s),
@@ -1318,36 +1367,36 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
                         scope: 'all'
                       });
                     case 1:
-                      _context5.n = 3;
+                      _context6.n = 3;
                       break;
                     case 2:
-                      _context5.p = 2;
-                      _t5 = _context5.v;
-                      toast(_t5.message);
+                      _context6.p = 2;
+                      _t6 = _context6.v;
+                      toast(_t6.message);
                     case 3:
                       refresh(true);
                     case 4:
-                      return _context5.a(2);
+                      return _context6.a(2);
                   }
-                }, _callee5, null, [[0, 2]]);
+                }, _callee6, null, [[0, 2]]);
               })));
             } else {
               toast(what);
             }
             refresh(true);
-            _context6.n = 9;
+            _context7.n = 9;
             break;
           case 8:
-            _context6.p = 8;
-            _t6 = _context6.v;
+            _context7.p = 8;
+            _t7 = _context7.v;
             ev.s = before.s;
             ev.e = before.e;
             render();
-            toast(_t6.message);
+            toast(_t7.message);
           case 9:
-            return _context6.a(2);
+            return _context7.a(2);
         }
-      }, _callee6, null, [[6, 8]]);
+      }, _callee7, null, [[6, 8]]);
     }));
     return _finishDrag.apply(this, arguments);
   }

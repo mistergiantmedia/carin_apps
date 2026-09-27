@@ -64,6 +64,12 @@ function day_events_html(array $events, array $bdays): string
         if ($ev['location']) {
             $meta[] = '📍 ' . $ev['location'];
         }
+        if (!empty($ev['drop_open'])) {
+            $meta[] = '🚗 ❓ wie brengt?';
+        }
+        if (!empty($ev['pickup_open'])) {
+            $meta[] = '🏠 ❓ wie haalt?';
+        }
         if ($ev['drop_member_id'] && member((int) $ev['drop_member_id'])) {
             $meta[] = '🚗 ' . member((int) $ev['drop_member_id'])['name'];
         }
