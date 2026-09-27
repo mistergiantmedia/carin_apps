@@ -563,6 +563,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
         var day = DAYS[d.getDay()];
         var texts = {
           DAILY: 'Elke dag',
+          WEEKDAYS: 'Elke weekdag (maandag t/m vrijdag)',
           WEEKLY: 'Elke week op ' + day,
           BIWEEKLY: 'Om de week op ' + day,
           MONTHLY: 'Elke maand op de ' + d.getDate() + 'e',

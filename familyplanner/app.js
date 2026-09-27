@@ -355,7 +355,7 @@
         const rule = f.elements.recurrence.value;
         const d = parse(f.elements.startDate.value || ymd(new Date()));
         const day = DAYS[d.getDay()];
-        const texts = { DAILY: 'Elke dag', WEEKLY: 'Elke week op ' + day, BIWEEKLY: 'Om de week op ' + day,
+        const texts = { DAILY: 'Elke dag', WEEKDAYS: 'Elke weekdag (maandag t/m vrijdag)', WEEKLY: 'Elke week op ' + day, BIWEEKLY: 'Om de week op ' + day,
           MONTHLY: 'Elke maand op de ' + d.getDate() + 'e', YEARLY: 'Elk jaar op ' + d.getDate() + ' ' + MONTHS[d.getMonth()] };
         const box = f.querySelector('.repeat-until');
         box.style.display = rule ? 'flex' : 'none'; // not .hidden: the inline display:flex would win

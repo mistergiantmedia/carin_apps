@@ -20,6 +20,7 @@ function occurrence_start(DateTime $base, string $rule, int $n): ?DateTime
     $d = clone $base;
     switch ($rule) {
         case 'DAILY':
+        case 'WEEKDAYS': // weekend days are skipped by load_events()
             return $d->modify("+$n day");
         case 'WEEKLY':
             return $d->modify('+' . (7 * $n) . ' day');
@@ -45,7 +46,7 @@ function occurrence_start(DateTime $base, string $rule, int $n): ?DateTime
 function rule_days(string $rule): int
 {
     // Rounded up for months/years so the jump never passes an occurrence in range
-    $days = ['DAILY' => 1, 'WEEKLY' => 7, 'BIWEEKLY' => 14, 'MONTHLY' => 31, 'YEARLY' => 366];
+    $days = ['DAILY' => 1, 'WEEKDAYS' => 1, 'WEEKLY' => 7, 'BIWEEKLY' => 14, 'MONTHLY' => 31, 'YEARLY' => 366];
     return $days[$rule] ?? 1;
 }
 
@@ -153,6 +154,9 @@ function load_events(string $from, string $to, array $filter = []): array
             $occ = $s->format('Y-m-d');
             if ($occ >= $to || $occ > $until) {
                 break;
+            }
+            if ($ev['recurrence'] === 'WEEKDAYS' && (int) $s->format('N') >= 6) {
+                continue; // Monday to Friday only
             }
             $e = clone $s;
             if ($ev['all_day']) {
