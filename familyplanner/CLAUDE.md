@@ -46,3 +46,12 @@ Changes go through a new numbered file in `migrations/` (never edit one that has
 ## Local testing (optional)
 Portable PHP 7.4 + MariaDB + puppeteer-core can be used from a scratchpad to lint (`php -l`), run the app with
 `php -S` and screenshot pages; nothing of that is in the repo.
+
+## Old browsers (LG webOS 3.5 TV = Chrome 38)
+The family's LG 55SJ850V (2017) runs Chrome 38: no CSS variables, grid, flex gap or ES2015+.
+Pages load `app.js`/`photo.js`/page scripts as `type="module"` (modern browsers) and the ES5 builds in
+`legacy/` with `nomodule` (old browsers), plus `legacy/style.css` (variables and color-mix resolved,
+grid → flexbox) via a `nomodule` document.write in the head.
+**After changing style.css, app.js, calendar.js or photo.js, rebuild and commit `legacy/`:**
+`cd _legacy && npm install --ignore-scripts && node build.js` (needs Node; see `_legacy/build.js`).
+Hand-written ES5 helpers for old browsers are in `_legacy/dom.js`, extra layout rules in `_legacy/extra.css`.

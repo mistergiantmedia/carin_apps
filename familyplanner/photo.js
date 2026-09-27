@@ -7,6 +7,8 @@
    override with data-aspect="1|0.8|1.5|orig" on the input. */
 (function () {
   'use strict';
+  // The cropped photo goes back into the form through DataTransfer; browsers without it keep the normal file field
+  try { new DataTransfer(); } catch (e) { return; }
   const MAX_OUT = 1600; // px, longest side of the result (the server resizes again anyway)
   const ASPECTS = [['1', 'Vierkant'], ['0.8', 'Staand'], ['1.5', 'Liggend'], ['orig', 'Origineel']];
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

@@ -438,6 +438,7 @@ function page_start(string $title, array $options = []): void
 <title><?= e($title) ?> · Familie Planner</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏡</text></svg>">
 <link rel="stylesheet" href="style.css?v=<?= ASSET_VERSION ?>">
+<script nomodule>document.write('<link rel="stylesheet" href="legacy/style.css?v=<?= ASSET_VERSION ?>">');</script>
 <?= $options['head'] ?? '' ?>
 </head>
 <body class="<?= e($options['bodyClass'] ?? '') ?>">
@@ -479,10 +480,15 @@ function page_end(array $scripts = []): void
     if (current_user()) {
         echo '<script>window.FP_DATA = ' . json_encode(front_end_data(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) . ';</script>' . "\n";
     }
-    echo '<script src="app.js?v=' . ASSET_VERSION . '"></script>' . "\n";
-    echo '<script src="photo.js?v=' . ASSET_VERSION . '"></script>' . "\n";
-    foreach ($scripts as $s) {
-        echo '<script src="' . e($s) . '?v=' . ASSET_VERSION . '"></script>' . "\n";
+    // Modern browsers run the scripts as modules; old ones (no module support, e.g. LG webOS 3 TVs)
+    // skip those and run the ES5 builds from legacy/ instead (see _legacy/build.js).
+    $all = array_merge(['app.js', 'photo.js'], $scripts);
+    echo '<script nomodule src="legacy/polyfills.js?v=' . ASSET_VERSION . '"></script>' . "\n";
+    foreach ($all as $s) {
+        echo '<script nomodule src="legacy/' . e($s) . '?v=' . ASSET_VERSION . '"></script>' . "\n";
+    }
+    foreach ($all as $s) {
+        echo '<script type="module" src="' . e($s) . '?v=' . ASSET_VERSION . '"></script>' . "\n";
     }
     echo "</body>\n</html>\n";
 }

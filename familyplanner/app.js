@@ -348,7 +348,7 @@
         const texts = { DAILY: 'Elke dag', WEEKLY: 'Elke week op ' + day, BIWEEKLY: 'Om de week op ' + day,
           MONTHLY: 'Elke maand op de ' + d.getDate() + 'e', YEARLY: 'Elk jaar op ' + d.getDate() + ' ' + MONTHS[d.getMonth()] };
         const box = f.querySelector('.repeat-until');
-        box.hidden = !rule;
+        box.style.display = rule ? 'flex' : 'none'; // not .hidden: the inline display:flex would win
         box.querySelector('.repeat-text').textContent = rule ? texts[rule] + ',' : '';
       };
       f.querySelectorAll('[name=recurrence]').forEach((r) => r.addEventListener('change', syncRepeat));

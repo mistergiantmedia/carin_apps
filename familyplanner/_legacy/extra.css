@@ -1,0 +1,62 @@
+/* Appended to legacy/style.css by build.js. Only old browsers (no ES modules) load that file.
+   Old engines (Chrome 38 on webOS 3.x) have no CSS grid and no flex "gap": flexbox layouts with margins. */
+
+/* Grid → flex */
+.grid,.year-grid{display:flex;flex-wrap:wrap;margin-right:-14px}
+.grid>*,.year-grid>*{flex:1 1 260px;min-width:0;margin:0 14px 14px 0!important}
+.grid.small>*{flex-basis:200px}
+.grid.tiny>*{flex-basis:130px}
+.year-grid>*{flex-basis:220px}
+.faces,.bingo,.photo-grid{display:flex;flex-wrap:wrap}
+.faces>*{width:124px;margin:0 12px 12px 0}
+.bingo>*{width:122px;margin:0 10px 10px 0}
+.photo-grid>*{width:170px;margin:0 12px 12px 0}
+.cols{display:flex;align-items:flex-start}
+.cols>*{flex:1 1 0;min-width:0}
+.cols>*:first-child{flex-grow:1.6;margin-right:18px}
+.cols.even>*:first-child{flex-grow:1}
+.row2,.row3{display:flex}
+.row2>*,.row3>*{flex:1 1 0;min-width:0}
+.row2>*+*{margin-left:12px}
+.row3>*+*{margin-left:8px}
+.family-strip,.kid-week{display:flex}
+.family-strip>*,.kid-week>*{flex:1 1 0;min-width:0}
+.family-strip>*+*{margin-left:12px}
+.kid-week>*+*{margin-left:10px}
+.matrix{display:block}
+.matrix-row{display:flex;margin-bottom:10px}
+.matrix-row>*{flex:1 1 0;min-width:0}
+.matrix-row>*+*{margin-left:6px}
+.matrix-row>*:first-child{flex:0 0 140px}
+/* Calendar */
+.cal-head,.cal-allday,.cal-body{display:flex}
+.cal-head>.gutter,.cal-allday>.gutter,.cal-times{flex:0 0 56px;width:56px}
+.cal-dayhead,.cal-allday>.cell,.cal-col{flex:1 1 0;min-width:0}
+.cal-month{display:flex;flex-wrap:wrap}
+.cal-month>.mh{width:14.2857%}
+.cal-week-row{width:100%;display:flex}
+.cal-mcell{flex:1 1 0;min-width:0}
+.cal-head{position:relative}
+
+/* Flex gap → margins */
+.picker>*,.quick>*,.head-actions>*,.filters>*,.form-actions>*,.s-actions>*,.pop-actions>*,.cal-toolbar>*,.cal-filters>*,.type-picker>*,.people-chosen>*,.photo-previews>*,.tabs>*{margin-right:6px!important;margin-bottom:6px!important}
+.hello>*,.page-head>*,.fam-head>*,.suggest>*,.list>li>*,.ev>*,.kid-hero>*,.photo-field>*,.sidebar-user>*,.nav>*,.check>*,.balance>*,.book-status>*,.section-title>*,.section-title h2>*,.pop-head>*,.modal-head>*,.modal-foot>*,.bottombar>*{margin-right:10px}
+.hello>*:last-child,.page-head>*:last-child,.list>li>*:last-child,.ev>*:last-child,.modal-foot>*:last-child,.section-title>*:last-child{margin-right:0}
+.sidebar-family>*{margin:0 6px 6px 0}
+.kid-day>*+*,.stack>*+*,.crop-tools>*+*,.fam>*+*{margin-top:8px}
+.kid-item .ki-friends>*{margin:0 3px 6px}
+.cal-nav>*+*{margin-left:4px}
+
+/* Inline style="display:flex;gap:…" in the pages */
+[style*="gap"]>*{margin-right:8px}
+[style*="gap"]>*:last-child{margin-right:0}
+[style*="flex-wrap:wrap"]>*{margin-bottom:6px}
+.quick-member>*+*{margin-left:8px}
+
+/* Missing prefixes */
+.cal,.pick span,.crop-frame{-webkit-user-select:none}
+
+/* <dialog> stand-in (dom.js) */
+dialog.dlg-poly{display:none}
+dialog.dlg-poly[open]{display:block;position:fixed;top:50%;left:50%;-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%);z-index:100;margin:0;overflow:auto}
+.dlg-backdrop{display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(27,21,44,.6);z-index:99}

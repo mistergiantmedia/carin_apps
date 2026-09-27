@@ -1,0 +1,12 @@
+{
+  "name": "familyplanner-legacy-build",
+  "private": true,
+  "description": "Builds legacy/ (ES5 JS + static CSS) for old browsers such as LG webOS 3.x TVs (Chrome 38). Run: node build.js",
+  "devDependencies": {
+    "@babel/core": "^7.25.0",
+    "@babel/preset-env": "^7.25.0",
+    "core-js-bundle": "^3.38.0",
+    "whatwg-fetch": "^3.6.20",
+    "pepjs": "^0.5.3"
+  }
+}
