@@ -30,17 +30,17 @@ function where_text(array $ev): string
     return $ev['location'] ? '📍 ' . $ev['location'] : '';
 }
 
-/** Colourful 7-day board for a child, with big friend photos. */
-function kid_week_board(array $kid, string $weekStart, bool $showDone = true): string
+/** Colourful board of $days days for a child (default Saturday to the Sunday after: two weekends), with big friend photos. */
+function kid_week_board(array $kid, string $weekStart, bool $showDone = true, int $days = 9): string
 {
-    $weekEnd = date('Y-m-d', strtotime("$weekStart +7 day"));
+    $weekEnd = date('Y-m-d', strtotime("$weekStart +$days day"));
     $events = array_values(array_filter(load_events($weekStart, $weekEnd), function ($ev) use ($kid) {
         return in_array((int) $kid['id'], $ev['members'], true);
     }));
     $birthdays = load_birthdays($weekStart, $weekEnd, ['members' => [(int) $kid['id']]]);
     $byDay = group_by_day($events, $birthdays, $weekStart, $weekEnd);
     $html = '<div class="kid-week" style="--c:' . e($kid['color']) . '">';
-    for ($i = 0; $i < 7; $i++) {
+    for ($i = 0; $i < $days; $i++) {
         $d = date('Y-m-d', strtotime("$weekStart +$i day"));
         $w = (int) date('w', strtotime($d));
         $html .= '<div class="kid-day' . ($d === today() ? ' today' : '') . ($w === 0 || $w === 6 ? ' weekend' : '') . '">'

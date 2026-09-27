@@ -226,7 +226,9 @@ details.more[open]>summary::before{content:'－ '}
 .kid-hero{display:flex;align-items:center;gap:18px;padding:22px;border-radius:26px;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 22%,var(--card)),var(--card));border:1px solid var(--line);margin-bottom:20px;flex-wrap:wrap}
 .kid-hero h1{font-size:34px}
 .kid-hero .avatar{box-shadow:0 0 0 5px var(--card)}
-.kid-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+.kid-week{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:8px}
+.kid-week .kid-day{padding:8px 6px}
+.kid-week .kid-day-head .dn{font-size:15px}
 .kid-day{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:10px;min-height:180px;display:flex;flex-direction:column;gap:8px}
 .kid-day.today{border:2.5px solid var(--c);box-shadow:0 6px 22px color-mix(in srgb,var(--c) 25%,transparent)}
 .kid-day.weekend{background:var(--card2)}

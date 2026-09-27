@@ -44,14 +44,16 @@ page_start($m['name'], ['active' => 'gezin.php']);
 
 <?php if ($isKid):
     $weekOffset = (int) ($_GET['week'] ?? 0);
-    $weekStart = date('Y-m-d', strtotime('monday this week', strtotime(today())) + $weekOffset * 7 * 86400);
-    $weekStart = date('Y-m-d', strtotime($weekStart));
-    $tasks = load_tasks(['member' => $id, 'until' => date('Y-m-d', strtotime("$weekStart +6 day"))]);
+    // Saturday to the Sunday after (two weekends): on Saturday the children see the whole coming week
+    $saturday = date('w') === '6' ? today() : date('Y-m-d', strtotime('last saturday', strtotime(today())));
+    $weekStart = date('Y-m-d', strtotime($saturday . ' ' . ($weekOffset >= 0 ? '+' : '') . ($weekOffset * 7) . ' day'));
+    $weekLast = date('Y-m-d', strtotime("$weekStart +8 day"));
+    $tasks = load_tasks(['member' => $id, 'until' => $weekLast]);
     $friends = friends_of($id, true);
     $stats = playdate_stats($id);
 ?>
   <div class="section-title">
-    <h2>🗓 <?= $weekOffset === 0 ? 'Mijn week' : ($weekOffset === 1 ? 'Volgende week' : 'Week ' . (int) date('W', strtotime($weekStart))) ?></h2>
+    <h2>🗓 <?= $weekOffset === 0 ? 'Mijn week' : ($weekOffset === 1 ? 'Volgende week' : 'Week ' . (int) date('W', strtotime("$weekStart +2 day"))) ?> <span class="muted small" style="font-weight:600"><?= e(format_date_short($weekStart)) ?> – <?= e(format_date_short($weekLast)) ?></span></h2>
     <div class="head-actions no-print">
       <a class="btn secondary small" href="?id=<?= $id ?>&amp;week=<?= $weekOffset - 1 ?>">‹ vorige</a>
       <?php if ($weekOffset): ?><a class="btn secondary small" href="?id=<?= $id ?>">deze week</a><?php endif; ?>

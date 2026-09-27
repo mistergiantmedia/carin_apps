@@ -223,7 +223,9 @@ details.more[open]>summary::before{content:'－ '}
 .kid-hero{display:flex;align-items:center;gap:18px;padding:22px;border-radius:26px;background:linear-gradient(135deg,rgb(223,219,250),#fff);border:1px solid #ECE5DC;margin-bottom:20px;flex-wrap:wrap}
 .kid-hero h1{font-size:34px}
 .kid-hero .avatar{box-shadow:0 0 0 5px #fff}
-.kid-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+.kid-week{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:8px}
+.kid-week .kid-day{padding:8px 6px}
+.kid-week .kid-day-head .dn{font-size:15px}
 .kid-day{background:#fff;border:1px solid #ECE5DC;border-radius:20px;padding:10px;min-height:180px;display:flex;flex-direction:column;gap:8px}
 .kid-day.today{border:2.5px solid #6C5CE7;box-shadow:0 6px 22px rgba(108,92,231,0.250)}
 .kid-day.weekend{background:#FBF6EF}
@@ -542,7 +544,7 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 .family-strip,.kid-week{display:flex}
 .family-strip>*,.kid-week>*{flex:1 1 0;min-width:0}
 .family-strip>*+*{margin-left:12px}
-.kid-week>*+*{margin-left:10px}
+.kid-week>*+*{margin-left:8px}
 .matrix{display:block}
 .matrix-row{display:flex;margin-bottom:10px}
 .matrix-row>*{flex:1 1 0;min-width:0}
