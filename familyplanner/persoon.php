@@ -46,7 +46,7 @@ page_start($m['name'], ['active' => 'gezin.php']);
 
 <?php $myGroups = load_groups(['member' => $id]); if ($myGroups): ?>
   <div class="picker" style="margin:-8px 0 14px">
-    <?php foreach ($myGroups as $g): ?><a class="group-chip" href="groepen.php?id=<?= (int) $g['id'] ?>"><?= group_type($g['type'])[1] ?> <?= e(group_label($g)) ?><?= $g['members'][$id] ? ' <span class="muted">· ' . e($g['members'][$id]) . '</span>' : '' ?></a><?php endforeach; ?>
+    <?php foreach ($myGroups as $g): ?><a class="group-chip" href="groepen.php?id=<?= (int) $g['id'] ?>"><?= e(group_emoji($g)) ?> <?= e(group_label($g)) ?><?= $g['members'][$id] ? ' <span class="muted">· ' . e($g['members'][$id]) . '</span>' : '' ?></a><?php endforeach; ?>
     <a class="group-chip" href="netwerk.php?member=<?= $id ?>">🕸️ Netwerk</a>
   </div>
 <?php endif; ?>

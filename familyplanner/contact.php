@@ -159,7 +159,7 @@ if ($editing) {
         <div class="label">Groepen <small>(klas, sportteam, familie, werk… meerdere kan)</small></div>
         <div class="picker">
           <?php foreach ($allGroups as $g): [$gl, $ge, $gc] = group_type($g['type']); ?>
-            <label class="pick sm" style="--c:<?= e($gc) ?>"><input type="checkbox" name="groups[]" value="<?= (int) $g['id'] ?>"<?= in_array((int) $g['id'], $fGroups, true) ? ' checked' : '' ?>><span><?= $ge ?> <?= e(group_label($g)) ?></span></label>
+            <label class="pick sm" style="--c:<?= e($gc) ?>"><input type="checkbox" name="groups[]" value="<?= (int) $g['id'] ?>"<?= in_array((int) $g['id'], $fGroups, true) ? ' checked' : '' ?>><span><?= e(group_emoji($g)) ?> <?= e(group_label($g)) ?></span></label>
           <?php endforeach; ?>
         </div>
       <?php endif; ?>
@@ -231,7 +231,7 @@ page_start(contact_name($c), ['active' => 'mensen.php']);
         <?php if ($c['household_id']): ?><li>🏠 <a href="huishouden.php?id=<?= (int) $c['household_id'] ?>"><?= e($c['household_name']) ?></a></li><?php endif; ?>
         <?php if ($c['allergies']): ?><li>⚠️ <b><?= e($c['allergies']) ?></b></li><?php endif; ?>
         <?php if ($c['hourly_rate'] !== null): ?><li>💶 <?= e(money((float) $c['hourly_rate'])) ?> per uur</li><?php endif; ?>
-        <?php if ($inGroups): ?><li style="flex-wrap:wrap;gap:6px"><?php foreach ($inGroups as $g): ?><a class="group-chip" href="groepen.php?id=<?= (int) $g['id'] ?>"><?= group_type($g['type'])[1] ?> <?= e(group_label($g)) ?><?= !empty($myRoles[$g['id']]) ? ' <span class="muted">· ' . e($myRoles[$g['id']]) . '</span>' : '' ?></a><?php endforeach; ?> <a class="small" href="netwerk.php?contact=<?= $id ?>">🕸️ netwerk</a></li><?php endif; ?>
+        <?php if ($inGroups): ?><li style="flex-wrap:wrap;gap:6px"><?php foreach ($inGroups as $g): ?><a class="group-chip" href="groepen.php?id=<?= (int) $g['id'] ?>"><?= e(group_emoji($g)) ?> <?= e(group_label($g)) ?><?= !empty($myRoles[$g['id']]) ? ' <span class="muted">· ' . e($myRoles[$g['id']]) . '</span>' : '' ?></a><?php endforeach; ?> <a class="small" href="netwerk.php?contact=<?= $id ?>">🕸️ netwerk</a></li><?php endif; ?>
         <?php if ($c['notes']): ?><li style="white-space:pre-line;display:block">📝 <?= e($c['notes']) ?></li><?php endif; ?>
       </ul>
       <?php if (!$phone && !$email && !$address && !$c['notes']): ?><p class="muted">Nog geen gegevens. <a href="contact.php?id=<?= $id ?>&amp;edit=1">Aanvullen</a></p><?php endif; ?>

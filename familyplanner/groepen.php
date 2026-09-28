@@ -30,11 +30,11 @@ if (is_post()) {
                 throw new RuntimeException('Geef de groep een naam, bijvoorbeeld “Groep 5” of “Voetbal JO9”.');
             }
             $type = isset(GROUP_TYPES[post('type')]) ? post('type') : 'OTHER';
-            $data = [$type, mb_cut(post('name'), 120), post_or_null('place'), post_or_null('season'), post_or_null('leader'), post_or_null('notes')];
+            $data = [$type, post('emoji') !== '' ? mb_cut(post('emoji'), 16) : null, mb_cut(post('name'), 120), post_or_null('place'), post_or_null('season'), post_or_null('leader'), post_or_null('notes')];
             if ($group) {
-                db()->prepare('UPDATE fp_groups SET type = ?, name = ?, place = ?, season = ?, leader = ?, notes = ? WHERE id = ?')->execute(array_merge($data, [$gid]));
+                db()->prepare('UPDATE fp_groups SET type = ?, emoji = ?, name = ?, place = ?, season = ?, leader = ?, notes = ? WHERE id = ?')->execute(array_merge($data, [$gid]));
             } else {
-                db()->prepare('INSERT INTO fp_groups (type, name, place, season, leader, notes) VALUES (?, ?, ?, ?, ?, ?)')->execute($data);
+                db()->prepare('INSERT INTO fp_groups (type, emoji, name, place, season, leader, notes) VALUES (?, ?, ?, ?, ?, ?, ?)')->execute($data);
                 $gid = (int) db()->lastInsertId();
             }
             // Which of us are in this group
@@ -139,7 +139,7 @@ page_start($group ? $group['name'] : 'Groepen', ['active' => 'groepen.php']);
 
 // ---------- Add / edit ----------
 if ($editing):
-    $g = $group ?: ['id' => '', 'type' => $type ?: 'SCHOOL', 'name' => '', 'place' => '', 'season' => $type === 'SCHOOL' || !$type ? school_year() : '', 'leader' => '', 'notes' => ''];
+    $g = $group ?: ['id' => '', 'type' => $type ?: 'SCHOOL', 'emoji' => '', 'name' => '', 'place' => '', 'season' => $type === 'SCHOOL' || !$type ? school_year() : '', 'leader' => '', 'notes' => ''];
     if ($error && !empty($_POST)) {
         $g = array_merge($g, array_intersect_key($_POST, $g));
     }
@@ -164,7 +164,9 @@ if ($editing):
       <?php endforeach; ?>
     </div>
     <div class="row2">
-      <div><label>Naam</label><input name="name" value="<?= e($g['name']) ?>" placeholder="Groep 5, Voetbal JO9, Familie Reilman…" required></div>
+      <div><label>Naam</label>
+        <div style="display:flex;gap:8px;position:relative"><input name="emoji" value="<?= e($g['emoji'] ?? '') ?>" data-emoji-picker data-default="<?= e(group_type($g['type'])[1]) ?>" aria-label="Eigen emoji">
+        <input name="name" value="<?= e($g['name']) ?>" placeholder="Groep 5, Voetbal JO9, Familie Reilman…" required></div></div>
       <div><label>Waar <small>(school, club, bedrijf)</small></label><input name="place" value="<?= e($g['place']) ?>"></div>
     </div>
     <div class="row2">
@@ -176,6 +178,20 @@ if ($editing):
     <label>Notities</label><textarea name="notes" rows="2" placeholder="Trainingstijden, groepsapp, gymdagen…"><?= e($g['notes']) ?></textarea>
     <div class="form-actions"><button class="btn">Opslaan</button></div>
   </form>
+  <script>
+  // The emoji button shows the type's emoji until you pick your own (ES5 for old TVs)
+  (function () {
+    var types = <?= json_encode(array_map(function ($t) { return $t[1]; }, GROUP_TYPES), JSON_UNESCAPED_UNICODE) ?>;
+    var radios = document.querySelectorAll('input[name=type]');
+    for (var i = 0; i < radios.length; i++) {
+      radios[i].addEventListener('change', function () {
+        var input = document.querySelector('input[name=emoji]');
+        input.setAttribute('data-default', types[this.value]);
+        var ev = document.createEvent('Event'); ev.initEvent('fp:emoji-default', false, false); input.dispatchEvent(ev);
+      });
+    }
+  })();
+  </script>
   <?php if ($group): ?>
     <form method="post" data-confirm="De groep wordt verwijderd. De mensen blijven in het adresboek." style="margin-top:12px"><?= csrf_field() ?><input type="hidden" name="action" value="delete_group"><input type="hidden" name="group_id" value="<?= (int) $group['id'] ?>"><button class="btn danger small">🗑 Groep verwijderen</button></form>
   <?php endif;
@@ -207,7 +223,7 @@ elseif ($group):
   <p class="no-print"><a href="groepen.php?type=<?= e($group['type']) ?>">← <?= e($tLabel) ?></a></p>
   <div class="card" style="border-left:8px solid <?= e($tColor) ?>;margin-bottom:14px">
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
-      <div style="font-size:40px;line-height:1"><?= $tEmoji ?></div>
+      <div style="font-size:40px;line-height:1"><?= e(group_emoji($group)) ?></div>
       <div style="flex:1;min-width:200px">
         <h1 style="font-size:24px"><?= e($group['name']) ?> <span class="muted" style="font-weight:500;font-size:16px"><?= e($group['season']) ?></span></h1>
         <p class="muted" style="margin:4px 0 0"><?= e(implode(' · ', array_filter([$tLabel, $group['place'], $group['leader'] ? ($leaderLabel ? $leaderLabel . ': ' : '') . $group['leader'] : null, count($contacts) + count($ourMembers) . ' mensen']))) ?></p>
@@ -253,7 +269,7 @@ elseif ($group):
       </div>
     <?php endforeach; ?>
   </div>
-  <?php if (!$contacts && !$ourMembers): ?><div class="card"><?= empty_state($tEmoji, 'Nog niemand in deze groep. Voeg hieronder mensen toe.') ?></div><?php endif; ?>
+  <?php if (!$contacts && !$ourMembers): ?><div class="card"><?= empty_state(e(group_emoji($group)), 'Nog niemand in deze groep. Voeg hieronder mensen toe.') ?></div><?php endif; ?>
 
   <div class="cols even no-print" style="margin-top:18px">
     <form method="post" class="card form">
@@ -340,7 +356,7 @@ else:
     <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">
       <?php foreach ($groups as $g): [$tLabel, $tEmoji, $tColor] = group_type($g['type']); $faces = array_slice(group_contacts((int) $g['id']), 0, 7); ?>
         <a class="card" href="groepen.php?id=<?= (int) $g['id'] ?>" style="color:inherit;text-decoration:none;border-left:6px solid <?= e($tColor) ?>;display:block">
-          <div style="display:flex;gap:10px;align-items:center"><span style="font-size:30px"><?= $tEmoji ?></span>
+          <div style="display:flex;gap:10px;align-items:center"><span style="font-size:30px"><?= e(group_emoji($g)) ?></span>
             <div style="flex:1;min-width:0"><h3 style="margin:0"><?= e($g['name']) ?></h3><span class="muted small"><?= e(implode(' · ', array_filter([$tLabel, $g['place'], $g['season']]))) ?></span></div></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px">
             <span class="avatars"><?php foreach ($g['members'] as $mid => $role): if ($m = member($mid)): ?><?= avatar($m, 30) ?><?php endif; endforeach; ?></span>

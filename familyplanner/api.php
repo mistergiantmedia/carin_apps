@@ -105,7 +105,7 @@ try {
                 'fp_contact_members' => 'contact_id, member_id',
                 'fp_members' => 'id, name, photo, color, emoji, birth_day, birth_month, birth_year, sort',
                 'fp_households' => 'id, name, street, city',
-                'fp_groups' => 'id, type, name, season',
+                'fp_groups' => 'id, type, emoji, name, season',
                 'fp_group_members' => 'group_id, member_id, role',
                 'fp_group_contacts' => 'group_id, contact_id, role',
                 'fp_ideas' => 'id, done_at',
@@ -133,7 +133,7 @@ try {
             }
             foreach (db()->query('SELECT * FROM fp_groups') as $g) {
                 $t = GROUP_TYPES[$g['type']] ?? GROUP_TYPES['OTHER'];
-                $nodes[] = ['id' => 'g' . $g['id'], 'kind' => 'group', 'type' => $g['type'], 'label' => $g['name'] . ($g['season'] ? ' ' . $g['season'] : ''), 'emoji' => $t[1], 'color' => $t[2], 'url' => 'groepen.php?id=' . $g['id'], 'sub' => $t[0] . ($g['place'] ? ' · ' . $g['place'] : '')];
+                $nodes[] = ['id' => 'g' . $g['id'], 'kind' => 'group', 'type' => $g['type'], 'label' => $g['name'] . ($g['season'] ? ' ' . $g['season'] : ''), 'emoji' => ($g['emoji'] ?: $t[1]), 'color' => $t[2], 'url' => 'groepen.php?id=' . $g['id'], 'sub' => $t[0] . ($g['place'] ? ' · ' . $g['place'] : '')];
             }
             foreach (db()->query('SELECT group_id, member_id, role FROM fp_group_members') as $r) {
                 $links[] = ['source' => 'm' . $r['member_id'], 'target' => 'g' . $r['group_id'], 'kind' => 'group', 'role' => $r['role']];

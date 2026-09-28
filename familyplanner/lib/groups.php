@@ -7,6 +7,12 @@ function group_type(string $type): array
     return GROUP_TYPES[$type] ?? GROUP_TYPES['OTHER'];
 }
 
+/** The group's own emoji, or the emoji of its type. */
+function group_emoji(array $g): string
+{
+    return !empty($g['emoji']) ? $g['emoji'] : group_type($g['type'])[1];
+}
+
 function find_group(int $id): ?array
 {
     $stmt = db()->prepare('SELECT * FROM fp_groups WHERE id = ?');
