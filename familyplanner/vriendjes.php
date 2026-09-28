@@ -74,7 +74,7 @@ if (is_post()) {
 }
 
 $years = [];
-foreach (db()->query('SELECT DISTINCT school_year FROM fp_classes WHERE school_year IS NOT NULL ORDER BY school_year DESC') as $r) {
+foreach (db()->query("SELECT DISTINCT season AS school_year FROM fp_groups WHERE type = 'SCHOOL' AND season IS NOT NULL AND season <> '' ORDER BY season DESC") as $r) {
     $years[] = $r['school_year'];
 }
 $year = in_array($_GET['year'] ?? '', $years, true) ? $_GET['year'] : school_year();
@@ -186,7 +186,7 @@ page_start('Vriendjes');
       <?php endforeach; ?>
     </div>
   <?php else: ?>
-    <?= empty_state('🎯', 'Nog niemand op de bingokaart. Voeg de klas van ' . e($kid['name']) . ' toe in het smoelenboek, of koppel vriendjes.', '<a class="btn soft" href="smoelenboek.php?new=1&amp;member=' . $kidId . '">🏫 Klas toevoegen</a>') ?>
+    <?= empty_state('🎯', 'Nog niemand op de bingokaart. Voeg de klas van ' . e($kid['name']) . ' toe bij Groepen & klassen, of koppel vriendjes.', '<a class="btn soft" href="groepen.php?new=1&amp;type=SCHOOL&amp;member=' . $kidId . '">🏫 Klas toevoegen</a>') ?>
   <?php endif; ?>
 </div>
 

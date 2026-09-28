@@ -585,3 +585,37 @@ kbd{background:var(--card2);border:1px solid var(--line);border-radius:6px;paddi
 .bucket-friends{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .friend-tag{display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 2px;border-radius:99px;background:var(--card2);border:1px solid var(--line);font-size:13px;font-weight:700;color:var(--ink)}
 .friend-tag:hover{text-decoration:none;border-color:var(--accent)}
+
+/* Groups */
+.role-form{margin:6px 0 0}
+.role-form input{min-height:28px!important;padding:2px 8px!important;font-size:12px;text-align:center;border-radius:8px!important;border-style:dashed!important;background:transparent!important}
+.group-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;background:var(--card2);border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--ink)}
+.group-chip:hover{text-decoration:none;border-color:var(--accent)}
+
+/* Relations web (netwerk.php / network.js) */
+.net-page .page{padding-bottom:16px}
+.net-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.net-toolbar h1{font-size:24px}
+.net-toolbar .spacer{flex:1}
+.net-toolbar input[type=search]{width:220px!important;flex:0 0 220px}
+.net-wrap{position:relative}
+#net{display:block;width:100%;height:calc(100vh - 170px);min-height:420px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);touch-action:none;cursor:grab}
+#net:active{cursor:grabbing}
+.net-link{stroke-width:2;stroke-opacity:.45}
+.net-link.household{stroke-dasharray:4 3}
+.net-link.friend{stroke-dasharray:2 4;stroke-opacity:.6}
+.net-link.home{stroke-width:3;stroke-opacity:.3}
+.net-node{cursor:pointer}
+.net-node circle{filter:drop-shadow(0 1px 2px rgba(0,0,0,.15))}
+.net-label{font-size:11px;font-weight:700;fill:var(--ink);paint-order:stroke;stroke:var(--card);stroke-width:3px;pointer-events:none}
+.net-node.group .net-label,.net-node.home .net-label{font-size:12.5px;font-weight:800}
+.net-node.household .net-label{font-size:10px;fill:var(--muted)}
+.net-node.selected circle{stroke-width:6}
+.net-node.dim,.net-link.dim{opacity:.12}
+.net-emoji{pointer-events:none}
+.net-panel{position:absolute;top:12px;right:12px;width:290px;max-width:calc(100% - 24px);max-height:calc(100% - 24px);overflow:auto;padding:14px}
+.net-panel h3{font-size:17px}
+.net-panel h4{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:12px 0 4px}
+.net-panel ul{margin:0;padding-left:18px;font-size:14px;line-height:1.7}
+.net-legend{position:absolute;left:14px;bottom:10px;pointer-events:none}
+@media (max-width:700px){#net{height:calc(100vh - 260px)}.net-panel{top:auto;bottom:12px;max-height:45%}}

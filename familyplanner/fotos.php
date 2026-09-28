@@ -51,7 +51,7 @@ if (is_post()) {
 }
 
 $kid = member(get_int('kid'));
-$photos = db()->query('SELECT p.*, k.name AS class_name FROM fp_photos p LEFT JOIN fp_classes k ON k.id = p.class_id ORDER BY p.school_year DESC, p.taken_on DESC, p.id DESC')->fetchAll();
+$photos = db()->query('SELECT p.*, k.name AS class_name FROM fp_photos p LEFT JOIN fp_groups k ON k.id = p.group_id ORDER BY p.school_year DESC, p.taken_on DESC, p.id DESC')->fetchAll();
 $years = [];
 $y = (int) substr(school_year(), 0, 4);
 for ($i = 0; $i < 12; $i++) {

@@ -55,3 +55,15 @@ grid → flexbox) via a `nomodule` document.write in the head.
 **After changing style.css, app.js, calendar.js or photo.js, rebuild and commit `legacy/`:**
 `cd _legacy && npm install --ignore-scripts && node build.js` (needs Node; see `_legacy/build.js`).
 Hand-written ES5 helpers for old browsers are in `_legacy/dom.js`, extra layout rules in `_legacy/extra.css`.
+
+## People and relations (data model)
+- `fp_members`: our family (Carin, Rene, Kaila, Bodi). `fp_users` = logins, linked via `member_id`.
+- `fp_contacts`: everyone else (adults and children). `relation` is one main label (Vriendje, Familie, Oppas…).
+- `fp_households`: people at one address (a friend's family); `fp_contacts.household_id`.
+- `fp_contact_members`: "vriend van" a family member.
+- `fp_groups` (type FAMILY, SCHOOL, SPORT, CLUB, WORK, NEIGHBORHOOD, FRIENDS, OTHER) with
+  `fp_group_members` (our family) and `fp_group_contacts` (address book), both with an optional `role`.
+  Anyone can be in any number of groups. School classes are SCHOOL groups (smoelenboek = groepen.php);
+  the old `fp_classes` / `fp_class_contacts` were copied into groups by migration 010 and are no longer used.
+- `netwerk.php` + `network.js` draw all of this as a relations web (data from `api.php?a=graph`).
+- The auto-refresh fingerprint (`api.php?a=stamp`) lists watched tables in `$watch`; add new tables there.

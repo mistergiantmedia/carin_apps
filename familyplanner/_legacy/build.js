@@ -12,7 +12,7 @@ const babel = require('@babel/core');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(ROOT, 'legacy');
-const SCRIPTS = ['app.js', 'calendar.js', 'photo.js'];
+const SCRIPTS = ['app.js', 'calendar.js', 'photo.js', 'network.js'];
 fs.mkdirSync(OUT, { recursive: true });
 
 // ---------- CSS ----------

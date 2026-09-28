@@ -56,108 +56,74 @@ function occurrence_json(int $id, string $occ): ?array
 try {
     switch ($action) {
         case 'stamp':
-            // Fingerprint of everything shown in the app; pages poll it and refresh when it changes
-            $parts = db()->query("SELECT CONCAT_WS('|',
-                (SELECT CONCAT_WS('-', COUNT(*), MAX(id), MAX(updated_at), SUM(done)) FROM fp_events),
-                (SELECT CONCAT_WS('-', COUNT(*), SUM(event_id * 7 + member_id)) FROM fp_event_members),
-                (SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', event_id, contact_id, rsvp)))) FROM fp_event_contacts),
-                (SELECT COUNT(*) FROM fp_event_done), (SELECT COUNT(*) FROM fp_event_exceptions),
-                (SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', event_id, occurs_on, role, member_id)))) FROM fp_event_duties),
-                (SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', id, title, due_date, member_id, recurrence, done_at)))) FROM fp_tasks),
-                (SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', id, first_name, last_name, nickname, photo, birth_day, birth_month, birth_year, household_id, relation, is_favorite)))) FROM fp_contacts),
-                (SELECT COUNT(*) FROM fp_contact_members), (SELECT COUNT(*) FROM fp_class_contacts),
-                (SELECT SUM(CRC32(CONCAT_WS(',', id, name, photo, color, emoji, birth_day, birth_month, birth_year, sort))) FROM fp_members),
-                (SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', id, name, street, city)))) FROM fp_households),
-                (SELECT CONCAT_WS('-', COUNT(*), COUNT(done_at)) FROM fp_ideas),
-                (SELECT CONCAT_WS('-', COUNT(*), COUNT(returned_on)) FROM fp_friendbook),
-                (SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', id, title, emoji, event_id, done_on)))) FROM fp_bucket),
-                (SELECT CONCAT_WS('-', COUNT(*), SUM(bucket_id * 7 + member_id)) FROM fp_bucket_votes),
-                (SELECT CONCAT_WS('-', COUNT(*), SUM(bucket_id * 13 + contact_id)) FROM fp_bucket_contacts),
-                (SELECT COUNT(*) FROM fp_birthday_checks), (SELECT COUNT(*) FROM fp_photos), (SELECT COUNT(*) FROM fp_classes))")->fetchColumn();
-            reply(['stamp' => md5((string) $parts), 'today' => today()]);
+            // Fingerprint of everything shown in the app; pages poll it and refresh when it changes.
+            // Per table: row count + checksum of the columns that matter (add new tables here).
+            $watch = [
+                'fp_events' => 'id, title, type, emoji, start_at, end_at, done, updated_at, drop_member_id, pickup_member_id',
+                'fp_event_members' => 'event_id, member_id',
+                'fp_event_contacts' => 'event_id, contact_id, rsvp',
+                'fp_event_done' => 'event_id, occurs_on',
+                'fp_event_exceptions' => 'event_id, occurs_on',
+                'fp_event_duties' => 'event_id, occurs_on, role, member_id',
+                'fp_tasks' => 'id, title, due_date, member_id, recurrence, done_at',
+                'fp_contacts' => 'id, first_name, last_name, nickname, photo, birth_day, birth_month, birth_year, household_id, relation, is_favorite',
+                'fp_contact_members' => 'contact_id, member_id',
+                'fp_members' => 'id, name, photo, color, emoji, birth_day, birth_month, birth_year, sort',
+                'fp_households' => 'id, name, street, city',
+                'fp_groups' => 'id, type, name, season',
+                'fp_group_members' => 'group_id, member_id, role',
+                'fp_group_contacts' => 'group_id, contact_id, role',
+                'fp_ideas' => 'id, done_at',
+                'fp_friendbook' => 'id, returned_on',
+                'fp_birthday_checks' => 'subject, year, item',
+                'fp_photos' => 'id',
+                'fp_bucket' => 'id, title, emoji, event_id, done_on',
+                'fp_bucket_votes' => 'bucket_id, member_id',
+                'fp_bucket_contacts' => 'bucket_id, contact_id',
+            ];
+            $parts = [];
+            foreach ($watch as $table => $cols) {
+                $parts[] = "(SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', $cols)))) FROM $table)";
+            }
+            $fingerprint = db()->query("SELECT CONCAT_WS('|', " . implode(', ', $parts) . ')')->fetchColumn();
+            reply(['stamp' => md5((string) $fingerprint), 'today' => today()]);
 
-        case 'events':
-            $from = (string) ($_GET['from'] ?? '');
-            $to = (string) ($_GET['to'] ?? '');
-            if (!valid_date($from) || !valid_date($to) || $to <= $from || (strtotime($to) - strtotime($from)) > 400 * 86400) {
-                reply(['error' => 'Ongeldige periode.'], 400);
+        case 'graph':
+            // Relations web: our family, groups, households, address book people and "friend of" links
+            $nodes = [['id' => 'home', 'kind' => 'home', 'label' => 'Ons gezin', 'emoji' => '🏡', 'color' => '#6C5CE7']];
+            $links = [];
+            foreach (members() as $m) {
+                $nodes[] = ['id' => 'm' . $m['id'], 'kind' => 'member', 'label' => $m['name'], 'emoji' => $m['emoji'], 'color' => $m['color'], 'photo' => $m['photo'], 'url' => 'persoon.php?id=' . $m['id'], 'sub' => $m['role'] === 'CHILD' ? 'Kind' : 'Ouder'];
+                $links[] = ['source' => 'home', 'target' => 'm' . $m['id'], 'kind' => 'home'];
             }
-            $filter = [];
-            if (!empty($_GET['members'])) {
-                $filter['members'] = array_filter(array_map('intval', explode(',', (string) $_GET['members'])));
+            foreach (db()->query('SELECT * FROM fp_groups') as $g) {
+                $t = GROUP_TYPES[$g['type']] ?? GROUP_TYPES['OTHER'];
+                $nodes[] = ['id' => 'g' . $g['id'], 'kind' => 'group', 'type' => $g['type'], 'label' => $g['name'] . ($g['season'] ? ' ' . $g['season'] : ''), 'emoji' => $t[1], 'color' => $t[2], 'url' => 'groepen.php?id=' . $g['id'], 'sub' => $t[0] . ($g['place'] ? ' · ' . $g['place'] : '')];
             }
-            if (!empty($_GET['types'])) {
-                $filter['types'] = array_values(array_intersect(explode(',', (string) $_GET['types']), array_keys(EVENT_TYPES)));
+            foreach (db()->query('SELECT group_id, member_id, role FROM fp_group_members') as $r) {
+                $links[] = ['source' => 'm' . $r['member_id'], 'target' => 'g' . $r['group_id'], 'kind' => 'group', 'role' => $r['role']];
             }
-            $events = array_map('event_json', load_events($from, $to, $filter));
-            $birthdays = empty($_GET['nobirthdays']) ? array_map('birthday_json', load_birthdays($from, $to, $filter)) : [];
-            reply(['events' => $events, 'birthdays' => $birthdays]);
-
-        case 'event':
-            $id = (int) ($_GET['id'] ?? 0);
-            $occ = (string) ($_GET['occ'] ?? '');
-            $ev = valid_date($occ) ? occurrence_json($id, $occ) : null;
-            if (!$ev) {
-                $row = find_event($id);
-                if (!$row) {
-                    reply(['error' => 'Deze afspraak bestaat niet meer.'], 404);
-                }
-                $row['occ'] = substr($row['start_at'], 0, 10);
-                $ev = event_json($row);
+            foreach (db()->query('SELECT group_id, contact_id, role FROM fp_group_contacts') as $r) {
+                $links[] = ['source' => 'c' . $r['contact_id'], 'target' => 'g' . $r['group_id'], 'kind' => 'group', 'role' => $r['role']];
             }
-            $ev['tasks'] = event_tasks($id);
-            reply(['event' => $ev]);
-
-        case 'save':
-            $id = (int) ($in['id'] ?? 0);
-            $scope = in_str($in, 'scope', 'all');
-            $occ = in_str($in, 'occ');
-            $data = normalise_event($in);
-            if ($id) {
-                $existing = find_event($id);
-                if (!$existing) {
-                    reply(['error' => 'Deze afspraak bestaat niet meer.'], 404);
-                }
-                if ($existing['recurring'] && $scope === 'one' && valid_date($occ)) {
-                    // Edit just this occurrence: take it out of the series and save as its own event
-                    $id = detach_occurrence($existing, $occ);
-                    $data['recurrence'] = '';
-                    $data['recur_until'] = null;
-                } elseif ($existing['recurring'] && valid_date($occ) && $data['recurrence'] !== '') {
-                    // Editing the series from one occurrence: keep the series' first date, apply the new time/length
-                    $delta = strtotime(substr($data['start_at'], 0, 10)) - strtotime($occ);
-                    $seriesStart = date('Y-m-d', strtotime(substr($existing['start_at'], 0, 10)) + $delta);
-                    $len = strtotime($data['end_at']) - strtotime($data['start_at']);
-                    $data['start_at'] = $seriesStart . substr($data['start_at'], 10);
-                    $data['end_at'] = date('Y-m-d H:i:s', strtotime($data['start_at']) + $len);
+            $households = [];
+            foreach (db()->query('SELECT c.*, h.name AS household_name FROM fp_contacts c LEFT JOIN fp_households h ON h.id = c.household_id') as $c) {
+                $nodes[] = ['id' => 'c' . $c['id'], 'kind' => 'contact', 'label' => contact_name($c, false), 'full' => contact_name($c), 'photo' => $c['photo'], 'color' => name_color(contact_name($c, false)),
+                    'child' => (bool) $c['is_child'], 'url' => 'contact.php?id=' . $c['id'], 'sub' => (RELATIONS[$c['relation']][0] ?? '') . ($c['household_name'] ? ' · ' . $c['household_name'] : ''), 'relation' => $c['relation']];
+                if ($c['household_id']) {
+                    $households[$c['household_id']] = $c['household_name'];
+                    $links[] = ['source' => 'c' . $c['id'], 'target' => 'h' . $c['household_id'], 'kind' => 'household'];
                 }
             }
-            $newId = save_event($data, $id ?: null);
-            $occDate = substr($data['start_at'], 0, 10);
-            if ($id && valid_date($occ) && $scope !== 'one' && $data['recurrence'] !== '') {
-                $occDate = date('Y-m-d', strtotime(substr($in['start'] ?? $occ, 0, 10)));
+            foreach ($households as $hid => $name) {
+                $nodes[] = ['id' => 'h' . $hid, 'kind' => 'household', 'label' => $name, 'emoji' => '🏠', 'color' => '#A0522D', 'url' => 'huishouden.php?id=' . $hid, 'sub' => 'Huishouden'];
             }
-            reply(['ok' => true, 'id' => $newId, 'event' => occurrence_json($newId, $occDate)]);
-
-        case 'move':
-            $id = (int) ($in['id'] ?? 0);
-            $occ = in_str($in, 'occ');
-            if (!valid_date($occ)) {
-                reply(['error' => 'Ongeldige datum.'], 400);
+            foreach (db()->query('SELECT contact_id, member_id FROM fp_contact_members') as $r) {
+                $links[] = ['source' => 'c' . $r['contact_id'], 'target' => 'm' . $r['member_id'], 'kind' => 'friend'];
             }
-            $newId = move_event($id, $occ, in_str($in, 'start'), in_str($in, 'end'), !empty($in['allDay']), in_str($in, 'scope', 'all'));
-            reply(['ok' => true, 'id' => $newId, 'event' => occurrence_json($newId, substr(str_replace('T', ' ', in_str($in, 'start')), 0, 10))]);
-
-        case 'delete':
-            $occ = in_str($in, 'occ');
-            delete_event((int) ($in['id'] ?? 0), valid_date($occ) ? $occ : '', in_str($in, 'scope', 'all'));
-            reply(['ok' => true]);
-
-        case 'restore':
-            // Undo of a delete: the client sends the full event back
-            $data = normalise_event($in);
-            $newId = save_event($data);
-            reply(['ok' => true, 'id' => $newId]);
+            reply(['nodes' => $nodes, 'links' => $links, 'groupTypes' => array_map(function ($t) {
+                return ['label' => $t[0], 'emoji' => $t[1], 'color' => $t[2]];
+            }, GROUP_TYPES)]);
 
         case 'duty':
             // Who brings / picks up for one occurrence of a "per keer bepalen" event

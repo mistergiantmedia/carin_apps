@@ -14,9 +14,9 @@ function friends_of(int $memberId, bool $kidsOnly = false): array
 /** Classmates of a member in the current school year (all classes of that year). */
 function classmates_of(int $memberId, ?string $year = null): array
 {
-    $stmt = db()->prepare('SELECT DISTINCT c.*, h.name AS household_name FROM fp_contacts c JOIN fp_class_contacts cc ON cc.contact_id = c.id
-        JOIN fp_classes k ON k.id = cc.class_id LEFT JOIN fp_households h ON h.id = c.household_id
-        WHERE k.member_id = ? AND (k.school_year = ? OR k.school_year IS NULL OR k.school_year = \'\') ORDER BY c.first_name');
+    $stmt = db()->prepare("SELECT DISTINCT c.*, h.name AS household_name FROM fp_contacts c JOIN fp_group_contacts gc ON gc.contact_id = c.id
+        JOIN fp_groups g ON g.id = gc.group_id JOIN fp_group_members gm ON gm.group_id = g.id LEFT JOIN fp_households h ON h.id = c.household_id
+        WHERE g.type = 'SCHOOL' AND c.is_child = 1 AND gm.member_id = ? AND (g.season = ? OR g.season IS NULL OR g.season = '') ORDER BY c.first_name");
     $stmt->execute([$memberId, $year ?: school_year()]);
     return $stmt->fetchAll();
 }

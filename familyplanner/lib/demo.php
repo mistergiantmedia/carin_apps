@@ -12,7 +12,7 @@ function remove_demo(): void
 {
     $pdo = db();
     $pdo->beginTransaction();
-    foreach (['fp_bucket', 'fp_ideas', 'fp_friendbook', 'fp_tasks', 'fp_events', 'fp_classes', 'fp_contacts', 'fp_households'] as $table) {
+    foreach (['fp_bucket', 'fp_ideas', 'fp_friendbook', 'fp_tasks', 'fp_events', 'fp_groups', 'fp_contacts', 'fp_households'] as $table) {
         $pdo->exec("DELETE FROM $table WHERE is_demo = 1");
     }
     $pdo->commit();
@@ -99,22 +99,40 @@ function load_demo(): void
                 $ids[] = $contact(['first' => $first, 'last' => $last, 'child' => 1, 'relation' => 'CLASSMATE', 'birthday' => [($i * 7) % 28 + 1, ($i * 5) % 12 + 1, (int) date('Y') - $age]]);
             }
             foreach ($ids as $cid) {
-                $pdo->prepare('INSERT INTO fp_class_contacts (class_id, contact_id) VALUES (?, ?)')->execute([$classId, $cid]);
+                $pdo->prepare('INSERT INTO fp_group_contacts (group_id, contact_id) VALUES (?, ?)')->execute([$classId, $cid]);
             }
             return $ids;
         };
-        $pdo->prepare('INSERT INTO fp_classes (member_id, name, school, school_year, teacher, is_demo) VALUES (?, ?, ?, ?, ?, 1)')
-            ->execute([$kaila, 'Groep 5', 'Basisschool De Regenboog', school_year(), 'Juf Anne']);
+        $pdo->prepare("INSERT INTO fp_groups (type, name, place, season, leader, is_demo) VALUES ('SCHOOL', ?, ?, ?, ?, 1)")
+            ->execute(['Groep 5', 'Basisschool De Regenboog', school_year(), 'Juf Anne']);
         $k5 = (int) $pdo->lastInsertId();
+        $pdo->prepare("INSERT INTO fp_group_members (group_id, member_id, role) VALUES (?, ?, 'leerling')")->execute([$k5, $kaila]);
         foreach ([$noor, $lotte, $finn] as $cid) {
-            $pdo->prepare('INSERT INTO fp_class_contacts (class_id, contact_id) VALUES (?, ?)')->execute([$k5, $cid]);
+            $pdo->prepare('INSERT INTO fp_group_contacts (group_id, contact_id) VALUES (?, ?)')->execute([$k5, $cid]);
         }
         $classmates($k5, ['Mila Visser', 'Daan de Boer', 'Sophie Mulder', 'Luuk Smit', 'Emma de Graaf', 'Levi Bos', 'Zoë Vos', 'Mees Dekker'], 8);
-        $pdo->prepare('INSERT INTO fp_classes (member_id, name, school, school_year, teacher, is_demo) VALUES (?, ?, ?, ?, ?, 1)')
-            ->execute([$bodi, 'Groep 2', 'Basisschool De Regenboog', school_year(), 'Juf Marieke']);
+        $pdo->prepare("INSERT INTO fp_groups (type, name, place, season, leader, is_demo) VALUES ('SCHOOL', ?, ?, ?, ?, 1)")
+            ->execute(['Groep 2', 'Basisschool De Regenboog', school_year(), 'Juf Marieke']);
         $k2 = (int) $pdo->lastInsertId();
+        $pdo->prepare("INSERT INTO fp_group_members (group_id, member_id, role) VALUES (?, ?, 'leerling')")->execute([$k2, $bodi]);
+        // A sports team (Bodi and Sem, coached by Mark) and the extended family
+        $pdo->prepare("INSERT INTO fp_groups (type, name, place, season, leader, is_demo) VALUES ('SPORT', 'Voetbal JO7', 'VV Zuilen', ?, 'Mark de Vries', 1)")->execute([school_year()]);
+        $jo7 = (int) $pdo->lastInsertId();
+        $pdo->prepare("INSERT INTO fp_group_members (group_id, member_id, role) VALUES (?, ?, 'speler')")->execute([$jo7, $bodi]);
+        $pdo->prepare("INSERT INTO fp_group_contacts (group_id, contact_id, role) VALUES (?, ?, 'teamgenoot')")->execute([$jo7, $sem]);
+        $pdo->prepare("INSERT INTO fp_group_contacts (group_id, contact_id, role) SELECT ?, id, 'trainer' FROM fp_contacts WHERE first_name = 'Mark' AND last_name = 'de Vries' AND is_demo = 1")->execute([$jo7]);
+        $pdo->prepare("INSERT INTO fp_groups (type, name, is_demo) VALUES ('FAMILY', 'Familie van Carin', 1)")->execute();
+        $fam = (int) $pdo->lastInsertId();
+        foreach ([$carin, $rene, $kaila, $bodi] as $mm) {
+            if ($mm) {
+                $pdo->prepare('INSERT INTO fp_group_members (group_id, member_id) VALUES (?, ?)')->execute([$fam, $mm]);
+            }
+        }
+        foreach ([[$oma, 'oma'], [$opa, 'opa']] as [$cc, $role]) {
+            $pdo->prepare('INSERT INTO fp_group_contacts (group_id, contact_id, role) VALUES (?, ?, ?)')->execute([$fam, $cc, $role]);
+        }
         foreach ([$sem, $julia] as $cid) {
-            $pdo->prepare('INSERT INTO fp_class_contacts (class_id, contact_id) VALUES (?, ?)')->execute([$k2, $cid]);
+            $pdo->prepare('INSERT INTO fp_group_contacts (group_id, contact_id) VALUES (?, ?)')->execute([$k2, $cid]);
         }
         $classmates($k2, ['Noah Meijer', 'Saar Hendriks', 'Liam Kok', 'Nina Jacobs', 'Jens Willems', 'Fleur Maas'], 5);
 

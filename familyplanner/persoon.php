@@ -8,6 +8,7 @@ require __DIR__ . '/lib/tasks.php';
 require __DIR__ . '/lib/friends.php';
 require __DIR__ . '/lib/views.php';
 require __DIR__ . '/lib/bucket.php';
+require __DIR__ . '/lib/groups.php';
 require_login();
 
 $m = member(get_int('id'));
@@ -43,6 +44,12 @@ page_start($m['name'], ['active' => 'gezin.php']);
   </div>
 </div>
 
+<?php $myGroups = load_groups(['member' => $id]); if ($myGroups): ?>
+  <div class="picker" style="margin:-8px 0 14px">
+    <?php foreach ($myGroups as $g): ?><a class="group-chip" href="groepen.php?id=<?= (int) $g['id'] ?>"><?= group_type($g['type'])[1] ?> <?= e(group_label($g)) ?><?= $g['members'][$id] ? ' <span class="muted">· ' . e($g['members'][$id]) . '</span>' : '' ?></a><?php endforeach; ?>
+    <a class="group-chip" href="netwerk.php?member=<?= $id ?>">🕸️ Netwerk</a>
+  </div>
+<?php endif; ?>
 <?php if ($isKid):
     $weekOffset = (int) ($_GET['week'] ?? 0);
     // Saturday to the Sunday after (two weekends): on Saturday the children see the whole coming week

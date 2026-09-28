@@ -6,6 +6,7 @@ require __DIR__ . '/lib/events.php';
 require __DIR__ . '/lib/upload.php';
 require __DIR__ . '/lib/friends.php';
 require __DIR__ . '/lib/bucket.php';
+require __DIR__ . '/lib/groups.php';
 require_login();
 
 $id = get_int('id');
@@ -29,12 +30,6 @@ function contact_members_of(int $id): array
     return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
 }
 
-function contact_classes_of(int $id): array
-{
-    $stmt = db()->prepare('SELECT class_id FROM fp_class_contacts WHERE contact_id = ?');
-    $stmt->execute([$id]);
-    return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
-}
 
 if (is_post()) {
     $action = post('action');
@@ -74,10 +69,7 @@ if (is_post()) {
                     db()->prepare('INSERT INTO fp_contact_members (contact_id, member_id) VALUES (?, ?)')->execute([$id, $mid]);
                 }
             }
-            db()->prepare('DELETE FROM fp_class_contacts WHERE contact_id = ?')->execute([$id]);
-            foreach (post_ids('classes') as $cid) {
-                db()->prepare('INSERT IGNORE INTO fp_class_contacts (class_id, contact_id) SELECT id, ? FROM fp_classes WHERE id = ?')->execute([$id, $cid]);
-            }
+            set_contact_groups($id, post_ids('groups'));
             flash($c ? 'Opgeslagen' : contact_name(['first_name' => post('first_name'), 'last_name' => post('last_name'), 'nickname' => null]) . ' staat in het adresboek');
             $next = post('next');
             redirect($next !== '' ? safe_next($next) : 'contact.php?id=' . $id);
@@ -111,7 +103,7 @@ if (is_post()) {
 
 $editing = !$c || !empty($_GET['edit']) || $error;
 $households = db()->query('SELECT id, name FROM fp_households ORDER BY name')->fetchAll();
-$classes = db()->query('SELECT k.id, k.name, k.school_year, m.name AS kid FROM fp_classes k LEFT JOIN fp_members m ON m.id = k.member_id ORDER BY k.school_year DESC, k.name')->fetchAll();
+$allGroups = load_groups();
 
 if ($editing) {
     $f = $c ?: [
@@ -124,7 +116,7 @@ if ($editing) {
         $f = array_merge($f, array_intersect_key($_POST, $f));
     }
     $fMembers = $c ? contact_members_of($id) : (get_int('member') ? [get_int('member')] : []);
-    $fClasses = $c ? contact_classes_of($id) : (get_int('class') ? [get_int('class')] : []);
+    $fGroups = $c ? array_keys(contact_group_roles($id)) : array_values(array_filter([get_int('group') ?: get_int('class')]));
 
     page_start($c ? contact_name($c) . ' bewerken' : 'Nieuwe persoon', ['active' => 'mensen.php', 'narrow' => true]);
     ?>
@@ -163,14 +155,15 @@ if ($editing) {
         <div><label>Telefoon</label><input name="phone" type="tel" value="<?= e($f['phone']) ?>"></div>
         <div><label>E-mail</label><input name="email" type="email" value="<?= e($f['email']) ?>"></div>
       </div>
-      <?php if ($classes): ?>
-        <div class="label">In de klas van <small>(smoelenboek)</small></div>
+      <?php if ($allGroups): ?>
+        <div class="label">Groepen <small>(klas, sportteam, familie, werk… meerdere kan)</small></div>
         <div class="picker">
-          <?php foreach ($classes as $k): ?>
-            <label class="pick sm"><input type="checkbox" name="classes[]" value="<?= (int) $k['id'] ?>"<?= in_array((int) $k['id'], $fClasses, true) ? ' checked' : '' ?>><span><?= e($k['name']) ?><?= $k['kid'] ? ' (' . e($k['kid']) . ')' : '' ?> <?= e($k['school_year']) ?></span></label>
+          <?php foreach ($allGroups as $g): [$gl, $ge, $gc] = group_type($g['type']); ?>
+            <label class="pick sm" style="--c:<?= e($gc) ?>"><input type="checkbox" name="groups[]" value="<?= (int) $g['id'] ?>"<?= in_array((int) $g['id'], $fGroups, true) ? ' checked' : '' ?>><span><?= $ge ?> <?= e(group_label($g)) ?></span></label>
           <?php endforeach; ?>
         </div>
       <?php endif; ?>
+      <p class="hint"><a href="groepen.php?new=1">＋ Nieuwe groep maken</a></p>
       <label>Allergieën / dieet</label><input name="allergies" value="<?= e($f['allergies']) ?>" placeholder="bijv. geen noten, vegetarisch">
       <label>Uurtarief oppas <small>(alleen voor oppassers)</small></label><input name="hourly_rate" inputmode="decimal" value="<?= $f['hourly_rate'] !== null ? e(str_replace('.', ',', (string) $f['hourly_rate'])) : '' ?>" placeholder="bijv. 10,50">
       <label>Notities</label><textarea name="notes" rows="3" placeholder="Handige dingen om te onthouden: hobby's, lievelingseten, naam van de hond…"><?= e($f['notes']) ?></textarea>
@@ -190,9 +183,8 @@ $memberIds = contact_members_of($id);
 $stmt = db()->prepare('SELECT * FROM fp_contacts WHERE household_id = ? AND id <> ? ORDER BY is_child, first_name');
 $stmt->execute([(int) $c['household_id'], $id]);
 $housemates = $c['household_id'] ? $stmt->fetchAll() : [];
-$stmt = db()->prepare('SELECT k.* FROM fp_classes k JOIN fp_class_contacts cc ON cc.class_id = k.id WHERE cc.contact_id = ? ORDER BY k.school_year DESC');
-$stmt->execute([$id]);
-$inClasses = $stmt->fetchAll();
+$inGroups = load_groups(['contact' => $id]);
+$myRoles = contact_group_roles($id);
 $past = array_reverse(load_events(date('Y-m-d', strtotime('-2 year')), today(), ['contact' => $id]));
 $upcoming = load_events(today(), date('Y-m-d', strtotime('+1 year')), ['contact' => $id]);
 $stmt = db()->prepare("SELECT * FROM fp_ideas WHERE contact_id = ? ORDER BY done_at IS NOT NULL, id DESC");
@@ -239,7 +231,7 @@ page_start(contact_name($c), ['active' => 'mensen.php']);
         <?php if ($c['household_id']): ?><li>🏠 <a href="huishouden.php?id=<?= (int) $c['household_id'] ?>"><?= e($c['household_name']) ?></a></li><?php endif; ?>
         <?php if ($c['allergies']): ?><li>⚠️ <b><?= e($c['allergies']) ?></b></li><?php endif; ?>
         <?php if ($c['hourly_rate'] !== null): ?><li>💶 <?= e(money((float) $c['hourly_rate'])) ?> per uur</li><?php endif; ?>
-        <?php foreach ($inClasses as $k): ?><li>🏫 <a href="smoelenboek.php?class=<?= (int) $k['id'] ?>"><?= e($k['name'] . ' · ' . $k['school_year']) ?></a></li><?php endforeach; ?>
+        <?php if ($inGroups): ?><li style="flex-wrap:wrap;gap:6px"><?php foreach ($inGroups as $g): ?><a class="group-chip" href="groepen.php?id=<?= (int) $g['id'] ?>"><?= group_type($g['type'])[1] ?> <?= e(group_label($g)) ?><?= !empty($myRoles[$g['id']]) ? ' <span class="muted">· ' . e($myRoles[$g['id']]) . '</span>' : '' ?></a><?php endforeach; ?> <a class="small" href="netwerk.php?contact=<?= $id ?>">🕸️ netwerk</a></li><?php endif; ?>
         <?php if ($c['notes']): ?><li style="white-space:pre-line;display:block">📝 <?= e($c['notes']) ?></li><?php endif; ?>
       </ul>
       <?php if (!$phone && !$email && !$address && !$c['notes']): ?><p class="muted">Nog geen gegevens. <a href="contact.php?id=<?= $id ?>&amp;edit=1">Aanvullen</a></p><?php endif; ?>
