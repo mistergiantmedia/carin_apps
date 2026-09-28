@@ -115,6 +115,8 @@ try {
                 'fp_bucket' => 'id, title, emoji, event_id, done_on',
                 'fp_bucket_votes' => 'bucket_id, member_id',
                 'fp_bucket_contacts' => 'bucket_id, contact_id',
+                'fp_contact_week' => 'id, contact_id, weekday, start_time, end_time, kind, title, emoji',
+                'fp_contact_days' => 'contact_id, weekday, status',
             ];
             $parts = [];
             foreach ($watch as $table => $cols) {
@@ -205,6 +207,15 @@ try {
             $data = normalise_event($in);
             $newId = save_event($data);
             reply(['ok' => true, 'id' => $newId]);
+
+        case 'availability':
+            // Can these friends play on this date? (their regular week: BSO, clubs, usual days)
+            $date = (string) ($_GET['date'] ?? '');
+            if (!valid_date($date)) {
+                reply(['notes' => []]);
+            }
+            require_once __DIR__ . '/lib/week.php';
+            reply(['notes' => availability_notes(explode(',', (string) ($_GET['contacts'] ?? '')), $date)]);
 
         case 'graph':
             // Relations web: our family, groups, households, address book people and "friend of" links

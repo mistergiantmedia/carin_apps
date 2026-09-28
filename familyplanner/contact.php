@@ -7,6 +7,7 @@ require __DIR__ . '/lib/upload.php';
 require __DIR__ . '/lib/friends.php';
 require __DIR__ . '/lib/bucket.php';
 require __DIR__ . '/lib/groups.php';
+require __DIR__ . '/lib/week.php';
 require_login();
 
 $id = get_int('id');
@@ -83,6 +84,43 @@ if (is_post()) {
         if ($action === 'favorite' && $c) {
             db()->prepare('UPDATE fp_contacts SET is_favorite = 1 - is_favorite WHERE id = ?')->execute([$id]);
             redirect('contact.php?id=' . $id);
+        }
+        if ($action === 'day_status' && $c) {
+            // Tap a day: ❓ unknown → ✅ can play → ❌ can't → ❓
+            $wd = post_int('weekday');
+            if ($wd >= 1 && $wd <= 7) {
+                $cur = contact_days($id)[$wd] ?? '';
+                $next = $cur === '' ? 'YES' : ($cur === 'YES' ? 'NO' : '');
+                if ($next === '') {
+                    db()->prepare('DELETE FROM fp_contact_days WHERE contact_id = ? AND weekday = ?')->execute([$id, $wd]);
+                } else {
+                    db()->prepare('INSERT INTO fp_contact_days (contact_id, weekday, status) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE status = VALUES(status)')->execute([$id, $wd, $next]);
+                }
+            }
+            redirect('contact.php?id=' . $id . '#week');
+        }
+        if ($action === 'week_add' && $c && post('title') !== '') {
+            $days = array_values(array_filter(post_ids('weekdays'), function ($d) { return $d >= 1 && $d <= 7; }));
+            if (!$days) {
+                throw new RuntimeException('Kies op welke dag(en) het is.');
+            }
+            $time = function ($v) { return preg_match('/^\d{1,2}:\d{2}$/', $v) ? $v : null; };
+            foreach ($days as $wd) {
+                db()->prepare('INSERT INTO fp_contact_week (contact_id, weekday, start_time, end_time, kind, title, emoji) VALUES (?, ?, ?, ?, ?, ?, ?)')->execute([
+                    $id, $wd, $time(post('start_time')), $time(post('end_time')), isset(WEEK_KINDS[post('kind')]) ? post('kind') : 'CLUB',
+                    mb_cut(post('title'), 80), post('emoji') !== '' ? mb_cut(post('emoji'), 16) : null,
+                ]);
+                // BSO / opvang means: can't play that day
+                if (post('kind') === 'BSO') {
+                    db()->prepare("INSERT INTO fp_contact_days (contact_id, weekday, status) VALUES (?, ?, 'NO') ON DUPLICATE KEY UPDATE status = 'NO'")->execute([$id, $wd]);
+                }
+            }
+            flash('Toegevoegd aan de vaste week');
+            redirect('contact.php?id=' . $id . '#week');
+        }
+        if ($action === 'week_delete' && $c) {
+            db()->prepare('DELETE FROM fp_contact_week WHERE id = ? AND contact_id = ?')->execute([post_int('item_id'), $id]);
+            redirect('contact.php?id=' . $id . '#week');
         }
         if ($action === 'add_gift' && $c && post('title') !== '') {
             db()->prepare("INSERT INTO fp_ideas (title, category, contact_id, cost) VALUES (?, 'GIFT', ?, ?)")->execute([mb_cut(post('title'), 190), $id, post_or_null('cost')]);
@@ -283,6 +321,44 @@ page_start(contact_name($c), ['active' => 'mensen.php']);
     <?php endforeach; endif; ?>
 
     <?php $wishes = load_bucket(['contact' => $id]); $openWishes = array_values(array_filter($wishes, function ($w) { return !$w['done_on']; })); ?>
+    <?php $week = contact_week($id); $days = contact_days($id);
+      $known = db()->query('SELECT DISTINCT title FROM fp_contact_week ORDER BY title')->fetchAll(PDO::FETCH_COLUMN); ?>
+    <div class="card" id="week">
+      <h2>📅 Vaste week</h2>
+      <p class="muted small" style="margin-top:0">Tik op een dag: ❓ weet niet → ✅ kan afspreken → ❌ kan niet. Vaste clubjes en BSO staan eronder.</p>
+      <div class="week-grid">
+        <?php foreach (WEEKDAYS_SHORT as $wd => $short): $st = $days[$wd] ?? ''; ?>
+          <div class="week-day<?= $st === 'YES' ? ' yes' : ($st === 'NO' ? ' no' : '') ?>">
+            <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="day_status"><input type="hidden" name="weekday" value="<?= $wd ?>">
+              <button class="week-status" title="<?= e(WEEKDAYS[$wd]) ?>: tik om te wisselen"><b><?= $short ?></b><span><?= $st === 'YES' ? '✅' : ($st === 'NO' ? '❌' : '❓') ?></span></button></form>
+            <?php foreach ($week[$wd] ?? [] as $it): ?>
+              <div class="week-item" title="<?= e(WEEK_KINDS[$it['kind']][0] ?? '') ?>"><span><?= e(week_emoji($it)) ?></span> <?= e($it['title']) ?><?php if (week_time($it)): ?><small><?= e(week_time($it)) ?></small><?php endif; ?>
+                <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="week_delete"><input type="hidden" name="item_id" value="<?= (int) $it['id'] ?>"><button class="link muted small" title="Weghalen">✕</button></form></div>
+            <?php endforeach; ?>
+          </div>
+        <?php endforeach; ?>
+      </div>
+      <details class="more"><summary>Vaste activiteit toevoegen (BSO, sport, clubje…)</summary>
+        <form method="post" class="form">
+          <?= csrf_field() ?><input type="hidden" name="action" value="week_add">
+          <div style="display:flex;gap:8px;position:relative;margin-top:8px">
+            <input name="emoji" value="" data-emoji-picker data-default="🎨" aria-label="Emoji">
+            <input name="title" list="week-titles" placeholder="Bijv. Hockey, BSO, Zwemles, Scouting" required>
+            <datalist id="week-titles"><?php foreach ($known as $k): ?><option value="<?= e($k) ?>"><?php endforeach; ?></datalist>
+          </div>
+          <div class="label">Soort</div>
+          <div class="picker"><?php foreach (WEEK_KINDS as $k => [$label, $em]): ?><label class="pick sm"><input type="radio" name="kind" value="<?= $k ?>"<?= $k === 'CLUB' ? ' checked' : '' ?>><span><?= $em ?> <?= e($label) ?></span></label><?php endforeach; ?></div>
+          <div class="label">Op welke dag(en)?</div>
+          <div class="picker"><?php foreach (WEEKDAYS_SHORT as $wd => $short): ?><label class="pick sm"><input type="checkbox" name="weekdays[]" value="<?= $wd ?>"><span><?= $short ?></span></label><?php endforeach; ?></div>
+          <div class="row2">
+            <div><label>Van <small>(optioneel)</small></label><input type="time" name="start_time"></div>
+            <div><label>Tot</label><input type="time" name="end_time"></div>
+          </div>
+          <button class="btn" style="margin-top:12px">Toevoegen</button>
+        </form>
+      </details>
+    </div>
+
     <div class="card" id="bucket">
       <div class="section-title" style="margin-top:0"><h2>🌟 Samen op de bucketlist</h2><?php if ($wishes): ?><a href="bucketlist.php?f=c<?= $id ?>">alles</a><?php endif; ?></div>
       <ul class="list compact">

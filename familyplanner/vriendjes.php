@@ -4,6 +4,7 @@
 require __DIR__ . '/lib/app.php';
 require __DIR__ . '/lib/events.php';
 require __DIR__ . '/lib/friends.php';
+require __DIR__ . '/lib/week.php';
 require_login();
 
 $kids = children();
@@ -278,6 +279,40 @@ page_start('Vriendjes');
       </ul>
     <?php endif; ?>
   </div>
+</div>
+
+<?php
+// Which friend can play on which weekday (their regular week)
+$weekPeople = $friends;
+foreach ($bingoPeople as $c) {
+    if (!in_array((int) $c['id'], array_map('intval', array_column($weekPeople, 'id')), true)) {
+        $weekPeople[] = $c;
+    }
+}
+$weekRows = [];
+foreach ($weekPeople as $c) {
+    $days = contact_days((int) $c['id']);
+    $items = contact_week((int) $c['id']);
+    if ($days || $items || in_array((int) $c['id'], array_map('intval', array_column($friends, 'id')), true)) {
+        $weekRows[] = [$c, $days, $items];
+    }
+}
+?>
+<div class="card" id="week" style="margin-top:18px">
+  <h2>📅 Wanneer kunnen de vriendjes?</h2>
+  <p class="muted small" style="margin-top:0">✅ kan meestal · ❌ kan niet (BSO, clubje) · ❓ nog niet ingevuld. Klik op een naam om de vaste week aan te passen.</p>
+  <?php if ($weekRows): ?>
+    <div class="table-wrap"><table class="data avail-table">
+      <tr><th></th><?php for ($wd = 1; $wd <= 7; $wd++): ?><th style="text-align:center"><?= WEEKDAYS_SHORT[$wd] ?></th><?php endfor; ?></tr>
+      <?php foreach ($weekRows as [$c, $days, $items]): ?>
+        <tr><td style="text-align:left;white-space:nowrap"><a href="contact.php?id=<?= (int) $c['id'] ?>#week" style="color:inherit"><?= avatar($c, 26) ?> <?= e(contact_name($c, false)) ?></a></td>
+          <?php for ($wd = 1; $wd <= 7; $wd++): $st = $days[$wd] ?? ''; ?>
+            <td class="<?= $st === 'YES' ? 'yes' : ($st === 'NO' ? 'no' : '') ?>" title="<?= e(implode(', ', array_map(function ($it) { return $it['title'] . (week_time($it) ? ' ' . week_time($it) : ''); }, $items[$wd] ?? []))) ?>">
+              <?= $st === 'YES' ? '✅' : ($st === 'NO' ? '❌' : '<span class="muted">❓</span>') ?><?php foreach ($items[$wd] ?? [] as $it): ?> <?= e(week_emoji($it)) ?><?php endforeach; ?></td>
+          <?php endfor; ?></tr>
+      <?php endforeach; ?>
+    </table></div>
+  <?php else: ?><p class="muted">Nog geen vriendjes met een vaste week. Vul die in bij het vriendje in het adresboek.</p><?php endif; ?>
 </div>
 
 <div class="cols" style="margin-top:18px">

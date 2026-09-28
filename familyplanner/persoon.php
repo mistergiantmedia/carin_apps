@@ -9,6 +9,7 @@ require __DIR__ . '/lib/friends.php';
 require __DIR__ . '/lib/views.php';
 require __DIR__ . '/lib/bucket.php';
 require __DIR__ . '/lib/groups.php';
+require __DIR__ . '/lib/week.php';
 require_login();
 
 $m = member(get_int('id'));
@@ -80,6 +81,18 @@ page_start($m['name'], ['active' => 'gezin.php']);
         <input name="title" placeholder="Nieuw klusje, bijv. Kamer opruimen" required><input type="hidden" name="due_date" value="<?= e(today()) ?>">
         <button class="btn">＋</button>
       </form>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-top:0"><h2>🎯 Mijn clubjes</h2><a href="clubjes.php">alles</a></div>
+      <?php $clubs = member_clubs($id); ?>
+      <ul class="list compact">
+        <?php foreach ($clubs as $club): $mates = array_filter(friends_doing($club['title']), function ($r) { return $r['is_child']; }); ?>
+          <li><span style="font-size:24px"><?= e(event_emoji($club)) ?></span><div class="grow"><a class="title" href="event.php?id=<?= (int) $club['id'] ?>" style="color:inherit"><?= e($club['title']) ?></a>
+            <span class="meta"><?= e(WEEKDAYS[$club['weekday']]) ?><?= $club['time'] ? ' · ' . e($club['time']) : '' ?><?= $mates ? ' · ook: ' . e(implode(', ', array_unique(array_map(function ($r) { return contact_name($r, false); }, $mates)))) : '' ?></span></div></li>
+        <?php endforeach; ?>
+      </ul>
+      <?php if (!$clubs): ?><p class="muted">Nog geen vaste clubjes.</p><?php endif; ?>
+      <button type="button" class="btn small soft" data-new-event='<?= e(json_encode(['type' => 'SPORT', 'recurrence' => 'WEEKLY', 'members' => [$id]])) ?>'>＋ Clubje</button>
     </div>
     <div class="card">
       <div class="section-title" style="margin-top:0"><h2>🌟 Mijn bucketlist</h2><a href="bucketlist.php">alles</a></div>

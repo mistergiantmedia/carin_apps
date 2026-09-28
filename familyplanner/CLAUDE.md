@@ -65,5 +65,9 @@ Hand-written ES5 helpers for old browsers are in `_legacy/dom.js`, extra layout 
   `fp_group_members` (our family) and `fp_group_contacts` (address book), both with an optional `role`.
   Anyone can be in any number of groups. School classes are SCHOOL groups (smoelenboek = groepen.php);
   the old `fp_classes` / `fp_class_contacts` were copied into groups by migration 010 and are no longer used.
+- Regular week of a contact (`lib/week.php`): `fp_contact_week` (fixed activities per ISO weekday: BSO, sport,
+  club…) and `fp_contact_days` (YES/NO can play). Used on contact.php, vriendjes.php, clubjes.php and for the
+  availability warnings in the event editor (`api.php?a=availability`). Our own children's clubs are not stored
+  separately: they are their repeating SPORT/ACTIVITY/OTHER events (`member_clubs()`).
 - `netwerk.php` + `network.js` draw all of this as a relations web (data from `api.php?a=graph`).
 - The auto-refresh fingerprint (`api.php?a=stamp`) lists watched tables in `$watch`; add new tables there.

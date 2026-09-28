@@ -618,6 +618,26 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 .matrix-head .matrix-cell.today-head{color:#4B3CC4}
 .matrix-head .matrix-cell{display:flex;flex-direction:column;align-items:center}
 
+/* Regular week of a friend (contact.php) */
+.week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.week-day{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:12px;padding:6px 4px;min-height:74px;display:flex;flex-direction:column;gap:4px;text-align:center}
+.week-day.yes{background:#E4F6EE;border-color:#2BA879}
+.week-day.no{background:#FDECEA;border-color:#D6453D}
+.week-day form{margin:0}
+.week-status{border:0;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;width:100%;padding:2px;font-size:13px;color:#2B2A33}
+.week-status span{font-size:18px}
+.week-item{font-size:11.5px;line-height:1.25;background:#fff;border-radius:8px;padding:3px 4px;font-weight:600;word-break:break-word}
+.week-item small{display:block;color:#76737F;font-weight:500}
+.week-item form{display:inline}
+.avail{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.avail div{font-size:13px;padding:6px 10px;border-radius:10px;background:#FBF6EF}
+.avail .bad{background:#FDECEA;color:#D6453D;font-weight:600}
+.avail .warn{background:#FFF1DC;color:#A8650B;font-weight:600}
+.avail .ok{background:#E4F6EE;color:#2BA879;font-weight:600}
+.avail-table td{text-align:center}
+.avail-table td.yes{background:#E4F6EE}
+.avail-table td.no{background:#FDECEA}
+
 /* Appended to legacy/style.css by build.js. Only old browsers (no ES modules) load that file.
    Old engines (Chrome 38 on webOS 3.x) have no CSS grid and no flex "gap": flexbox layouts with margins. */
 
@@ -687,6 +707,12 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 .bucket-card>*+*{margin-top:8px}
 .bucket-votes>div>*{margin:0 6px 6px 0}
 .bucket-friends>*,.friend-tag>*{margin-right:5px}
+
+/* Regular week grid */
+.week-grid{display:flex}
+.week-grid>*{flex:1 1 0;min-width:0}
+.week-grid>*+*{margin-left:6px}
+.week-day>*+*{margin-top:4px}
 
 /* Missing prefixes */
 .cal,.pick span,.crop-frame{-webkit-user-select:none}

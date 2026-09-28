@@ -220,6 +220,24 @@ function load_demo(): void
             }
         }
 
+        // Regular weeks (weekday 1 = Monday)
+        $weekItem = function ($cid, $wd, $kind, $title, $emoji, $from = null, $to = null) use ($pdo) {
+            $pdo->prepare('INSERT INTO fp_contact_week (contact_id, weekday, start_time, end_time, kind, title, emoji, is_demo) VALUES (?, ?, ?, ?, ?, ?, ?, 1)')
+                ->execute([$cid, $wd, $from, $to, $kind, $title, $emoji]);
+        };
+        $weekItem($noor, 3, 'SPORT', 'Hockey', '🏑', '14:00', '15:30');
+        $weekItem($noor, 1, 'BSO', 'BSO', null);
+        $weekItem($noor, 4, 'BSO', 'BSO', null);
+        $weekItem($lotte, 2, 'CLUB', 'Turnen', '🤸', '16:00', '17:00');
+        $weekItem($sem, 1, 'BSO', 'BSO', null);
+        $weekItem($sem, 2, 'BSO', 'BSO', null);
+        $weekItem($julia, 6, 'CLUB', 'Ballet', '🩰', '10:00', '11:00');
+        foreach ([[$noor, [1 => 'NO', 2 => 'YES', 4 => 'NO', 5 => 'YES']], [$lotte, [3 => 'YES', 5 => 'YES']], [$sem, [1 => 'NO', 2 => 'NO', 3 => 'YES']]] as [$cid, $days]) {
+            foreach ($days as $wd => $st) {
+                $pdo->prepare('INSERT INTO fp_contact_days (contact_id, weekday, status) VALUES (?, ?, ?)')->execute([$cid, $wd, $st]);
+            }
+        }
+
         // Gift idea for Noor
         $pdo->prepare("INSERT INTO fp_ideas (title, category, contact_id, is_demo) VALUES ('Knutselset sieraden maken', 'GIFT', ?, 1)")->execute([$noor]);
         $pdo->commit();

@@ -139,7 +139,7 @@
   }
 
   // ---------- Contact picker (guests / friends at an event) ----------
-  function peopleSelect(container, chosen, withRsvp) {
+  function peopleSelect(container, chosen, withRsvp, onChange) {
     chosen = (chosen || []).map((c) => Object.assign({}, c));
     container.innerHTML = `<div class="people-chosen"></div>
       <input type="text" placeholder="Zoek vriendje, familie of vriend… (of typ een nieuwe naam)" autocomplete="off">
@@ -159,7 +159,7 @@
         tag.innerHTML = avatarHtml(c, 24) + ' ' + esc(c.name) +
           (withRsvp ? ` <select aria-label="Reactie">${Object.entries(DATA.rsvps).map(([k, v]) => `<option value="${k}"${k === (c.rsvp || '') ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select>` : '') +
           '<button type="button" aria-label="Verwijderen">×</button>';
-        tag.querySelector('button').onclick = () => { chosen.splice(i, 1); render(); };
+        tag.querySelector('button').onclick = () => { chosen.splice(i, 1); render(); if (onChange) onChange(); };
         const sel = tag.querySelector('select');
         if (sel) sel.onchange = () => { c.rsvp = sel.value; };
         list.appendChild(tag);
@@ -211,6 +211,7 @@
       input.value = '';
       results.classList.remove('open');
       render();
+      if (onChange) onChange();
       input.focus();
     }
 
@@ -295,6 +296,7 @@
             </div>
             <div class="label">Met wie <small>(vriendjes, familie, gasten)</small></div>
             <div class="people-select" data-members="${ev.members.join(',')}"></div>
+            <div class="avail"></div>
             <div class="row2">
               <div><label>Waar</label><input name="location" value="${esc(ev.location || '')}" placeholder="Adres of plek"></div>
               <div><label>Bij wie</label><select name="host">${opts(DATA.hosts, ev.host)}</select></div>
@@ -325,7 +327,23 @@
         </form>`;
       document.body.appendChild(d);
       const f = d.querySelector('form');
-      const people = peopleSelect(d.querySelector('.people-select'), ev.contacts, true);
+      // Warn when a chosen friend has a club / BSO that day or usually can't play then
+      let availTimer;
+      const checkAvail = () => {
+        clearTimeout(availTimer);
+        availTimer = setTimeout(async () => {
+          const box = d.querySelector('.avail');
+          const ids = people.value().map((c) => c.id);
+          if (!ids.length || !f.elements.startDate.value) { box.innerHTML = ''; return; }
+          try {
+            const r = await api('availability', undefined, { contacts: ids.join(','), date: f.elements.startDate.value });
+            box.innerHTML = r.notes.map((n) => `<div class="${n.level}">${esc(n.text)}</div>`).join('');
+          } catch (e) { box.innerHTML = ''; }
+        }, 200);
+      };
+      const people = peopleSelect(d.querySelector('.people-select'), ev.contacts, true, checkAvail);
+      checkAvail();
+      f.elements.startDate.addEventListener('change', checkAvail);
       const title = f.elements.title;
       let titleTouched = !isNew && ev.title !== '';
       title.addEventListener('input', () => { titleTouched = true; });
