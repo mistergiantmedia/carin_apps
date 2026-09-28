@@ -109,7 +109,7 @@ page_header('🎒 Vrije dagen & vakanties', 'Studiedagen, schoolvakanties en fee
   </form>
   <div class="card">
     <h2>🏖️ Schoolvakanties</h2>
-    <p class="muted small" style="margin-top:0">De officiële schoolvakanties van de Rijksoverheid, voor regio <b><?= e(SCHOOL_REGIONS[$region]) ?></b>. Ze komen in de agenda als vrij voor Kaila en Bodi; de gewone schoolafspraken vallen dan vanzelf weg.</p>
+    <p class="muted small" style="margin-top:0">De officiële schoolvakanties van de Rijksoverheid, voor regio <b><?= e(SCHOOL_REGIONS[$region]) ?></b>. Ze komen in de agenda als vrij voor <?= e(children_names()) ?>; de gewone schoolafspraken vallen dan vanzelf weg.</p>
     <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="import"><button class="btn<?= $hasHolidays ? ' secondary' : '' ?>">⬇️ Schoolvakanties <?= $hasHolidays ? 'bijwerken' : 'ophalen' ?></button></form>
     <details class="more"><summary>Regio en woonplaats</summary>
       <form method="post" class="form">

@@ -3,6 +3,11 @@
 // Namespaced on purpose: webhook/deployer.php loads the migrations of every app into one
 // PHP process, so nothing here may clash with another app's global db()/run_migrations().
 // Keep this PHP 7.4 compatible.
+//
+// Several families: every family has its own copy of the family tables. Family 1 (the Reilmans)
+// uses the original names (fp_events…), family 7 uses fp7_events… Pages always write fp_…;
+// FamilyPDO rewrites those names to the logged-in family's tables, so a forgotten WHERE can never
+// show another family's data. Shared tables (accounts, families, migrations) are never rewritten.
 namespace Familie;
 
 use PDO;
@@ -11,6 +16,50 @@ use RuntimeException;
 
 const CONFIG_FILE = __DIR__ . '/../config.php';
 const MIGRATIONS_DIR = __DIR__ . '/../migrations';
+const SHARED_TABLES = ['fp_users', 'fp_families', 'fp_schema_migrations'];
+
+/** Table prefix of a family: 1 → fp_, 7 → fp7_. */
+function family_prefix(int $familyId): string
+{
+    return $familyId === 1 ? 'fp_' : 'fp' . $familyId . '_';
+}
+
+/** Rewrite fp_… family table names in $sql to $prefix (shared tables stay as they are). */
+function rewrite_sql(string $sql, string $prefix): string
+{
+    if ($prefix === 'fp_') {
+        return $sql;
+    }
+    return preg_replace('/\bfp_(?!users\b|families\b|schema_migrations\b)(?=[a-z])/', $prefix, $sql);
+}
+
+/**
+ * PDO that sends fp_… queries to the current family's tables. Until a family is chosen the prefix
+ * points at tables that don't exist, so a query without a logged-in family fails instead of leaking.
+ */
+class FamilyPDO extends PDO
+{
+    public static $prefix = 'fp0_';
+
+    #[\ReturnTypeWillChange]
+    public function prepare($query, $options = [])
+    {
+        return parent::prepare(rewrite_sql($query, self::$prefix), $options);
+    }
+
+    #[\ReturnTypeWillChange]
+    public function query($query, $fetchMode = null, ...$fetchModeArgs)
+    {
+        $query = rewrite_sql($query, self::$prefix);
+        return $fetchMode === null ? parent::query($query) : parent::query($query, $fetchMode, ...$fetchModeArgs);
+    }
+
+    #[\ReturnTypeWillChange]
+    public function exec($statement)
+    {
+        return parent::exec(rewrite_sql($statement, self::$prefix));
+    }
+}
 
 /** Settings from config.php (written by install.php). It returns an array, no global constants. */
 function config(): array
@@ -25,10 +74,11 @@ function config(): array
     return $config;
 }
 
-function connect(?array $config = null): PDO
+/** Plain connection (migrations, install). $class = FamilyPDO::class for the pages. */
+function connect(?array $config = null, string $class = PDO::class): PDO
 {
     $c = $config ?? config();
-    return new PDO(
+    return new $class(
         'mysql:host=' . $c['host'] . ';dbname=' . $c['name'] . ';charset=utf8mb4',
         $c['user'],
         $c['pass'],
@@ -60,6 +110,37 @@ function pending_migrations(PDO $pdo): array
     return array_values(array_diff($files, $applied));
 }
 
+/** Prefixes of the other approved families (their tables exist). */
+function other_family_prefixes(PDO $pdo): array
+{
+    try {
+        $ids = $pdo->query("SELECT id FROM fp_families WHERE id <> 1 AND status = 'ACTIVE'")->fetchAll(PDO::FETCH_COLUMN);
+    } catch (PDOException $e) {
+        return []; // before fp_families exists
+    }
+    return array_map(function ($id) {
+        return family_prefix((int) $id);
+    }, $ids);
+}
+
+/**
+ * Schema changes (CREATE/ALTER/DROP TABLE, indexes) on family tables must also be made to the other
+ * families' copies. Data statements (INSERT, UPDATE…) are only for family 1: migrations holding data
+ * are about the Reilman family (their school calendar, accounts).
+ */
+function is_family_ddl(string $statement): bool
+{
+    if (!preg_match('/^\s*(CREATE\s+TABLE|ALTER\s+TABLE|DROP\s+TABLE|CREATE\s+(UNIQUE\s+)?INDEX|RENAME\s+TABLE)/i', $statement)) {
+        return false;
+    }
+    foreach (SHARED_TABLES as $t) {
+        if (preg_match('/\b' . $t . '\b/', $statement)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 /**
  * Apply all pending migrations. Returns log lines; throws on the first failure
  * (that migration is not recorded, so it runs again on the next push once fixed).
@@ -79,6 +160,11 @@ function run_migrations(PDO $pdo): array
             foreach (migration_statements(file_get_contents(MIGRATIONS_DIR . '/' . $file)) as $i => $statement) {
                 try {
                     $pdo->exec($statement);
+                    if (is_family_ddl($statement)) {
+                        foreach (other_family_prefixes($pdo) as $prefix) {
+                            $pdo->exec(rewrite_sql($statement, $prefix));
+                        }
+                    }
                 } catch (PDOException $e) {
                     throw new RuntimeException("Migratie $file, statement " . ($i + 1) . ' mislukt: ' . $e->getMessage());
                 }

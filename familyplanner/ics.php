@@ -5,13 +5,15 @@ require __DIR__ . '/lib/app.php';
 require __DIR__ . '/lib/events.php';
 
 $token = (string) ($_GET['t'] ?? '');
-$stmt = db()->prepare('SELECT id FROM fp_users WHERE ics_token = ? AND ics_token IS NOT NULL');
+$stmt = db()->prepare("SELECT u.family_id FROM fp_users u JOIN fp_families f ON f.id = u.family_id AND f.status = 'ACTIVE' WHERE u.ics_token = ? AND u.ics_token IS NOT NULL");
 $stmt->execute([$token]);
-if (strlen($token) < 20 || !$stmt->fetchColumn()) {
+$feedFamily = $stmt->fetchColumn();
+if (strlen($token) < 20 || !$feedFamily) {
     http_response_code(403);
     exit('Ongeldige link');
 }
 session_write_close();
+use_family((int) $feedFamily);
 $member = member(get_int('m'));
 
 function ics_escape(string $s): string

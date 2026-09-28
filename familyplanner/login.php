@@ -23,23 +23,32 @@ if (is_post()) {
     $login = post('login');
     $password = (string) ($_POST['password'] ?? '');
     if (strpos($login, '@') !== false) {
-        $stmt = db()->prepare('SELECT id, name, password_hash FROM fp_users WHERE email = ?');
+        $stmt = db()->prepare('SELECT u.id, u.name, u.password_hash, f.status FROM fp_users u JOIN fp_families f ON f.id = u.family_id WHERE u.email = ?');
         $stmt->execute([strtolower($login)]);
         $candidates = $stmt->fetchAll();
     } else {
         $wanted = plain_name($login);
-        $candidates = array_filter(db()->query('SELECT id, name, password_hash FROM fp_users')->fetchAll(), function ($u) use ($wanted) {
+        // Logging in with just a first name only works for the founding family (Carin, René)
+        $candidates = array_filter(db()->query("SELECT u.id, u.name, u.password_hash, f.status FROM fp_users u JOIN fp_families f ON f.id = u.family_id WHERE u.family_id = 1")->fetchAll(), function ($u) use ($wanted) {
             return $wanted !== '' && plain_name($u['name']) === $wanted;
         });
     }
     // Two accounts with the same name are fine: the password decides which one it is
     foreach ($candidates as $user) {
         if (password_verify($password, $user['password_hash'])) {
+            if ($user['status'] === 'PENDING') {
+                $error = 'Je gezin is aangemeld en wacht nog op goedkeuring. Je krijgt bericht zodra je kunt inloggen.';
+                break;
+            }
+            if ($user['status'] !== 'ACTIVE') {
+                $error = 'Dit account is niet (meer) actief.';
+                break;
+            }
             log_in((int) $user['id']);
             redirect(safe_next((string) ($_GET['next'] ?? '')));
         }
     }
-    $error = 'Naam of wachtwoord klopt niet.';
+    $error = $error ?: 'E-mailadres of wachtwoord klopt niet.';
     usleep(400000);
 }
 
@@ -47,15 +56,16 @@ page_start('Inloggen', ['narrow' => true, 'bodyClass' => 'login-page']);
 ?>
 <div class="login">
   <div class="login-brand">familie<span>planner</span></div>
-  <p class="sub">Het gezinsplan van Carin, Rene, Kaila en Bodi.</p>
+  <p class="sub">De planner voor je hele gezin: agenda, vriendjes, verjaardagen en meer.</p>
   <form method="post" class="card form">
     <?= csrf_field() ?>
     <?php if ($error): ?><div class="flash error"><?= e($error) ?></div><?php endif; ?>
-    <label for="login">Account</label>
-    <input id="login" name="login" type="text" value="<?= e($login) ?>" autocomplete="username" autocapitalize="words" autocorrect="off" spellcheck="false" placeholder="Naam of e-mailadres" required autofocus>
+    <label for="login">E-mailadres</label>
+    <input id="login" name="login" type="text" inputmode="email" value="<?= e($login) ?>" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="naam@voorbeeld.nl" required autofocus>
     <label for="password">Wachtwoord</label>
     <input id="password" name="password" type="password" autocomplete="current-password" required>
     <button class="btn wide" type="submit">Inloggen</button>
   </form>
+  <p class="muted" style="text-align:center;margin-top:16px">Nog geen account? <a href="aanmelden.php"><b>Gezin aanmaken</b></a></p>
 </div>
 <?php page_end();

@@ -22,7 +22,7 @@ set_exception_handler(function (Throwable $e) {
     }
     echo '<!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
         . '<link rel="stylesheet" href="style.css"><main class="page narrow"><div class="card"><h2>Er ging iets mis</h2>'
-        . '<p>Probeer het nog eens. Blijft het misgaan, laat het Rene dan weten.</p>'
+        . '<p>Probeer het nog eens. Blijft het misgaan, laat het de beheerder dan weten.</p>'
         . '<p><a href="./">← Terug naar vandaag</a></p></div></main>';
 });
 
@@ -149,12 +149,33 @@ function current_user(): ?array
     if ($user === false) {
         $user = null;
         if (!empty($_SESSION['user_id'])) {
-            $stmt = db()->prepare('SELECT id, name, email, member_id, must_change_password FROM fp_users WHERE id = ?');
+            $stmt = db()->prepare('SELECT u.id, u.family_id, u.name, u.last_name, u.email, u.member_id, u.must_change_password, u.is_admin,
+                    f.status AS family_status, f.name AS family_name
+                FROM fp_users u JOIN fp_families f ON f.id = u.family_id WHERE u.id = ?');
             $stmt->execute([$_SESSION['user_id']]);
             $user = $stmt->fetch() ?: null;
+            if ($user && $user['family_status'] !== 'ACTIVE') {
+                $user = null; // family not (or no longer) approved
+                unset($_SESSION['user_id']);
+            }
+            if ($user) {
+                use_family((int) $user['family_id']); // from here on fp_… means this family's tables
+            }
         }
     }
     return $user;
+}
+
+/** Carin and René: may approve new families (and see the database status). */
+function is_site_admin(): bool
+{
+    $u = current_user();
+    return $u && (int) $u['family_id'] === 1 && !empty($u['is_admin']);
+}
+
+function pending_families(): int
+{
+    return is_site_admin() ? (int) db()->query("SELECT COUNT(*) FROM fp_families WHERE status = 'PENDING'")->fetchColumn() : 0;
 }
 
 function require_login(): array
@@ -198,6 +219,17 @@ function children(): array
     return array_filter(members(), function ($m) {
         return $m['role'] === 'CHILD';
     });
+}
+
+/** "Kaila en Bodi" (or "de kinderen" when there are none yet). */
+function children_names(): string
+{
+    $names = array_column(children(), 'name');
+    if (!$names) {
+        return 'de kinderen';
+    }
+    $last = array_pop($names);
+    return $names ? implode(', ', $names) . ' en ' . $last : $last;
 }
 
 function parents(): array
@@ -472,6 +504,9 @@ function page_start(string $title, array $options = []): void
       <a href="persoon.php?id=<?= (int) $m['id'] ?>" title="<?= e($m['name']) ?>"><?= avatar($m, 34) ?></a>
     <?php endforeach; ?>
   </div>
+  <?php if (is_site_admin()): $pending = pending_families(); ?>
+    <a class="nav<?= $active === 'beheer.php' ? ' on' : '' ?>" href="beheer.php"><span class="ni">🛡️</span><span>Beheer<?= $pending ? ' <span class="badge warn">' . $pending . '</span>' : '' ?></span></a>
+  <?php endif; ?>
   <div class="sidebar-user">
     <?= $me ? avatar($me, 26) : '' ?> <span><?= e($user['name']) ?></span>
     <button type="button" class="theme-toggle" onclick="fpToggleTheme()" title="Licht of donker"><span class="to-dark">🌙</span><span class="to-light">☀️</span></button>
@@ -491,6 +526,9 @@ function page_start(string $title, array $options = []): void
   <?php foreach ($flashes as $f): ?>
     <div class="flash <?= e($f['type']) ?>"><?= e($f['message']) ?></div>
   <?php endforeach; ?>
+  <?php if ($user && ($active !== 'beheer.php') && pending_families()): ?>
+    <div class="flash warn">🆕 <?= pending_families() === 1 ? 'Er wacht 1 gezin' : 'Er wachten ' . pending_families() . ' gezinnen' ?> op goedkeuring. <a href="beheer.php">Bekijken →</a></div>
+  <?php endif; ?>
     <?php
 }
 

@@ -2,6 +2,9 @@
 // Database status: connection, this app's tables (fp_*) and which migrations have run.
 require __DIR__ . '/lib/app.php';
 require_login();
+if (!is_site_admin()) {
+    redirect('./');
+}
 
 $error = null;
 $info = [];

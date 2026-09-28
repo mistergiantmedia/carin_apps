@@ -51,13 +51,13 @@ if (is_post()) {
             if ($exists->fetchColumn()) {
                 throw new RuntimeException('Er is al een account met dit e-mailadres.');
             }
-            db()->prepare('INSERT INTO fp_users (name, email, password_hash, member_id) VALUES (?, ?, ?, ?)')
-                ->execute([mb_cut(post('name'), 100), $email, password_hash($pw, PASSWORD_DEFAULT), member(post_int('member_id')) ? post_int('member_id') : null]);
+            db()->prepare('INSERT INTO fp_users (family_id, name, email, password_hash, member_id, must_change_password) VALUES (?, ?, ?, ?, ?, 1)')
+                ->execute([$user['family_id'], mb_cut(post('name'), 100), $email, password_hash($pw, PASSWORD_DEFAULT), member(post_int('member_id')) ? post_int('member_id') : null]);
             flash('Account voor ' . post('name') . ' aangemaakt. Geef het wachtwoord persoonlijk door.');
             redirect('instellingen.php#accounts');
         }
         if ($action === 'account_member') {
-            db()->prepare('UPDATE fp_users SET member_id = ? WHERE id = ?')->execute([member(post_int('member_id')) ? post_int('member_id') : null, post_int('id')]);
+            db()->prepare('UPDATE fp_users SET member_id = ? WHERE id = ? AND family_id = ?')->execute([member(post_int('member_id')) ? post_int('member_id') : null, post_int('id'), $user['family_id']]);
             flash('Opgeslagen');
             redirect('instellingen.php#accounts');
         }
@@ -65,7 +65,7 @@ if (is_post()) {
             if (post_int('id') === (int) $user['id']) {
                 throw new RuntimeException('Je kunt je eigen account niet verwijderen.');
             }
-            db()->prepare('DELETE FROM fp_users WHERE id = ?')->execute([post_int('id')]);
+            db()->prepare('DELETE FROM fp_users WHERE id = ? AND family_id = ?')->execute([post_int('id'), $user['family_id']]);
             flash('Account verwijderd');
             redirect('instellingen.php#accounts');
         }
@@ -104,7 +104,9 @@ if (is_post()) {
     }
 }
 
-$users = db()->query('SELECT id, name, email, member_id, ics_token FROM fp_users ORDER BY id')->fetchAll();
+$stmt = db()->prepare('SELECT id, name, email, member_id, ics_token FROM fp_users WHERE family_id = ? ORDER BY id');
+$stmt->execute([$user['family_id']]);
+$users = $stmt->fetchAll();
 $me = null;
 foreach ($users as $u) {
     if ((int) $u['id'] === (int) $user['id']) {
@@ -167,12 +169,13 @@ page_header('⚙️ Instellingen');
         </li>
       <?php endforeach; ?>
     </ul>
-    <details class="more" <?= count($users) < 2 ? 'open' : '' ?>><summary>Account toevoegen (bijv. voor Rene)</summary>
+    <details class="more" <?= count($users) < 2 ? 'open' : '' ?>><summary>Account toevoegen (bijv. voor de andere ouder)</summary>
+      <p class="hint">Diegene logt in met het e-mailadres en het tijdelijke wachtwoord dat je hier kiest, en kiest daarna meteen een eigen wachtwoord.</p>
       <form method="post" class="form">
         <?= csrf_field() ?><input type="hidden" name="action" value="account">
         <div class="row2"><div><label>Naam</label><input name="name" required></div><div><label>Is gezinslid</label><select name="member_id"><?= options(member_options(), '', true) ?></select></div></div>
         <label>E-mailadres</label><input name="email" type="email" required autocomplete="off">
-        <label>Wachtwoord <small>(minimaal 8 tekens)</small></label><input name="password" type="password" minlength="8" required autocomplete="new-password">
+        <label>Tijdelijk wachtwoord <small>(minimaal 8 tekens, geef het persoonlijk door)</small></label><input name="password" type="password" minlength="8" required autocomplete="new-password">
         <button class="btn" style="margin-top:12px">Account aanmaken</button>
       </form>
     </details>
@@ -225,6 +228,7 @@ page_header('⚙️ Instellingen');
       <?php endif; ?>
     </div>
 
+    <?php if ((int) $user['family_id'] === 1): // the example data is about the Reilman family ?>
     <div class="card" id="voorbeeld">
       <h2>🧪 Voorbeelddata</h2>
       <?php if (demo_loaded()): ?>
@@ -235,6 +239,7 @@ page_header('⚙️ Instellingen');
         <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="demo_load"><button class="btn secondary">Voorbeelddata laden</button></form>
       <?php endif; ?>
     </div>
+    <?php endif; ?>
     <p class="small muted"><a href="dbtest.php">🛠 Databasestatus</a></p>
   </div>
 </div>

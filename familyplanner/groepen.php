@@ -351,7 +351,7 @@ else:
     <?php endforeach; ?>
   </div>
   <?php if (!$groups): ?>
-    <div class="card"><?= empty_state('🏫', 'Nog geen groepen. Maak er een voor de klas van Kaila, het voetbalteam van Bodi of de familie.', '<a class="btn" href="groepen.php?new=1' . ($type ? '&amp;type=' . e($type) : '') . '">＋ Groep</a>') ?></div>
+    <div class="card"><?= empty_state('🏫', 'Nog geen groepen. Maak er een voor een klas, een sportteam, het werk of de familie.', '<a class="btn" href="groepen.php?new=1' . ($type ? '&amp;type=' . e($type) : '') . '">＋ Groep</a>') ?></div>
   <?php else: ?>
     <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">
       <?php foreach ($groups as $g): [$tLabel, $tEmoji, $tColor] = group_type($g['type']); $faces = array_slice(group_contacts((int) $g['id']), 0, 7); ?>

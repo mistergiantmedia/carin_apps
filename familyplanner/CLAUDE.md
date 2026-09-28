@@ -80,3 +80,20 @@ Hand-written ES5 helpers for old browsers are in `_legacy/dom.js`, extra layout 
 - School holidays can be imported per region (`fp_settings.school_region`) from the Rijksoverheid open data API.
 - The children's school is Pieterskerkhof (Utrecht, regio Midden); migration 014 holds its 2026-2027 calendar
   (school runs 8:30-14:00). Add a new migration for the next school year from `fp_settings.school_url`.
+
+## Several families (lib/database.php FamilyPDO, lib/families.php)
+- `fp_families` (PENDING → ACTIVE after Carin/René approve in beheer.php; REJECTED/BLOCKED) and
+  `fp_users.family_id` / `is_admin`. Registration: aanmelden.php. Login by e-mail; by first name only for family 1.
+- Family 1 uses the original fp_ tables; family N gets empty copies fp{N}_… on approval (cloned from family 1's
+  structure). All page SQL keeps writing fp_…: FamilyPDO rewrites it to the logged-in family (use_family()).
+  Shared tables (never rewritten): fp_users, fp_families, fp_schema_migrations.
+- Migrations: schema statements on family tables are repeated for every approved family automatically;
+  data statements (INSERT/UPDATE) only touch family 1.
+- Never query fp_users without `family_id` when listing accounts. foto.php only serves photos referenced by the
+  current family's tables.
+
+### Planned next: families as friends (not built yet)
+- Families can become friends; per friend family full control over what is shared (birthdays, selected events,
+  bucketlist…). Nothing is shared by default: cross-family reads must be explicit (FamilyPDO isolates otherwise).
+- Link a contact (e.g. Sonya in our address book) to the matching child in the friend family once both agree:
+  then her photo/details come from her own family, and playdates between linked families show in both agendas.

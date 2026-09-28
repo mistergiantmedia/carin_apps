@@ -12,6 +12,13 @@ if (!preg_match('/^[a-f0-9]{24}\.jpg$/', $name)) {
     http_response_code(404);
     exit;
 }
+// Only photos that belong to the logged-in family
+$own = db()->prepare('SELECT 1 FROM fp_members WHERE photo = ? UNION SELECT 1 FROM fp_contacts WHERE photo = ? UNION SELECT 1 FROM fp_photos WHERE file = ? LIMIT 1');
+$own->execute([$name, $name, $name]);
+if (!$own->fetchColumn()) {
+    http_response_code(404);
+    exit;
+}
 $file = UPLOAD_DIR . '/' . (($_GET['s'] ?? '') === 't' ? thumb_name($name) : $name);
 if (!is_file($file)) {
     http_response_code(404);

@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step !== 'done') {
             if ($pw !== ($_POST['acc_pass2'] ?? '')) {
                 throw new RuntimeException('De wachtwoorden komen niet overeen.');
             }
-            $pdo->prepare('INSERT INTO fp_users (name, email, password_hash) VALUES (?, ?, ?)')
+            $pdo->prepare('INSERT INTO fp_users (family_id, is_admin, name, email, password_hash) VALUES (1, 1, ?, ?, ?)')
                 ->execute([$values['acc_name'], strtolower($values['acc_email']), password_hash($pw, PASSWORD_DEFAULT)]);
             // Link the account to the family member with the same name (Carin, Rene)
             $pdo->prepare('UPDATE fp_users u JOIN fp_members m ON m.name = u.name SET u.member_id = m.id WHERE u.id = ?')

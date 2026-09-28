@@ -48,7 +48,7 @@ foreach (load_bucket(['done' => false]) as $w) {
 }
 
 page_start('Clubjes & sport');
-page_header('🎯 Clubjes & sport', 'Wat doen Kaila en Bodi, en wat doen de vriendjes? Misschien is er iets wat ze ook leuk vinden.');
+page_header('🎯 Clubjes & sport', 'Wat doen ' . e(children_names()) . ', en wat doen de vriendjes? Misschien is er iets wat ze ook leuk vinden.');
 ?>
 <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr));margin-bottom:10px">
   <?php foreach ($kids as $k): ?>
