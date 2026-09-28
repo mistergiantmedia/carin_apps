@@ -207,6 +207,8 @@ page_header('🤝 Vriendgezinnen', 'Word vrienden met gezinnen die ook de Famili
             <div class="grow">
               <span class="title"><?= e($m['emoji'] ?? '') ?> <?= e($m['name']) ?></span>
               <span class="meta"><?= $m['role'] === 'CHILD' ? 'Kind' : 'Ouder' ?><?= $m['birth_day'] ? ' · 🎂 ' . e(birthday_text($m)) : '' ?></span>
+              <?php if ($m['phone'] || $m['email']): ?><span class="meta"><?= $m['phone'] ? '📞 <a href="tel:' . e(preg_replace('/[^0-9+]/', '', $m['phone'])) . '">' . e($m['phone']) . '</a> ' : '' ?><?= $m['email'] ? '✉️ <a href="mailto:' . e($m['email']) . '">' . e($m['email']) . '</a>' : '' ?></span><?php endif; ?>
+              <?php if ($m['allergies']): ?><span class="meta"><b>⚠️ <?= e($m['allergies']) ?></b></span><?php endif; ?>
             </div>
             <?php if ($linked): ?>
               <span class="badge ok">🔗 <a href="contact.php?id=<?= (int) $linked['id'] ?>"><?= e(contact_name($linked)) ?></a> in jullie adresboek</span>

@@ -9,6 +9,7 @@ const SHARE_OPTIONS = [
     'BIRTHDAYS' => ['🎂', 'Verjaardagen', 'Zodat zij jullie verjaardagen in hun agenda zien'],
     'CLUBS' => ['🎯', 'Clubjes en vaste week van de kinderen', 'Zodat zij zien wanneer jullie kinderen kunnen spelen'],
     'PLAYDATES' => ['🧸', 'Speelafspraken met hun kinderen', 'Staan dan ook in hún agenda (tijd, plek, wie brengt)'],
+    'CONTACT' => ['📞', 'Telefoon, e-mail en allergieën / dieet', 'Handig bij spelen, logeren en feestjes'],
     'EVENTS' => ['📅', 'Afspraken die jullie zelf delen', 'Per afspraak aan te vinken bij “Delen met”'],
 ];
 
@@ -166,8 +167,14 @@ function friend_members(int $friend): array
         return [];
     }
     $rows = with_family($friend, function () {
-        return db()->query('SELECT id, name, role, photo, color, emoji, birth_day, birth_month, birth_year FROM fp_members ORDER BY sort, id')->fetchAll();
+        return db()->query('SELECT id, name, role, photo, color, emoji, birth_day, birth_month, birth_year, phone, email, allergies FROM fp_members ORDER BY sort, id')->fetchAll();
     });
+    if (!in_array('CONTACT', $shares, true)) {
+        foreach ($rows as &$r) {
+            $r['phone'] = $r['email'] = $r['allergies'] = null;
+        }
+        unset($r);
+    }
     if (!in_array('BIRTHDAYS', $shares, true)) {
         foreach ($rows as &$r) {
             $r['birth_day'] = $r['birth_month'] = $r['birth_year'] = null;
@@ -270,7 +277,7 @@ function sync_links(bool $force = false): void
         if (!in_array('CLUBS', $shares, true)) {
             db()->prepare("DELETE FROM fp_contact_week WHERE contact_id = ? AND source = 'LINK'")->execute([$link['contact_id']]);
         }
-        if (!array_intersect(['PROFILE', 'BIRTHDAYS', 'CLUBS'], $shares)) {
+        if (!array_intersect(['PROFILE', 'BIRTHDAYS', 'CLUBS', 'CONTACT'], $shares)) {
             continue;
         }
         $remote = with_family($friend, function () use ($link, $shares) {
@@ -287,6 +294,11 @@ function sync_links(bool $force = false): void
         $cid = (int) $link['contact_id'];
         if (in_array('PROFILE', $shares, true) && $member['photo']) {
             db()->prepare('UPDATE fp_contacts SET photo = ? WHERE id = ?')->execute([$member['photo'], $cid]);
+        }
+        if (in_array('CONTACT', $shares, true)) {
+            // Their own details win; empty there = keep what we have
+            db()->prepare("UPDATE fp_contacts SET phone = COALESCE(?, phone), email = COALESCE(?, email), allergies = COALESCE(?, allergies) WHERE id = ?")
+                ->execute([$member['phone'] ?: null, $member['email'] ?: null, $member['allergies'] ?: null, $cid]);
         }
         if (in_array('BIRTHDAYS', $shares, true) && $member['birth_day'] && $member['birth_month']) {
             db()->prepare('UPDATE fp_contacts SET birth_day = ?, birth_month = ?, birth_year = ? WHERE id = ?')

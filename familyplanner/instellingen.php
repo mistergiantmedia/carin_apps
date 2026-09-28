@@ -32,12 +32,17 @@ if (is_post()) {
             [$bd, $bm, $by] = posted_birthday();
             $color = preg_match('/^#[0-9a-fA-F]{6}$/', post('color')) ? post('color') : '#6C5CE7';
             $photo = posted_photo($old['photo'] ?? null);
-            $data = [mb_cut(post('name'), 60), post('role') === 'PARENT' ? 'PARENT' : 'CHILD', $bd, $bm, $by, $color, mb_cut(post('emoji') ?: '🙂', 16), $photo];
+            $email = strtolower(post('email'));
+            if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                throw new RuntimeException('Dat e-mailadres klopt niet helemaal.');
+            }
+            $data = [mb_cut(post('name'), 60), post('role') === 'PARENT' ? 'PARENT' : 'CHILD', $bd, $bm, $by, $color, mb_cut(post('emoji') ?: '🙂', 16), $photo,
+                post('phone') !== '' ? mb_cut(post('phone'), 40) : null, $email !== '' ? $email : null, post('allergies') !== '' ? mb_cut(post('allergies'), 255) : null];
             if ($old) {
-                db()->prepare('UPDATE fp_members SET name = ?, role = ?, birth_day = ?, birth_month = ?, birth_year = ?, color = ?, emoji = ?, photo = ? WHERE id = ?')->execute(array_merge($data, [$id]));
+                db()->prepare('UPDATE fp_members SET name = ?, role = ?, birth_day = ?, birth_month = ?, birth_year = ?, color = ?, emoji = ?, photo = ?, phone = ?, email = ?, allergies = ? WHERE id = ?')->execute(array_merge($data, [$id]));
             } else {
                 $data[] = (int) db()->query('SELECT COALESCE(MAX(sort), 0) + 1 FROM fp_members')->fetchColumn();
-                db()->prepare('INSERT INTO fp_members (name, role, birth_day, birth_month, birth_year, color, emoji, photo, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')->execute($data);
+                db()->prepare('INSERT INTO fp_members (name, role, birth_day, birth_month, birth_year, color, emoji, photo, phone, email, allergies, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')->execute($data);
             }
             flash(post('name') . ' opgeslagen');
             redirect('instellingen.php#m' . ($id ?: ''));
@@ -145,6 +150,11 @@ function member_form(array $m): string
         <div><label>Kleur</label><input type="color" name="color" value="<?= e($m['color']) ?>"></div>
       </div>
       <label>Verjaardag</label><?= birthday_fields($m) ?>
+      <div class="row2">
+        <div><label>📞 Telefoon</label><input name="phone" type="tel" value="<?= e($m['phone'] ?? '') ?>" autocomplete="off"></div>
+        <div><label>✉️ E-mail</label><input name="email" type="email" value="<?= e($m['email'] ?? '') ?>" autocomplete="off"></div>
+      </div>
+      <label>⚠️ Allergieën / dieet</label><input name="allergies" value="<?= e($m['allergies'] ?? '') ?>" placeholder="bijv. geen noten, vegetarisch, lactose-intolerant">
       <?= photo_field($m['photo'] ?? null, 'Foto', $m['name'] !== '' ? 'Foto van ' . $m['name'] : 'Foto nieuw gezinslid') ?>
       <div class="form-actions"><button class="btn">Opslaan</button></div>
     </form>
@@ -173,7 +183,7 @@ page_header('⚙️ Instellingen');
 <p class="muted">Vul de verjaardagen in (dan zie je hoe oud iedereen is en komen ze in de agenda) en upload een foto.</p>
 <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">
   <?php foreach (members() as $m): ?><?= member_form($m) ?><?php endforeach; ?>
-  <?= member_form(['id' => '', 'name' => '', 'role' => 'CHILD', 'emoji' => '🙂', 'color' => '#8E6CDF', 'birth_day' => null, 'birth_month' => null, 'birth_year' => null, 'photo' => null]) ?>
+  <?= member_form(['id' => '', 'name' => '', 'role' => 'CHILD', 'emoji' => '🙂', 'color' => '#8E6CDF', 'birth_day' => null, 'birth_month' => null, 'birth_year' => null, 'photo' => null, 'phone' => '', 'email' => '', 'allergies' => '']) ?>
 </div>
 <details class="card" style="margin-top:12px">
   <summary style="cursor:pointer;font-weight:700">Gezinslid verwijderen</summary>

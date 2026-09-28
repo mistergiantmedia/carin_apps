@@ -36,6 +36,8 @@ page_start($m['name'], ['active' => 'gezin.php']);
         · 🎂 <?= $days === 0 ? '<b>Vandaag jarig! 🎉</b>' : 'jarig ' . e(in_days_label($days)) . ' (' . e(format_date_short($nextBday)) . ')' ?>
       <?php endif; ?>
     </p>
+    <?php if (!empty($m['phone']) || !empty($m['email'])): ?><p style="margin:4px 0 0"><?= !empty($m['phone']) ? '📞 <a href="tel:' . e(preg_replace('/[^0-9+]/', '', $m['phone'])) . '">' . e($m['phone']) . '</a> ' : '' ?><?= !empty($m['email']) ? ' ✉️ <a href="mailto:' . e($m['email']) . '">' . e($m['email']) . '</a>' : '' ?></p><?php endif; ?>
+    <?php if (!empty($m['allergies'])): ?><p style="margin:4px 0 0"><b>⚠️ <?= e($m['allergies']) ?></b></p><?php endif; ?>
   </div>
   <div class="head-actions no-print">
     <button type="button" class="btn" data-new-event='<?= e(json_encode(['members' => [$id]] + ($isKid ? ['type' => 'PLAYDATE', 'host' => 'HOME'] : []))) ?>'>＋ <?= $isKid ? 'Speelafspraak' : 'Afspraak' ?></button>
