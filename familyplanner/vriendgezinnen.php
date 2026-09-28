@@ -61,6 +61,27 @@ $contactById = array_column($contacts, null, 'id');
 page_start('Vriendgezinnen');
 page_header('🤝 Vriendgezinnen', 'Word vrienden met gezinnen die ook de Familie Planner gebruiken. Jullie bepalen zelf wat je deelt, per gezin.');
 ?>
+<?php foreach ($requests['in'] as $r):
+    // First names of their parents: last names are quickly forgotten on the schoolyard
+    $who = db()->prepare('SELECT name FROM fp_users WHERE family_id = ? GROUP BY name ORDER BY MIN(id)');
+    $who->execute([$r['fid']]);
+    $parents = $who->fetchAll(PDO::FETCH_COLUMN);
+?>
+  <div class="card invite-card">
+    <?php if ($r['photo']): ?>
+      <img class="invite-photo" src="foto.php?f=<?= e($r['photo']) ?>" alt="Gezinsfoto van <?= e($r['name']) ?>">
+    <?php else: ?>
+      <div class="invite-photo invite-nophoto">🏡</div>
+    <?php endif; ?>
+    <div class="invite-body">
+      <h2><?= e($r['name']) ?></h2>
+      <?php if ($parents): ?><p class="invite-parents">👋 <?= e(implode(' & ', $parents)) ?></p><?php endif; ?>
+      <p class="muted">wil vrienden met jullie worden. Daarna kiezen jullie allebei zelf wat je deelt.</p>
+      <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="link_id" value="<?= (int) $r['id'] ?>">
+        <button class="btn ok" name="action" value="accept">✓ Accepteren</button> <button class="btn secondary" name="action" value="end">Nee, bedankt</button></form>
+    </div>
+  </div>
+<?php endforeach; ?>
 <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr));margin-bottom:16px">
   <form method="post" class="card form">
     <?= csrf_field() ?><input type="hidden" name="action" value="invite">
@@ -71,14 +92,10 @@ page_header('🤝 Vriendgezinnen', 'Word vrienden met gezinnen die ook de Famili
     <button class="btn" type="submit" style="margin-top:10px">Uitnodiging sturen</button>
   </form>
 
-  <?php if ($requests['in'] || $requests['out']): ?>
+  <?php if ($requests['out']): ?>
     <div class="card">
       <h2 style="margin-top:0">✉️ Uitnodigingen</h2>
       <ul class="list compact">
-        <?php foreach ($requests['in'] as $r): ?>
-          <li><?= family_avatar($r, 44) ?><div class="grow"><span class="title"><?= e($r['name']) ?></span><span class="meta">wil vrienden met jullie worden</span></div>
-            <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="link_id" value="<?= (int) $r['id'] ?>"><button class="btn small ok" name="action" value="accept">✓ Accepteren</button> <button class="btn small secondary" name="action" value="end">Nee, bedankt</button></form></li>
-        <?php endforeach; ?>
         <?php foreach ($requests['out'] as $r): ?>
           <li><?= family_avatar($r, 36) ?><div class="grow"><span class="title"><?= e($r['name']) ?></span><span class="meta">wacht op hun antwoord</span></div>
             <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="link_id" value="<?= (int) $r['id'] ?>"><button class="btn small secondary" name="action" value="end">Intrekken</button></form></li>
