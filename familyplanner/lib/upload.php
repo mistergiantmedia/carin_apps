@@ -131,6 +131,11 @@ function delete_photo(?string $name): void
     if (photo_used_elsewhere($name)) {
         return; // a linked friend family uses the same file (their child's photo)
     }
+    $inAlbum = db()->prepare('SELECT 1 FROM fp_photos WHERE file = ? LIMIT 1');
+    $inAlbum->execute([$name]);
+    if ($inAlbum->fetchColumn()) {
+        return; // still in the photo album (e.g. a former group photo that became the gezin photo)
+    }
     @unlink(UPLOAD_DIR . '/' . $name);
     @unlink(UPLOAD_DIR . '/' . thumb_name($name));
 }

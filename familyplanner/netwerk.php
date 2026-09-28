@@ -8,7 +8,7 @@ require_login();
 // New photo for someone in the web (from the popup, also with Ctrl+V)
 if (is_post() && post('action') === 'node_photo') {
     $node = post('node');
-    $table = $node[0] === 'm' ? 'fp_members' : ($node[0] === 'c' ? 'fp_contacts' : null);
+    $table = ['m' => 'fp_members', 'c' => 'fp_contacts', 'h' => 'fp_households'][$node[0] ?? ''] ?? null;
     $id = (int) substr($node, 1);
     if ($table && $id) {
         $stmt = db()->prepare("SELECT photo FROM $table WHERE id = ?");
@@ -46,13 +46,13 @@ if (is_post() && post('action') === 'quick_person') {
     db()->prepare('INSERT INTO fp_contacts (first_name, last_name, is_child, relation, photo) VALUES (?, ?, ?, ?, ?)')
         ->execute([mb_cut(post('first_name'), 80), post('last_name') !== '' ? mb_cut(post('last_name'), 80) : null, $isChild ? 1 : 0, $isChild ? 'FRIEND' : 'OWN_FRIEND', $photo]);
     $cid = (int) db()->lastInsertId();
-    flash('✓ ' . post('first_name') . ' toegevoegd. Sleep ' . ($isChild ? 'het kind' : 'deze persoon') . ' nu op een groep, huishouden of gezinslid om te verbinden.');
+    flash('✓ ' . post('first_name') . ' toegevoegd. Sleep ' . ($isChild ? 'het kind' : 'deze persoon') . ' nu op een groep, gezin of iemand van jullie om te verbinden.');
     redirect('netwerk.php?new=' . $cid);
 }
 
 $focus = '';
 $new = get_int('new') ? 'c' . get_int('new') : '';
-$select = preg_match('/^[mc]\d+$/', (string) ($_GET['select'] ?? '')) ? $_GET['select'] : '';
+$select = preg_match('/^[mch]\d+$/', (string) ($_GET['select'] ?? '')) ? $_GET['select'] : '';
 foreach (['member' => 'm', 'contact' => 'c', 'group' => 'g'] as $param => $prefix) {
     if (get_int($param)) {
         $focus = $prefix . get_int($param);
@@ -73,7 +73,7 @@ page_start('Netwerk', ['wide' => true, 'bodyClass' => 'net-page']);
 <div class="net-wrap">
   <svg id="net" data-focus="<?= e($focus) ?>" data-new="<?= e($new) ?>" data-select="<?= e($select) ?>" aria-label="Netwerk van relaties"></svg>
   <aside class="net-panel card" id="net-panel" hidden></aside>
-  <div class="net-legend small muted">Klik op iemand voor de verbindingen · sleep iemand op een groep, huishouden of gezinslid om ze te verbinden · dubbelklik om te openen · scroll om te zoomen</div>
+  <div class="net-legend small muted">Klik op iemand voor de verbindingen · sleep iemand op een groep, gezin of iemand van jullie om ze te verbinden · dubbelklik om te openen · scroll om te zoomen</div>
 </div>
 <form method="post" enctype="multipart/form-data" id="net-photo-form" hidden>
   <?= csrf_field() ?><input type="hidden" name="action" value="node_photo"><input type="hidden" name="node" value="">

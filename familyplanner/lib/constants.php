@@ -2,7 +2,7 @@
 // Fixed lists used across the app. Labels are Dutch because they are shown to the family.
 
 // Bump when style.css / *.js change, so browsers load the new version.
-const ASSET_VERSION = '31';
+const ASSET_VERSION = '32';
 
 // Calendar event types: label, emoji, colour. Order = order in pickers.
 const EVENT_TYPES = [
@@ -104,7 +104,7 @@ const BIRTHDAY_ITEMS = [
 
 // Group types (circles people belong to): label, emoji, colour, what the leader is called, default role
 const GROUP_TYPES = [
-    'FAMILY' => ['Familie', '👨‍👩‍👧', '#C2489B', 'Contactpersoon', ''],
+    'FAMILY' => ['Grote familie', '👨‍👩‍👧', '#C2489B', 'Contactpersoon', ''],
     'SCHOOL' => ['School / klas', '🏫', '#4A6FE3', 'Juf / meester', 'klasgenoot'],
     'SPORT' => ['Sport', '⚽', '#2BA879', 'Trainer / coach', 'teamgenoot'],
     'CLUB' => ['Club & hobby', '🎨', '#8E6CDF', 'Leiding', ''],

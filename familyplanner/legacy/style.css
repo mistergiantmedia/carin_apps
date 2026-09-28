@@ -616,6 +616,11 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 .net-node.selected circle{stroke-width:6}
 .net-node.dim,.net-link.dim{opacity:.12}
 .net-emoji{pointer-events:none}
+.gezin-head{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+.gezin-head h1{margin:0 0 6px}
+.gezin-head p{margin:4px 0}
+.gezin-photo{width:200px;height:200px;max-width:100%;border-radius:22px;object-fit:cover;flex:none}
+.gezin-nophoto{display:flex;align-items:center;justify-content:center;font-size:90px;background:#EFEBFF}
 .net-photo{display:flex;flex-direction:column;align-items:center;gap:6px;margin:-2px 0 10px}
 .net-photo img,.net-photo-empty{width:120px;height:120px;border-radius:50%;object-fit:cover;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.15)}
 .net-photo-empty{display:flex;align-items:center;justify-content:center;color:#fff;font-size:46px;font-weight:800}

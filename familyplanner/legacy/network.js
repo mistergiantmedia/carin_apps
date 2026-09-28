@@ -25,7 +25,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     home: 30,
     member: 26,
     group: 22,
-    household: 13,
+    household: 20,
     contact: 17
   };
   var LENGTH = {
@@ -208,7 +208,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
         if (other) {
           n.x = other.x + (Math.random() - 0.5) * 120;
           n.y = other.y + (Math.random() - 0.5) * 120;
-        } else if (n.kind === 'contact' && !n.links.length) {
+        } else if ((n.kind === 'contact' || n.kind === 'household') && !n.links.length) {
           n.x = 520 + Math.random() * 80;
           n.y = (Math.random() - 0.5) * 300;
         } // loose corner
@@ -236,7 +236,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
   function visible(n) {
     if (!nodeShown(n)) return false;
     if (n.kind === 'home' || n.kind === 'member') return true;
-    if (n.kind === 'contact' && !n.links.length) return true; // not connected yet: shown in the "Nog niet verbonden" corner
+    if ((n.kind === 'contact' || n.kind === 'household') && !n.links.length) return true; // not connected yet: shown in the "Nog niet verbonden" corner
     // People and places without any visible connection would just float around: leave them out
     return n.links.some(function (l) {
       return linkVisible(l);
@@ -252,7 +252,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       if (!present[k]) return;
       html += "<label class=\"pick sm\" style=\"--c:".concat(types[k].color, "\"><input type=\"checkbox\" checked data-f=\"").concat(k, "\"><span>").concat(types[k].emoji, " ").concat(esc(types[k].label), "</span></label>");
     });
-    html += '<label class="pick sm" style="--c:#A0522D"><input type="checkbox" checked data-f="household"><span>🏠 Huishoudens</span></label>';
+    html += '<label class="pick sm" style="--c:#A0522D"><input type="checkbox" checked data-f="household"><span>🏠 Gezinnen</span></label>';
     html += '<label class="pick sm" style="--c:#8E6CDF"><input type="checkbox" checked data-f="friend"><span>👫 Vriend van</span></label>';
     filterBox.innerHTML = html;
     filterBox.addEventListener('change', function (e) {
@@ -331,7 +331,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
   function refreshVisibility() {
     nodes.forEach(function (n) {
       n.visible = visible(n);
-      n.loose = n.kind === 'contact' && !n.links.length;
+      n.loose = (n.kind === 'contact' || n.kind === 'household') && !n.links.length;
       n.el.style.display = n.visible ? '' : 'none';
       toggleClass(n.el, 'loose', n.loose);
     });
@@ -756,7 +756,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
   function select(n) {
     selected = n;
     highlight();
-    var editable = !!n && (n.kind === 'contact' || n.kind === 'member');
+    var editable = !!n && (n.kind === 'contact' || n.kind === 'member' || n.kind === 'household');
     if (photoInput) {
       photoInput.disabled = !editable; // Ctrl+V only goes here while someone is selected
       photoInput.dataset.photoLabel = editable ? 'Foto van ' + (n.full || n.label) : 'Foto';
@@ -781,8 +781,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     var row = function row(it) {
       return "<li><a href=\"#\" data-node=\"".concat(esc(it.o.id), "\">").concat(it.o.emoji && !it.o.photo ? esc(it.o.emoji) + ' ' : '').concat(esc(it.o.full || it.o.label), "</a>") + "".concat(it.role ? ' <span class="muted">· ' + esc(it.role) + '</span>' : '').concat(it.kind === 'friend' ? ' <span class="muted">· vriend van</span>' : '') + "".concat(canConnect(n, it.o) ? " <button class=\"link muted small\" data-unlink=\"".concat(esc(it.o.id), "\" title=\"Verbinding weghalen\">\u2715</button>") : '', "</li>");
     };
-    var photo = editable && photoInput ? "<div class=\"net-photo\">\n        ".concat(n.photo ? "<img src=\"foto.php?f=".concat(encodeURIComponent(n.photo), "\" alt=\"\">") : "<span class=\"net-photo-empty\" style=\"background:".concat(esc(n.color || '#8E6CDF'), "\">").concat(esc(n.emoji && n.kind === 'member' ? n.emoji : (n.label || '?').charAt(0)), "</span>"), "\n        <button type=\"button\" class=\"btn small\" data-photo>\u270F\uFE0F ").concat(n.photo ? 'Foto vervangen' : 'Foto toevoegen', "</button>\n        <span class=\"muted small\">of plak met Ctrl+V</span></div>") : '';
-    panel.innerHTML = "".concat(photo, "<div style=\"display:flex;justify-content:space-between;gap:8px;align-items:flex-start\">\n        <div><h3>").concat(n.emoji && n.kind !== 'member' ? esc(n.emoji) + ' ' : '').concat(esc(n.full || n.label), "</h3>").concat(n.sub ? "<p class=\"muted small\" style=\"margin:2px 0 0\">".concat(esc(n.sub), "</p>") : '', "</div>\n        <button class=\"x\" data-close aria-label=\"Sluiten\">\xD7</button></div>\n      ").concat(groups.length ? "<h4>Hoort bij</h4><ul>".concat(groups.map(row).join(''), "</ul>") : '', "\n      ").concat(people.length ? "<h4>".concat(n.kind === 'group' || n.kind === 'household' ? 'Mensen' : 'Verbonden met', " (").concat(people.length, ")</h4><ul>").concat(people.map(row).join(''), "</ul>") : '', "\n      ").concat(n.kind === 'contact' || n.kind === 'member' ? '<p class="muted small" style="margin:10px 0 0">Tip: sleep deze persoon op een groep, huishouden of gezinslid om ze te verbinden.</p>' : '', "\n      <div class=\"pop-actions\">\n        ").concat(n.url ? "<a class=\"btn small\" href=\"".concat(esc(n.url), "\">Openen</a>") : '', "\n        <button class=\"btn small secondary\" data-focus>").concat(focusSet ? 'Alles tonen' : '🔎 Alleen dit netwerk', "</button>\n      </div>");
+    var photo = editable && photoInput ? "<div class=\"net-photo\">\n        ".concat(n.photo ? "<img src=\"foto.php?f=".concat(encodeURIComponent(n.photo), "\" alt=\"\">") : "<span class=\"net-photo-empty\" style=\"background:".concat(esc(n.color || '#8E6CDF'), "\">").concat(esc(n.emoji && (n.kind === 'member' || n.kind === 'household') ? n.emoji : (n.label || '?').charAt(0)), "</span>"), "\n        <button type=\"button\" class=\"btn small\" data-photo>\u270F\uFE0F ").concat(n.photo ? 'Foto vervangen' : 'Foto toevoegen', "</button>\n        <span class=\"muted small\">of plak met Ctrl+V</span></div>") : '';
+    panel.innerHTML = "".concat(photo, "<div style=\"display:flex;justify-content:space-between;gap:8px;align-items:flex-start\">\n        <div><h3>").concat(n.emoji && n.kind !== 'member' ? esc(n.emoji) + ' ' : '').concat(esc(n.full || n.label), "</h3>").concat(n.sub ? "<p class=\"muted small\" style=\"margin:2px 0 0\">".concat(esc(n.sub), "</p>") : '', "</div>\n        <button class=\"x\" data-close aria-label=\"Sluiten\">\xD7</button></div>\n      ").concat(groups.length ? "<h4>Hoort bij</h4><ul>".concat(groups.map(row).join(''), "</ul>") : '', "\n      ").concat(people.length ? "<h4>".concat(n.kind === 'group' || n.kind === 'household' ? 'Mensen' : 'Verbonden met', " (").concat(people.length, ")</h4><ul>").concat(people.map(row).join(''), "</ul>") : '', "\n      ").concat(n.kind === 'contact' || n.kind === 'member' ? '<p class="muted small" style="margin:10px 0 0">Tip: sleep deze persoon op een groep, gezin of iemand van jullie om ze te verbinden.</p>' : '', "\n      <div class=\"pop-actions\">\n        ").concat(n.url ? "<a class=\"btn small\" href=\"".concat(esc(n.url), "\">Openen</a>") : '', "\n        <button class=\"btn small secondary\" data-focus>").concat(focusSet ? 'Alles tonen' : '🔎 Alleen dit netwerk', "</button>\n      </div>");
     panel.hidden = false;
   }
   panel.addEventListener('click', function (e) {

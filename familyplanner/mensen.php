@@ -1,12 +1,12 @@
 <?php
-// Address book: everyone outside the family, as faces or as an address list per household (printable).
+// Address book: everyone outside the family, as faces or per gezin with addresses (printable).
 require __DIR__ . '/lib/app.php';
 require_login();
 
 $q = trim((string) ($_GET['q'] ?? ''));
 $rel = isset(RELATIONS[$_GET['rel'] ?? '']) ? $_GET['rel'] : (($_GET['rel'] ?? '') === 'kids' ? 'kids' : '');
 $of = member(get_int('of')) ? get_int('of') : null;
-$view = ($_GET['view'] ?? '') === 'adressen' ? 'adressen' : 'mensen';
+$view = in_array($_GET['view'] ?? '', ['gezinnen', 'adressen'], true) ? 'gezinnen' : 'mensen';
 
 $where = [];
 $params = [];
@@ -47,7 +47,7 @@ $url = function (array $change) use ($q, $rel, $of, $view) {
 
 page_start('Adresboek');
 page_header('📇 Adresboek', count($people) . ' ' . (count($people) === 1 ? 'persoon' : 'mensen') . ($q !== '' ? ' gevonden' : ''),
-    '<a class="btn" href="contact.php?new=1">＋ Persoon</a><a class="btn secondary" href="huishouden.php?new=1">＋ Huishouden</a>');
+    '<a class="btn" href="contact.php?new=1">＋ Persoon</a><a class="btn secondary" href="huishouden.php?new=1">＋ Gezin</a>');
 ?>
 <form class="filters" method="get">
   <input class="search" type="search" name="q" value="<?= e($q) ?>" placeholder="🔍 Zoek naam, familie, plaats…">
@@ -56,7 +56,7 @@ page_header('📇 Adresboek', count($people) . ' ' . (count($people) === 1 ? 'pe
   <?php if ($view !== 'mensen'): ?><input type="hidden" name="view" value="<?= e($view) ?>"><?php endif; ?>
   <div class="tabs">
     <a href="<?= e($url(['view' => ''])) ?>" class="<?= $view === 'mensen' ? 'on' : '' ?>">👤 Mensen</a>
-    <a href="<?= e($url(['view' => 'adressen'])) ?>" class="<?= $view === 'adressen' ? 'on' : '' ?>">🏠 Adressen</a>
+    <a href="<?= e($url(['view' => 'gezinnen'])) ?>" class="<?= $view === 'gezinnen' ? 'on' : '' ?>">🏠 Gezinnen</a>
   </div>
   <select name="of" onchange="this.form.submit()" style="width:auto" aria-label="Van wie">
     <option value="">Van iedereen</option>
@@ -87,7 +87,7 @@ page_header('📇 Adresboek', count($people) . ' ' . (count($people) === 1 ? 'pe
     <?php endforeach; ?>
   </div>
 <?php else:
-    // Group by household; people without one get their own row
+    // Group by gezin; people without one get their own row
     $groups = [];
     foreach ($people as $p) {
         $key = $p['household_id'] ? 'h' . $p['household_id'] : 'c' . $p['id'];
@@ -115,7 +115,7 @@ page_header('📇 Adresboek', count($people) . ' ' . (count($people) === 1 ? 'pe
             $pc = trim(($h ? $h['postal_code'] . ' ' . $h['city'] : $first['postal_code'] . ' ' . $first['city'])); ?>
           <tr>
             <td>
-              <?php if ($h): ?><a href="huishouden.php?id=<?= (int) $h['id'] ?>"><b><?= e($h['name']) ?></b></a><br><?php endif; ?>
+              <?php if ($h): ?><a href="huishouden.php?id=<?= (int) $h['id'] ?>" style="display:inline-flex;gap:8px;align-items:center"><?= gezin_avatar($h, 40) ?><b><?= e($h['name']) ?></b></a><br><?php endif; ?>
               <span class="avatars"><?php foreach ($list as $p): ?><a href="contact.php?id=<?= (int) $p['id'] ?>"><?= avatar($p, 26) ?></a><?php endforeach; ?></span>
               <span class="muted small"><?= e(implode(', ', array_map(function ($p) { return contact_name($p, false); }, $list))) ?></span>
             </td>

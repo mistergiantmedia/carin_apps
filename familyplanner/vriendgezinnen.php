@@ -25,10 +25,30 @@ if (is_post()) {
         flash('✓ Opgeslagen: dit delen jullie met ' . (friend_families()[post_int('family')]['name'] ?? 'dit gezin'));
     } elseif ($action === 'link') {
         link_contact(post_int('contact_id'), post_int('family'), post_int('member_id'));
+        // Someone of their family: put them in the gezin of that family (when they're not in a gezin yet)
+        if ($g = gezin_of_family(post_int('family'))) {
+            db()->prepare('UPDATE fp_contacts SET household_id = ? WHERE id = ? AND household_id IS NULL')->execute([$g['id'], post_int('contact_id')]);
+        }
         flash('🔗 Gekoppeld');
     } elseif ($action === 'unlink') {
         unlink_contact(post_int('contact_id'));
         flash('Koppeling verwijderd');
+    } elseif ($action === 'link_gezin' && isset(friend_families()[post_int('family')])) {
+        $fid = post_int('family');
+        db()->prepare('UPDATE fp_households SET linked_family = NULL WHERE linked_family = ?')->execute([$fid]);
+        if (post('household_id') === 'new') {
+            $hid = ensure_gezin_of_family($fid);
+        } elseif (post_int('household_id')) {
+            db()->prepare('UPDATE fp_households SET linked_family = ? WHERE id = ?')->execute([$fid, post_int('household_id')]);
+            $hid = post_int('household_id');
+        }
+        if (!empty($hid)) {
+            // Their people that are already linked go into this gezin too (when not in another one)
+            foreach (array_keys(contact_links_to($fid)) as $cid) {
+                db()->prepare('UPDATE fp_contacts SET household_id = ? WHERE id = ? AND household_id IS NULL')->execute([$hid, $cid]);
+            }
+        }
+        flash('✓ Opgeslagen');
     } elseif ($action === 'add_contact') {
         $fid = post_int('family');
         $m = null;
@@ -41,6 +61,7 @@ if (is_post()) {
             db()->prepare("INSERT INTO fp_contacts (first_name, is_child, relation, photo, birth_day, birth_month, birth_year) VALUES (?, ?, 'FRIEND', ?, ?, ?, ?)")
                 ->execute([$m['name'], $m['role'] === 'CHILD' ? 1 : 0, $m['photo'], $m['birth_day'], $m['birth_month'], $m['birth_year']]);
             $cid = (int) db()->lastInsertId();
+            db()->prepare('UPDATE fp_contacts SET household_id = ? WHERE id = ?')->execute([ensure_gezin_of_family($fid), $cid]);
             foreach (post_ids('friend_of') as $kid) {
                 if (member($kid)) {
                     db()->prepare('INSERT IGNORE INTO fp_contact_members (contact_id, member_id) VALUES (?, ?)')->execute([$cid, $kid]);
@@ -57,6 +78,7 @@ $requests = friend_requests();
 $friends = friend_families();
 $contacts = db()->query('SELECT id, first_name, last_name, nickname, photo, is_child FROM fp_contacts ORDER BY first_name')->fetchAll();
 $contactById = array_column($contacts, null, 'id');
+$allGezinnen = db()->query('SELECT id, name FROM fp_households ORDER BY name')->fetchAll();
 
 page_start('Vriendgezinnen');
 page_header('🤝 Vriendgezinnen', 'Word vrienden met gezinnen die ook de Familie Planner gebruiken. Jullie bepalen zelf wat je deelt, per gezin.');
@@ -145,6 +167,21 @@ page_header('🤝 Vriendgezinnen', 'Word vrienden met gezinnen die ook de Famili
         <?php endif; ?>
       </div>
     </div>
+
+    <?php $gezin = gezin_of_family($fid); ?>
+    <form method="post" class="gezin-link" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px">
+      <?= csrf_field() ?><input type="hidden" name="action" value="link_gezin"><input type="hidden" name="family" value="<?= (int) $fid ?>">
+      <?php if ($gezin): ?>
+        <span>🏠 In jullie adresboek: <a href="huishouden.php?id=<?= (int) $gezin['id'] ?>"><b><?= e($gezin['name']) ?></b></a></span>
+      <?php else: ?>
+        <span>🏠 Staat dit gezin al in jullie adresboek?</span>
+      <?php endif; ?>
+      <select name="household_id" onchange="this.form.submit()" style="width:auto">
+        <option value=""><?= $gezin ? 'Ander gezin kiezen…' : 'Kies het gezin…' ?></option>
+        <?php if (!$gezin): ?><option value="new">＋ Nieuw gezin “<?= e($fam['name']) ?>”</option><?php endif; ?>
+        <?php foreach ($allGezinnen as $hg): if ($gezin && (int) $hg['id'] === (int) $gezin['id']) { continue; } ?><option value="<?= (int) $hg['id'] ?>"><?= e($hg['name']) ?></option><?php endforeach; ?>
+      </select>
+    </form>
 
     <h3>Hun gezin</h3>
     <?php if (!$theirMembers): ?>

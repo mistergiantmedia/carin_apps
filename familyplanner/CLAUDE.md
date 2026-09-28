@@ -106,3 +106,7 @@ Hand-written ES5 helpers for old browsers are in `_legacy/dom.js`, extra layout 
 - Photos may be referenced by several families: delete_photo() skips files other families still use.
 - Family photo: fp_families.photo (set in Instellingen or at registration). family_avatar() renders it;
   foto.php serves it to that family, families with a friendship/invitation link, and site admins.
+- Gezinnen (lib/gezinnen.php): fp_households is "Gezin" in the UI (one family at one address, photo,
+  linked_family → friend family). Groups of type FAMILY are "Grote familie" (grandparents etc.). FAMILY groups
+  without any of our members were merged into gezinnen once per planner family (merge_family_groups, setting
+  gezinnen_v1). Don't reintroduce "huishouden/adressen" wording.

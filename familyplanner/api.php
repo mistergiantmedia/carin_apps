@@ -260,8 +260,9 @@ try {
                     $links[] = ['source' => 'c' . $c['id'], 'target' => 'h' . $c['household_id'], 'kind' => 'household'];
                 }
             }
-            foreach ($households as $hid => $name) {
-                $nodes[] = ['id' => 'h' . $hid, 'kind' => 'household', 'label' => $name, 'emoji' => '🏠', 'color' => '#A0522D', 'url' => 'huishouden.php?id=' . $hid, 'sub' => 'Huishouden'];
+            // Gezinnen (also empty ones, so people can be dragged onto them)
+            foreach (db()->query('SELECT * FROM fp_households') as $h) {
+                $nodes[] = ['id' => 'h' . $h['id'], 'kind' => 'household', 'label' => $h['name'], 'emoji' => '🏠', 'color' => '#A0522D', 'photo' => gezin_photo($h), 'url' => 'huishouden.php?id=' . $h['id'], 'sub' => 'Gezin'];
             }
             foreach (db()->query('SELECT contact_id, member_id FROM fp_contact_members') as $r) {
                 $links[] = ['source' => 'c' . $r['contact_id'], 'target' => 'm' . $r['member_id'], 'kind' => 'friend'];

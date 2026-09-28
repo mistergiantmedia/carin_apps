@@ -180,13 +180,13 @@ if ($editing) {
       <?= birthday_fields($f) ?>
       <?= photo_field($f['photo']) ?>
       <fieldset>
-        <legend>🏠 Huishouden & adres</legend>
-        <p class="hint">Zet vriendjes, hun broers/zussen en ouders in hetzelfde huishouden. Dan staat het adres er maar één keer in.</p>
+        <legend>🏠 Gezin & adres</legend>
+        <p class="hint">Zet vriendjes, hun broers/zussen en ouders in hetzelfde gezin. Dan staat het adres er maar één keer in.</p>
         <div class="row2">
-          <div><label>Huishouden</label><select name="household_id"><option value="">— geen —</option><?php foreach ($households as $h): ?><option value="<?= (int) $h['id'] ?>"<?= (int) $h['id'] === (int) $f['household_id'] ? ' selected' : '' ?>><?= e($h['name']) ?></option><?php endforeach; ?></select></div>
-          <div><label>…of nieuw huishouden</label><input name="new_household" placeholder="bijv. Familie de Vries"></div>
+          <div><label>Gezin</label><select name="household_id"><option value="">— geen —</option><?php foreach ($households as $h): ?><option value="<?= (int) $h['id'] ?>"<?= (int) $h['id'] === (int) $f['household_id'] ? ' selected' : '' ?>><?= e($h['name']) ?></option><?php endforeach; ?></select></div>
+          <div><label>…of nieuw gezin</label><input name="new_household" placeholder="bijv. Familie de Vries"></div>
         </div>
-        <label>Adres <small>(alleen als het anders is dan het huishouden)</small></label>
+        <label>Adres <small>(alleen als het anders is dan het gezin)</small></label>
         <input name="street" value="<?= e($f['street']) ?>" placeholder="Straat en huisnummer">
         <div class="row2" style="margin-top:8px"><input name="postal_code" value="<?= e($f['postal_code']) ?>" placeholder="Postcode"><input name="city" value="<?= e($f['city']) ?>" placeholder="Plaats"></div>
       </fieldset>
