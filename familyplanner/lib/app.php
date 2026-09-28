@@ -407,6 +407,7 @@ function nav_items(): array
         ['verjaardagen.php', '🎂', 'Verjaardagen'],
         ['mensen.php', '📇', 'Adresboek'],
         ['smoelenboek.php', '🏫', 'Smoelenboek'],
+        ['bucketlist.php', '🌟', 'Bucketlist'],
         ['activiteiten.php', '🎡', 'Uitjes & feestjes'],
         ['ideeen.php', '💡', 'Ideeën & attent'],
         ['oppas.php', '🍼', 'Oppas'],

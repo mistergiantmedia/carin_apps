@@ -179,6 +179,14 @@ function build_suggestions(): array
     }
     $weekend = load_events($sat, date('Y-m-d', strtotime("$sat +2 day")));
     if (!$weekend) {
+        $wish = db()->query('SELECT b.*, (SELECT COUNT(*) FROM fp_bucket_votes v WHERE v.bucket_id = b.id) AS votes FROM fp_bucket b
+            WHERE b.done_on IS NULL AND b.event_id IS NULL ORDER BY votes DESC, RAND() LIMIT 1')->fetch();
+        if ($wish) {
+            $out[] = suggestion('🌟', 'Het weekend van ' . e(format_date_short($sat)) . ' is nog leeg. Van de bucketlist: <b>' . e(($wish['emoji'] ?: '🌟') . ' ' . $wish['title']) . '</b>', [
+                ['📅 Plannen', 'bucketlist.php#b' . $wish['id']],
+                ['Bucketlist', 'bucketlist.php'],
+            ], 44, 'weekend-wish');
+        }
         $idea = db()->query("SELECT * FROM fp_ideas WHERE category = 'OUTING' AND done_at IS NULL ORDER BY RAND() LIMIT 1")->fetch();
         $out[] = suggestion('🌤️', 'Het weekend van ' . e(format_date_short($sat)) . ' is nog leeg.' . ($idea ? ' Idee: <b>' . e($idea['title']) . '</b>' : ''), [
             ['🎡 Plan uitje', null, ['type' => 'OUTING', 'members' => array_map('intval', array_keys(members())), 'start' => $sat . 'T10:00', 'end' => $sat . 'T16:00', 'title' => $idea ? $idea['title'] : '']],

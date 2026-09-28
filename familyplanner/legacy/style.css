@@ -556,6 +556,27 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 .emoji-own{display:flex;gap:6px;margin-top:8px;align-items:center}
 .emoji-own input{min-height:36px!important;padding:6px 10px!important}
 
+/* Bucketlist */
+.bucket-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.bucket-card{background:#fff;border:1px solid #ECE5DC;border-radius:22px;padding:16px;box-shadow:0 1px 2px rgba(59,42,20,0.031),0 6px 20px rgba(59,42,20,0.051);display:flex;flex-direction:column;gap:8px;position:relative}
+.bucket-card h3{font-size:18px;line-height:1.25}
+.bucket-card p{margin:0}
+.bucket-emoji{font-size:46px;line-height:1}
+.bucket-votes{margin:0}
+.bucket-votes>div{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.vote{position:relative;border:0;background:none;padding:2px;border-radius:50%;cursor:pointer;opacity:.35;filter:grayscale(.6);transition:opacity .15s}
+.vote:hover{opacity:.7}
+.vote.on{opacity:1;filter:none;box-shadow:0 0 0 3px #6C5CE7}
+.vote .heart{position:absolute;right:-4px;bottom:-4px;font-size:15px}
+.bucket-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start;margin-top:auto}
+.bucket-more>summary{list-style:none}
+.bucket-more>summary::-webkit-details-marker{display:none}
+.bucket-edit{position:absolute;left:12px;right:12px;bottom:56px;background:#fff;border:1px solid #ECE5DC;border-radius:16px;padding:10px;box-shadow:0 1px 2px rgba(59,42,20,0.031),0 6px 20px rgba(59,42,20,0.051);z-index:5}
+.bucket-grid.done{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.bucket-card.done{box-shadow:none;background:#FBF6EF}
+.bucket-card.done .bucket-emoji{font-size:32px}
+.bucket-card.done h3{font-size:15px}
+
 /* Appended to legacy/style.css by build.js. Only old browsers (no ES modules) load that file.
    Old engines (Chrome 38 on webOS 3.x) have no CSS grid and no flex "gap": flexbox layouts with margins. */
 
@@ -617,6 +638,13 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 /* Emoji picker grid */
 .emoji-grid{display:flex;flex-wrap:wrap}
 .emoji-grid button{width:12.5%}
+
+/* Bucketlist grid */
+.bucket-grid{display:flex;flex-wrap:wrap}
+.bucket-grid>*{width:250px;margin:0 14px 14px 0}
+.bucket-grid.done>*{width:180px}
+.bucket-card>*+*{margin-top:8px}
+.bucket-votes>div>*{margin:0 6px 6px 0}
 
 /* Missing prefixes */
 .cal,.pick span,.crop-frame{-webkit-user-select:none}

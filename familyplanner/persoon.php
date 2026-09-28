@@ -7,6 +7,7 @@ require __DIR__ . '/lib/events.php';
 require __DIR__ . '/lib/tasks.php';
 require __DIR__ . '/lib/friends.php';
 require __DIR__ . '/lib/views.php';
+require __DIR__ . '/lib/bucket.php';
 require_login();
 
 $m = member(get_int('id'));
@@ -72,6 +73,18 @@ page_start($m['name'], ['active' => 'gezin.php']);
         <input name="title" placeholder="Nieuw klusje, bijv. Kamer opruimen" required><input type="hidden" name="due_date" value="<?= e(today()) ?>">
         <button class="btn">＋</button>
       </form>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-top:0"><h2>🌟 Mijn bucketlist</h2><a href="bucketlist.php">alles</a></div>
+      <?php $wishes = array_slice(load_bucket(['done' => false, 'member' => $id]), 0, 5); ?>
+      <ul class="list compact">
+        <?php foreach ($wishes as $w): ?>
+          <li><span style="font-size:24px"><?= e($w['emoji'] ?: '🌟') ?></span><div class="grow"><a class="title" href="bucketlist.php#b<?= (int) $w['id'] ?>" style="color:inherit"><?= e($w['title']) ?></a>
+            <span class="meta"><?= $w['event_start'] ? '📅 ' . e(format_date_short($w['event_start'])) : count($w['voters']) . ' ' . (count($w['voters']) === 1 ? 'wil' : 'willen') . ' dit' ?></span></div>
+            <span class="avatars"><?php foreach ($w['voters'] as $vid): if ($vm = member($vid)): ?><?= avatar($vm, 24) ?><?php endif; endforeach; ?></span></li>
+        <?php endforeach; ?>
+      </ul>
+      <?php if (!$wishes): ?><p class="muted">Nog geen wensen. <a href="bucketlist.php#nieuw">＋ Wens toevoegen</a></p><?php endif; ?>
     </div>
     <div class="card">
       <div class="section-title" style="margin-top:0"><h2>🧸 Mijn vriendjes</h2><a href="vriendjes.php?kid=<?= $id ?>">bingo & meer</a></div>

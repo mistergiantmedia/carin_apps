@@ -12,7 +12,7 @@ function remove_demo(): void
 {
     $pdo = db();
     $pdo->beginTransaction();
-    foreach (['fp_ideas', 'fp_friendbook', 'fp_tasks', 'fp_events', 'fp_classes', 'fp_contacts', 'fp_households'] as $table) {
+    foreach (['fp_bucket', 'fp_ideas', 'fp_friendbook', 'fp_tasks', 'fp_events', 'fp_classes', 'fp_contacts', 'fp_households'] as $table) {
         $pdo->exec("DELETE FROM $table WHERE is_demo = 1");
     }
     $pdo->commit();
@@ -187,6 +187,15 @@ function load_demo(): void
             ->execute([$bodi, $sem, 'IN', date('Y-m-d', strtotime(today() . ' -6 day'))]);
         $pdo->prepare('INSERT INTO fp_friendbook (member_id, contact_id, direction, given_on, returned_on, is_demo) VALUES (?, ?, ?, ?, ?, 1)')
             ->execute([$kaila, $lotte, 'OUT', date('Y-m-d', strtotime(today() . ' -60 day')), date('Y-m-d', strtotime(today() . ' -45 day'))]);
+
+        // Bucketlist
+        foreach ([['🏕️', 'Kamperen in de tuin', [$kaila, $bodi]], ['🐬', 'Dolfijnen zien', [$kaila]], ['🎢', 'Naar de Efteling', [$kaila, $bodi, $rene]], ['🍕', 'Zelf pizza bakken', [$bodi]]] as [$em, $title, $who]) {
+            $pdo->prepare('INSERT INTO fp_bucket (title, emoji, is_demo) VALUES (?, ?, 1)')->execute([$title, $em]);
+            $bid = (int) $pdo->lastInsertId();
+            foreach (array_filter($who) as $w) {
+                $pdo->prepare('INSERT INTO fp_bucket_votes (bucket_id, member_id) VALUES (?, ?)')->execute([$bid, $w]);
+            }
+        }
 
         // Gift idea for Noor
         $pdo->prepare("INSERT INTO fp_ideas (title, category, contact_id, is_demo) VALUES ('Knutselset sieraden maken', 'GIFT', ?, 1)")->execute([$noor]);
