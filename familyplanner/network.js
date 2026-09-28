@@ -85,8 +85,17 @@
       select(byId[focus]);
       setFocus(byId[focus]);
     }
+    // Just added (quick add): put them in the middle, selected, ready to be dragged onto a group
+    const fresh = byId[svg.dataset.new];
+    if (fresh) {
+      fresh.x = 60; fresh.y = -60;
+      fresh.fixed = true; // stays put (others make room) until it is dragged
+      select(fresh);
+    }
     start(1);
-    setTimeout(() => { if (!userMoved) fit(); }, 700);
+    setTimeout(() => {
+      if (fresh) { view.k = 1; center(fresh); } else if (!userMoved) fit();
+    }, 700);
   }).catch((e) => { svg.insertAdjacentHTML('afterend', `<p class="flash error">${esc(e.message)}</p>`); });
 
   function placeInitially() {
@@ -119,7 +128,7 @@
   }
   function visible(n) {
     if (!nodeShown(n)) return false;
-    if (n.kind === 'home' || n.kind === 'member') return true;
+    if (n.kind === 'home' || n.kind === 'member' || n.id === svg.dataset.new) return true; // just added: show before it has links
     // People and places without any visible connection would just float around: leave them out
     return n.links.some((l) => linkVisible(l));
   }

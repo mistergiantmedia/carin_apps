@@ -137,9 +137,20 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       select(byId[focus]);
       setFocus(byId[focus]);
     }
+    // Just added (quick add): put them in the middle, selected, ready to be dragged onto a group
+    var fresh = byId[svg.dataset.new];
+    if (fresh) {
+      fresh.x = 60;
+      fresh.y = -60;
+      fresh.fixed = true; // stays put (others make room) until it is dragged
+      select(fresh);
+    }
     start(1);
     setTimeout(function () {
-      if (!userMoved) fit();
+      if (fresh) {
+        view.k = 1;
+        center(fresh);
+      } else if (!userMoved) fit();
     }, 700);
   }).catch(function (e) {
     svg.insertAdjacentHTML('afterend', "<p class=\"flash error\">".concat(esc(e.message), "</p>"));
@@ -202,7 +213,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
   }
   function visible(n) {
     if (!nodeShown(n)) return false;
-    if (n.kind === 'home' || n.kind === 'member') return true;
+    if (n.kind === 'home' || n.kind === 'member' || n.id === svg.dataset.new) return true; // just added: show before it has links
     // People and places without any visible connection would just float around: leave them out
     return n.links.some(function (l) {
       return linkVisible(l);
