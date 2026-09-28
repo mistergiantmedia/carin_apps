@@ -168,7 +168,10 @@ page_header('🤝 Vriendgezinnen', 'Word vrienden met gezinnen die ook de Famili
       </div>
     </div>
 
-    <?php $gezin = gezin_of_family($fid); ?>
+    <?php $gezin = gezin_of_family($fid); $addr = friend_address($fid); ?>
+    <?php if ($addr): $line = trim(implode(', ', array_filter([$addr['street'], trim($addr['postal_code'] . ' ' . $addr['city'])]))); ?>
+      <p style="margin:12px 0 0"><?php if ($line !== ''): ?>📍 <a href="https://maps.google.com/?q=<?= e(urlencode($line)) ?>" target="_blank" rel="noopener"><?= e($line) ?></a><?php endif; ?><?= $addr['phone'] ? ' · 📞 <a href="tel:' . e(preg_replace('/[^0-9+]/', '', $addr['phone'])) . '">' . e($addr['phone']) . '</a>' : '' ?></p>
+    <?php endif; ?>
     <form method="post" class="gezin-link" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px">
       <?= csrf_field() ?><input type="hidden" name="action" value="link_gezin"><input type="hidden" name="family" value="<?= (int) $fid ?>">
       <?php if ($gezin): ?>

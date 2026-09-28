@@ -5,7 +5,7 @@
 // done when that family shares it with us. Keep PHP 7.4 compatible.
 
 const SHARE_OPTIONS = [
-    'PROFILE' => ['👨‍👩‍👧', 'Namen en foto’s van ons gezin', 'Nodig om jullie kinderen aan hun vriendjes te koppelen'],
+    'PROFILE' => ['👨‍👩‍👧', 'Namen, foto’s en adres van ons gezin', 'Nodig om jullie kinderen aan hun vriendjes te koppelen'],
     'BIRTHDAYS' => ['🎂', 'Verjaardagen', 'Zodat zij jullie verjaardagen in hun agenda zien'],
     'CLUBS' => ['🎯', 'Clubjes en vaste week van de kinderen', 'Zodat zij zien wanneer jullie kinderen kunnen spelen'],
     'PLAYDATES' => ['🧸', 'Speelafspraken met hun kinderen', 'Staan dan ook in hún agenda (tijd, plek, wie brengt)'],
@@ -177,6 +177,19 @@ function friend_members(int $friend): array
     return $rows;
 }
 
+/** Address of a friend family (from their settings), when they share PROFILE with us. Keys: street, postal_code, city, phone. */
+function friend_address(int $friend): ?array
+{
+    if (!isset(friend_families()[$friend]) || !in_array('PROFILE', shares_from($friend, current_family_id()), true)) {
+        return null;
+    }
+    $rows = with_family($friend, function () {
+        return db()->query("SELECT name, value FROM fp_settings WHERE name IN ('home_street', 'home_postal', 'city', 'home_phone')")->fetchAll(PDO::FETCH_KEY_PAIR);
+    });
+    $a = ['street' => $rows['home_street'] ?? '', 'postal_code' => $rows['home_postal'] ?? '', 'city' => $rows['city'] ?? '', 'phone' => $rows['home_phone'] ?? ''];
+    return array_filter($a) ? $a : null;
+}
+
 /** Our contacts linked to members of $friend: contact_id => member_id. */
 function contact_links_to(int $friend): array
 {
@@ -236,6 +249,16 @@ function sync_links(bool $force = false): void
     }
     $_SESSION['fp_sync'] = time();
     $me = current_family_id();
+    // Gezinnen linked to a friend family: take over their address (only fields still empty here)
+    foreach (friend_families() as $fid => $fam) {
+        $g = gezin_of_family($fid);
+        $addr = $g ? friend_address($fid) : null;
+        if ($addr) {
+            db()->prepare("UPDATE fp_households SET street = COALESCE(NULLIF(street, ''), ?), postal_code = COALESCE(NULLIF(postal_code, ''), ?),
+                city = COALESCE(NULLIF(city, ''), ?), phone = COALESCE(NULLIF(phone, ''), ?) WHERE id = ?")
+                ->execute([$addr['street'] ?: null, $addr['postal_code'] ?: null, $addr['city'] ?: null, $addr['phone'] ?: null, $g['id']]);
+        }
+    }
     $stmt = db()->prepare('SELECT l.contact_id, l.other_family, l.member_id FROM fp_contact_links l
         JOIN fp_family_links fl ON fl.status = \'ACCEPTED\' AND ((fl.family_a = l.family_id AND fl.family_b = l.other_family) OR (fl.family_b = l.family_id AND fl.family_a = l.other_family))
         WHERE l.family_id = ?');

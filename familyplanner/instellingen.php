@@ -4,6 +4,7 @@
 require __DIR__ . '/lib/app.php';
 require __DIR__ . '/lib/upload.php';
 require __DIR__ . '/lib/demo.php';
+require_once __DIR__ . '/lib/freedays.php';
 $user = require_login();
 
 if (is_post()) {
@@ -15,6 +16,10 @@ if (is_post()) {
             }
             $photo = posted_photo($user['family_photo']);
             db()->prepare('UPDATE fp_families SET name = ?, photo = ? WHERE id = ?')->execute([mb_cut(post('family_name'), 120), $photo, $user['family_id']]);
+            set_setting('home_street', mb_cut(post('home_street'), 160));
+            set_setting('home_postal', mb_cut(post('home_postal'), 12));
+            set_setting('city', mb_cut(post('city'), 60)); // also used for outing tips (kidsproof)
+            set_setting('home_phone', mb_cut(post('home_phone'), 40));
             flash('Gezin opgeslagen');
             redirect('instellingen.php#gezin');
         }
@@ -155,6 +160,13 @@ page_header('⚙️ Instellingen');
   <p class="muted small">De gezinsfoto zien jullie vriendgezinnen, bijvoorbeeld bij een uitnodiging.</p>
   <label for="family_name">Naam gezin</label><input id="family_name" name="family_name" value="<?= e($user['family_name']) ?>" required>
   <?= photo_field($user['family_photo'], 'Gezinsfoto', 'Gezinsfoto') ?>
+  <label for="home_street">Straat en huisnummer</label><input id="home_street" name="home_street" value="<?= e(setting('home_street', '')) ?>" autocomplete="street-address">
+  <div class="row2">
+    <div><label for="home_postal">Postcode</label><input id="home_postal" name="home_postal" value="<?= e(setting('home_postal', '')) ?>" autocomplete="postal-code"></div>
+    <div><label for="city">Plaats</label><input id="city" name="city" value="<?= e(setting('city', '')) ?>" autocomplete="address-level2"></div>
+  </div>
+  <label for="home_phone">Telefoon (thuis)</label><input id="home_phone" name="home_phone" value="<?= e(setting('home_phone', '')) ?>" autocomplete="tel">
+  <p class="hint">Vriendgezinnen met wie jullie “Namen en foto’s” delen, zien ook dit adres (handig voor het halen en brengen).</p>
   <div class="form-actions"><button class="btn">Opslaan</button></div>
 </form>
 <div class="section-title" style="margin-top:0"><h2>👨‍👩‍👧‍👦 Gezinsleden</h2></div>
