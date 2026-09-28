@@ -3,6 +3,9 @@
 // friends in your address book to the real children in their family (their photo, birthday and clubs
 // then come from their own planner, and playdates show up in both agendas).
 require __DIR__ . '/lib/app.php';
+require __DIR__ . '/lib/events.php';
+require_once __DIR__ . '/lib/week.php';
+require_once __DIR__ . '/lib/freedays.php';
 $user = require_login();
 $me = current_family_id();
 
@@ -80,6 +83,53 @@ $contacts = db()->query('SELECT id, first_name, last_name, nickname, photo, is_c
 $contactById = array_column($contacts, null, 'id');
 $allGezinnen = db()->query('SELECT id, name FROM fp_households ORDER BY name')->fetchAll();
 
+// Exactly what a friend family gets to see per share option (shown under each checkbox)
+$homeLine = trim(implode(', ', array_filter([setting('home_street', ''), trim(setting('home_postal', '') . ' ' . setting('city', ''))])));
+$upcoming = load_events(today(), date('Y-m-d', strtotime('+1 year')));
+$nothing = '<span class="muted">(nog niets ingevuld)</span>';
+$sharePreview = function (string $key, int $fid) use ($user, $homeLine, $upcoming, $nothing): string {
+    $out = [];
+    if ($key === 'PROFILE') {
+        $out[] = family_avatar(['name' => $user['family_name'], 'photo' => $user['family_photo']], 26) . ' <b>' . e($user['family_name']) . '</b>'
+            . ($homeLine !== '' ? ' · 📍 ' . e($homeLine) : '') . (setting('home_phone', '') ? ' · 📞 ' . e(setting('home_phone', '')) : '');
+        $out[] = implode(' ', array_map(function ($m) {
+            return '<span class="nowrap">' . avatar($m, 22) . ' ' . e($m['name']) . '</span>';
+        }, members()));
+    } elseif ($key === 'BIRTHDAYS') {
+        foreach (members() as $m) {
+            $out[] = e($m['name']) . ': ' . ($m['birth_day'] ? e(birthday_text($m)) : $nothing);
+        }
+    } elseif ($key === 'CLUBS') {
+        foreach (children() as $k) {
+            $clubs = member_clubs((int) $k['id']);
+            $out[] = e($k['name']) . ': ' . ($clubs ? e(implode(', ', array_map(function ($c) {
+                return $c['title'] . ' (' . WEEKDAYS_SHORT[$c['weekday']] . ($c['time'] ? ' ' . substr($c['time'], 0, 5) : '') . ')';
+            }, $clubs))) : '<span class="muted">geen clubjes</span>');
+        }
+    } elseif ($key === 'PLAYDATES') {
+        $theirs = array_keys(contact_links_to($fid)); // our contacts that are their children
+        $list = array_filter($upcoming, function ($ev) use ($theirs) {
+            return $ev['type'] === 'PLAYDATE' && array_intersect(array_map('intval', array_column($ev['contacts'], 'id')), $theirs);
+        });
+        $out[] = $list ? implode('<br>', array_map(function ($ev) {
+            return '🧸 ' . e(format_date_short($ev['start_at'])) . ' · ' . e($ev['title']);
+        }, array_slice(array_values($list), 0, 4))) : ($theirs ? '<span class="muted">Nu geen geplande speelafspraken met hun kinderen</span>' : '<span class="muted">Nog geen van hun kinderen gekoppeld aan jullie vriendjes</span>');
+    } elseif ($key === 'CONTACT') {
+        foreach (members() as $m) {
+            $bits = array_filter([$m['phone'] ? '📞 ' . e($m['phone']) : '', $m['email'] ? '✉️ ' . e($m['email']) : '', $m['allergies'] ? '⚠️ ' . e($m['allergies']) : '']);
+            $out[] = e($m['name']) . ': ' . ($bits ? implode(' · ', $bits) : $nothing);
+        }
+    } elseif ($key === 'EVENTS') {
+        $list = array_filter($upcoming, function ($ev) use ($fid) {
+            return in_array($fid, $ev['shares'], true);
+        });
+        $out[] = $list ? implode('<br>', array_map(function ($ev) {
+            return '📅 ' . e(format_date_short($ev['start_at'])) . ' · ' . e($ev['title']);
+        }, array_slice(array_values($list), 0, 4))) : '<span class="muted">Nu nog geen afspraken met hen gedeeld</span>';
+    }
+    return implode('<br>', $out);
+};
+
 page_start('Vriendgezinnen');
 page_header('🤝 Vriendgezinnen', 'Word vrienden met gezinnen die ook de Familie Planner gebruiken. Jullie bepalen zelf wat je deelt, per gezin.');
 ?>
@@ -150,7 +200,8 @@ page_header('🤝 Vriendgezinnen', 'Word vrienden met gezinnen die ook de Famili
         <h3 style="margin-top:0">Wat wij delen met <?= e($fam['name']) ?></h3>
         <?php foreach (SHARE_OPTIONS as $key => [$icon, $label, $help]): ?>
           <label class="check" style="align-items:flex-start"><input type="checkbox" name="what[]" value="<?= e($key) ?>"<?= in_array($key, $mine, true) ? ' checked' : '' ?>>
-            <span><?= $icon ?> <?= e($label) ?><br><span class="muted small"><?= e($help) ?></span></span></label>
+            <span><?= $icon ?> <?= e($label) ?><br><span class="muted small"><?= e($help) ?></span>
+              <span class="share-preview"><b><?= in_array($key, $mine, true) ? '👁 Zij zien nu:' : '👁 Zij zien dan:' ?></b><br><?= $sharePreview($key, (int) $fid) ?></span></span></label>
         <?php endforeach; ?>
         <button class="btn small" type="submit" style="margin-top:8px">Opslaan</button>
       </form>
@@ -188,7 +239,7 @@ page_header('🤝 Vriendgezinnen', 'Word vrienden met gezinnen die ook de Famili
 
     <h3>Hun gezin</h3>
     <?php if (!$theirMembers): ?>
-      <p class="muted small">Zodra <?= e($fam['name']) ?> “Namen en foto’s” met jullie deelt, zie je hier hun gezin en kun je hun kinderen aan jullie vriendjes koppelen.</p>
+      <p class="muted small">Zodra <?= e($fam['name']) ?> “Namen, foto’s en adres” met jullie deelt, zie je hier hun gezin en kun je hun kinderen aan jullie vriendjes koppelen.</p>
     <?php else: ?>
       <ul class="list">
         <?php foreach ($theirMembers as $m):
