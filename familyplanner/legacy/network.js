@@ -91,6 +91,16 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
   var nodeLayer = el('g', {
     class: 'net-nodes'
   }, viewport);
+  // People without any connection yet gather in their own corner, ready to be dragged onto someone
+  var looseLabel = el('text', {
+    class: 'net-loose-label',
+    'text-anchor': 'middle'
+  }, viewport);
+  looseLabel.textContent = 'Nog niet verbonden';
+  var loosePoint = {
+    x: 0,
+    y: 0
+  };
 
   /** Load the web. Later reloads (after connecting people) keep everyone where they were. */
   function loadGraph(first) {
@@ -190,7 +200,11 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
         if (other) {
           n.x = other.x + (Math.random() - 0.5) * 120;
           n.y = other.y + (Math.random() - 0.5) * 120;
-        } else {
+        } else if (n.kind === 'contact' && !n.links.length) {
+          n.x = 520 + Math.random() * 80;
+          n.y = (Math.random() - 0.5) * 300;
+        } // loose corner
+        else {
           var a = Math.random() * Math.PI * 2;
           n.x = Math.cos(a) * 420;
           n.y = Math.sin(a) * 420;
@@ -213,7 +227,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
   }
   function visible(n) {
     if (!nodeShown(n)) return false;
-    if (n.kind === 'home' || n.kind === 'member' || n.id === svg.dataset.new) return true; // just added: show before it has links
+    if (n.kind === 'home' || n.kind === 'member') return true;
+    if (n.kind === 'contact' && !n.links.length) return true; // not connected yet: shown in the "Nog niet verbonden" corner
     // People and places without any visible connection would just float around: leave them out
     return n.links.some(function (l) {
       return linkVisible(l);
@@ -308,7 +323,21 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
   function refreshVisibility() {
     nodes.forEach(function (n) {
       n.visible = visible(n);
+      n.loose = n.kind === 'contact' && !n.links.length;
       n.el.style.display = n.visible ? '' : 'none';
+      toggleClass(n.el, 'loose', n.loose);
+    });
+    // A tidy grid (alphabetical, 3 wide) in the loose corner
+    nodes.filter(function (n) {
+      return n.visible && n.loose;
+    }).sort(function (a, b) {
+      return (a.label || '').localeCompare(b.label || '');
+    }).forEach(function (n, i, all) {
+      n.slot = {
+        col: i % 3,
+        row: Math.floor(i / 3),
+        rows: Math.ceil(all.length / 3)
+      };
     });
     links.forEach(function (l) {
       l.visible = linkVisible(l) && l.s.visible && l.t.visible;
@@ -327,6 +356,20 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     nodes.forEach(function (n) {
       if (n.visible) n.el.setAttribute('transform', "translate(".concat(n.x.toFixed(1), ",").concat(n.y.toFixed(1), ")"));
     });
+    var loose = nodes.filter(function (n) {
+      return n.visible && n.loose;
+    });
+    looseLabel.style.display = loose.length ? '' : 'none';
+    if (loose.length) {
+      var top = Infinity;
+      var x = 0;
+      loose.forEach(function (n) {
+        top = Math.min(top, n.y - n.r);
+        x += n.x;
+      });
+      looseLabel.setAttribute('x', (x / loose.length).toFixed(1));
+      looseLabel.setAttribute('y', (top - 14).toFixed(1));
+    }
   }
 
   // ---------- Simulation ----------
@@ -389,9 +432,22 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       l.t.vx -= dx * f;
       l.t.vy -= dy * f;
     });
+    // The corner for loose people: right of everything that is connected
+    var right = 0;
     vis.forEach(function (n) {
-      n.vx -= n.x * 0.003 * k;
-      n.vy -= n.y * 0.003 * k;
+      if (!n.loose && n.x > right) right = n.x;
+    });
+    loosePoint.x = right + 220;
+    vis.forEach(function (n) {
+      if (n.loose && n.slot) {
+        var tx = loosePoint.x + n.slot.col * 70;
+        var ty = loosePoint.y + (n.slot.row - (n.slot.rows - 1) / 2) * 70;
+        n.vx = (tx - n.x) * 0.3;
+        n.vy = (ty - n.y) * 0.3;
+      } else {
+        n.vx -= n.x * 0.003 * k;
+        n.vy -= n.y * 0.003 * k;
+      }
       if (n.fixed) {
         n.vx = 0;
         n.vy = 0;

@@ -46,6 +46,10 @@
   const viewport = el('g', { class: 'net-viewport' }, svg);
   const linkLayer = el('g', { class: 'net-links' }, viewport);
   const nodeLayer = el('g', { class: 'net-nodes' }, viewport);
+  // People without any connection yet gather in their own corner, ready to be dragged onto someone
+  const looseLabel = el('text', { class: 'net-loose-label', 'text-anchor': 'middle' }, viewport);
+  looseLabel.textContent = 'Nog niet verbonden';
+  const loosePoint = { x: 0, y: 0 };
 
   /** Load the web. Later reloads (after connecting people) keep everyone where they were. */
   function loadGraph(first) {
@@ -109,6 +113,7 @@
       if (n.kind === 'contact' || n.kind === 'household') {
         const other = n.links.map((l) => (l.s === n ? l.t : l.s)).find((o) => o.kind !== 'contact');
         if (other) { n.x = other.x + (Math.random() - 0.5) * 120; n.y = other.y + (Math.random() - 0.5) * 120; }
+        else if (n.kind === 'contact' && !n.links.length) { n.x = 520 + Math.random() * 80; n.y = (Math.random() - 0.5) * 300; } // loose corner
         else { const a = Math.random() * Math.PI * 2; n.x = Math.cos(a) * 420; n.y = Math.sin(a) * 420; }
       }
     });
@@ -128,7 +133,8 @@
   }
   function visible(n) {
     if (!nodeShown(n)) return false;
-    if (n.kind === 'home' || n.kind === 'member' || n.id === svg.dataset.new) return true; // just added: show before it has links
+    if (n.kind === 'home' || n.kind === 'member') return true;
+    if (n.kind === 'contact' && !n.links.length) return true; // not connected yet: shown in the "Nog niet verbonden" corner
     // People and places without any visible connection would just float around: leave them out
     return n.links.some((l) => linkVisible(l));
   }
@@ -186,7 +192,15 @@
   }
 
   function refreshVisibility() {
-    nodes.forEach((n) => { n.visible = visible(n); n.el.style.display = n.visible ? '' : 'none'; });
+    nodes.forEach((n) => {
+      n.visible = visible(n);
+      n.loose = n.kind === 'contact' && !n.links.length;
+      n.el.style.display = n.visible ? '' : 'none';
+      toggleClass(n.el, 'loose', n.loose);
+    });
+    // A tidy grid (alphabetical, 3 wide) in the loose corner
+    nodes.filter((n) => n.visible && n.loose).sort((a, b) => (a.label || '').localeCompare(b.label || ''))
+      .forEach((n, i, all) => { n.slot = { col: i % 3, row: Math.floor(i / 3), rows: Math.ceil(all.length / 3) }; });
     links.forEach((l) => { l.visible = linkVisible(l) && l.s.visible && l.t.visible; l.el.style.display = l.visible ? '' : 'none'; });
     highlight();
   }
@@ -198,6 +212,14 @@
       l.el.setAttribute('x2', l.t.x.toFixed(1)); l.el.setAttribute('y2', l.t.y.toFixed(1));
     });
     nodes.forEach((n) => { if (n.visible) n.el.setAttribute('transform', `translate(${n.x.toFixed(1)},${n.y.toFixed(1)})`); });
+    const loose = nodes.filter((n) => n.visible && n.loose);
+    looseLabel.style.display = loose.length ? '' : 'none';
+    if (loose.length) {
+      let top = Infinity; let x = 0;
+      loose.forEach((n) => { top = Math.min(top, n.y - n.r); x += n.x; });
+      looseLabel.setAttribute('x', (x / loose.length).toFixed(1));
+      looseLabel.setAttribute('y', (top - 14).toFixed(1));
+    }
   }
 
   // ---------- Simulation ----------
@@ -247,9 +269,20 @@
       l.s.vx += dx * f; l.s.vy += dy * f;
       l.t.vx -= dx * f; l.t.vy -= dy * f;
     });
+    // The corner for loose people: right of everything that is connected
+    let right = 0;
+    vis.forEach((n) => { if (!n.loose && n.x > right) right = n.x; });
+    loosePoint.x = right + 220;
     vis.forEach((n) => {
-      n.vx -= n.x * 0.003 * k;
-      n.vy -= n.y * 0.003 * k;
+      if (n.loose && n.slot) {
+        const tx = loosePoint.x + n.slot.col * 70;
+        const ty = loosePoint.y + (n.slot.row - (n.slot.rows - 1) / 2) * 70;
+        n.vx = (tx - n.x) * 0.3;
+        n.vy = (ty - n.y) * 0.3;
+      } else {
+        n.vx -= n.x * 0.003 * k;
+        n.vy -= n.y * 0.003 * k;
+      }
       if (n.fixed) { n.vx = 0; n.vy = 0; return; }
       n.vx *= 0.55; n.vy *= 0.55;
       n.x += Math.max(-40, Math.min(40, n.vx));

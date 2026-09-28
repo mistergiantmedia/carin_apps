@@ -616,6 +616,8 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 .net-node.selected circle{stroke-width:6}
 .net-node.dim,.net-link.dim{opacity:.12}
 .net-emoji{pointer-events:none}
+.net-loose-label{font-size:13px;font-weight:800;fill:#76737F;pointer-events:none}
+.net-node.loose circle{stroke-dasharray:4 3}
 .net-panel{position:absolute;top:12px;right:12px;width:290px;max-width:calc(100% - 24px);max-height:calc(100% - 24px);overflow:auto;padding:14px}
 .net-panel h3{font-size:17px}
 .net-panel h4{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#76737F;margin:12px 0 4px}
