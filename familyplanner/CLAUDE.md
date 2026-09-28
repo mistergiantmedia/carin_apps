@@ -104,3 +104,5 @@ Hand-written ES5 helpers for old browsers are in `_legacy/dom.js`, extra layout 
   (id 'x{fid}-{id}', shared=true, owner_family); api events, index, gezin, persoon and kid boards include them
   (with_shared_events, event_link). Calendar: readOnly → click only, own popover.
 - Photos may be referenced by several families: delete_photo() skips files other families still use.
+- Family photo: fp_families.photo (set in Instellingen or at registration). family_avatar() renders it;
+  foto.php serves it to that family, families with a friendship/invitation link, and site admins.

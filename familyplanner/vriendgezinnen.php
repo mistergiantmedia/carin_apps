@@ -76,11 +76,11 @@ page_header('🤝 Vriendgezinnen', 'Word vrienden met gezinnen die ook de Famili
       <h2 style="margin-top:0">✉️ Uitnodigingen</h2>
       <ul class="list compact">
         <?php foreach ($requests['in'] as $r): ?>
-          <li><span>🏡</span><div class="grow"><span class="title"><?= e($r['name']) ?></span><span class="meta">wil vrienden met jullie worden</span></div>
+          <li><?= family_avatar($r, 44) ?><div class="grow"><span class="title"><?= e($r['name']) ?></span><span class="meta">wil vrienden met jullie worden</span></div>
             <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="link_id" value="<?= (int) $r['id'] ?>"><button class="btn small ok" name="action" value="accept">✓ Accepteren</button> <button class="btn small secondary" name="action" value="end">Nee, bedankt</button></form></li>
         <?php endforeach; ?>
         <?php foreach ($requests['out'] as $r): ?>
-          <li><span>⏳</span><div class="grow"><span class="title"><?= e($r['name']) ?></span><span class="meta">wacht op hun antwoord</span></div>
+          <li><?= family_avatar($r, 36) ?><div class="grow"><span class="title"><?= e($r['name']) ?></span><span class="meta">wacht op hun antwoord</span></div>
             <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="link_id" value="<?= (int) $r['id'] ?>"><button class="btn small secondary" name="action" value="end">Intrekken</button></form></li>
         <?php endforeach; ?>
       </ul>
@@ -101,7 +101,7 @@ page_header('🤝 Vriendgezinnen', 'Word vrienden met gezinnen die ook de Famili
 ?>
   <section class="card" style="margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap">
-      <h2 style="margin:0">🏡 <?= e($fam['name']) ?></h2>
+      <div style="display:flex;gap:12px;align-items:center"><?= family_avatar($fam, 64) ?><h2 style="margin:0"><?= e($fam['name']) ?></h2></div>
       <span class="badge ok">🤝 Vrienden sinds <?= e(format_date(substr((string) $fam['since'], 0, 10), false)) ?></span>
     </div>
 

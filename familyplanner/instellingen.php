@@ -9,6 +9,15 @@ $user = require_login();
 if (is_post()) {
     $action = post('action');
     try {
+        if ($action === 'family') {
+            if (post('family_name') === '') {
+                throw new RuntimeException('Vul de naam van jullie gezin in.');
+            }
+            $photo = posted_photo($user['family_photo']);
+            db()->prepare('UPDATE fp_families SET name = ?, photo = ? WHERE id = ?')->execute([mb_cut(post('family_name'), 120), $photo, $user['family_id']]);
+            flash('Gezin opgeslagen');
+            redirect('instellingen.php#gezin');
+        }
         if ($action === 'member') {
             $id = post_int('id');
             $old = member($id);
@@ -140,6 +149,14 @@ function member_form(array $m): string
 page_start('Instellingen');
 page_header('⚙️ Instellingen');
 ?>
+<form method="post" enctype="multipart/form-data" class="card form" id="gezin" style="margin-bottom:18px">
+  <?= csrf_field() ?><input type="hidden" name="action" value="family">
+  <div style="display:flex;gap:14px;align-items:center"><?= family_avatar(['name' => $user['family_name'], 'photo' => $user['family_photo']], 72) ?><h2 style="margin:0">🏡 Ons gezin</h2></div>
+  <p class="muted small">De gezinsfoto zien jullie vriendgezinnen, bijvoorbeeld bij een uitnodiging.</p>
+  <label for="family_name">Naam gezin</label><input id="family_name" name="family_name" value="<?= e($user['family_name']) ?>" required>
+  <?= photo_field($user['family_photo'], 'Gezinsfoto', 'Gezinsfoto') ?>
+  <div class="form-actions"><button class="btn">Opslaan</button></div>
+</form>
 <div class="section-title" style="margin-top:0"><h2>👨‍👩‍👧‍👦 Gezinsleden</h2></div>
 <p class="muted">Vul de verjaardagen in (dan zie je hoe oud iedereen is en komen ze in de agenda) en upload een foto.</p>
 <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">

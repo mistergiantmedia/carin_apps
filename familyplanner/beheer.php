@@ -50,7 +50,7 @@ page_header('🛡️ Beheer', 'Gezinnen die de Familie Planner gebruiken. Nieuwe
   <?php foreach ($families as $f): [$label, $cls] = $labels[$f['status']] ?? [$f['status'], '']; ?>
     <div class="card"<?= $f['status'] === 'PENDING' ? ' style="border:2px solid var(--warn)"' : '' ?>>
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
-        <h2 style="margin:0">🏡 <?= e($f['name']) ?></h2><span class="badge <?= $cls ?>"><?= e($label) ?></span>
+        <div style="display:flex;gap:10px;align-items:center"><?= family_avatar($f, 48) ?><h2 style="margin:0"><?= e($f['name']) ?></h2></div><span class="badge <?= $cls ?>"><?= e($label) ?></span>
       </div>
       <p class="muted small">Aangemeld op <?= e(format_date(substr($f['created_at'], 0, 10))) ?><?= $f['id'] == 1 ? ' · jullie eigen gezin' : '' ?></p>
       <ul class="list compact">

@@ -151,7 +151,7 @@ function current_user(): ?array
         $user = null;
         if (!empty($_SESSION['user_id'])) {
             $stmt = db()->prepare('SELECT u.id, u.family_id, u.name, u.last_name, u.email, u.member_id, u.must_change_password, u.is_admin,
-                    f.status AS family_status, f.name AS family_name
+                    f.status AS family_status, f.name AS family_name, f.photo AS family_photo
                 FROM fp_users u JOIN fp_families f ON f.id = u.family_id WHERE u.id = ?');
             $stmt->execute([$_SESSION['user_id']]);
             $user = $stmt->fetch() ?: null;
@@ -271,6 +271,16 @@ function avatar(array $person, int $size = 40, string $class = ''): string
     $color = $person['color'] ?? name_color($name);
     $label = isset($person['emoji']) && $size >= 28 ? $person['emoji'] : initial($name);
     return '<span class="' . e($cls) . '" style="' . $style . ';background:' . e($color) . '" title="' . e($name) . '">' . e($label) . '</span>';
+}
+
+/** Family photo (round), or a house when there is none. $fam: name, photo. */
+function family_avatar(array $fam, int $size = 40): string
+{
+    $style = 'width:' . $size . 'px;height:' . $size . 'px';
+    if (!empty($fam['photo'])) {
+        return '<img class="avatar" style="' . $style . '" src="foto.php?f=' . e($fam['photo']) . '&amp;s=t" alt="' . e($fam['name'] ?? '') . '" loading="lazy">';
+    }
+    return '<span class="avatar" style="' . $style . ';font-size:' . round($size * 0.5) . 'px;background:var(--accent-soft,#ECE8FF)" title="' . e($fam['name'] ?? '') . '">🏡</span>';
 }
 
 function member_chip(array $m, bool $small = false): string
@@ -532,8 +542,8 @@ function page_start(string $title, array $options = []): void
   <?php if ($user && ($active !== 'beheer.php') && pending_families()): ?>
     <div class="flash warn">🆕 <?= pending_families() === 1 ? 'Er wacht 1 gezin' : 'Er wachten ' . pending_families() . ' gezinnen' ?> op goedkeuring. <a href="beheer.php">Bekijken →</a></div>
   <?php endif; ?>
-  <?php if ($user && $active !== 'vriendgezinnen.php' && ($incoming = count(friend_requests()['in']))): ?>
-    <div class="flash warn">🤝 <?= $incoming === 1 ? 'Een ander gezin wil' : $incoming . ' gezinnen willen' ?> vrienden met jullie worden. <a href="vriendgezinnen.php">Bekijken →</a></div>
+  <?php if ($user && $active !== 'vriendgezinnen.php' && ($incoming = friend_requests()['in'])): ?>
+    <div class="flash warn big" style="display:flex;gap:14px;align-items:center"><?= count($incoming) === 1 ? family_avatar($incoming[0], 64) : '' ?><span>🤝 <?= count($incoming) === 1 ? '<b>' . e($incoming[0]['name']) . '</b> wil' : count($incoming) . ' gezinnen willen' ?> vrienden met jullie worden. <a href="vriendgezinnen.php">Bekijken →</a></span></div>
   <?php endif; ?>
     <?php
 }

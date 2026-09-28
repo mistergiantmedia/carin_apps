@@ -1,6 +1,7 @@
 <?php
 // Register a new family. The family waits for approval by Carin or René (beheer.php) before anyone can log in.
 require __DIR__ . '/lib/app.php';
+require __DIR__ . '/lib/upload.php';
 
 if (current_user()) {
     redirect('./');
@@ -28,7 +29,12 @@ if (is_post()) {
         if ($exists->fetchColumn()) {
             $error = 'Er is al een account met dit e-mailadres. Probeer in te loggen.';
         } else {
-            db()->prepare("INSERT INTO fp_families (name, status) VALUES (?, 'PENDING')")->execute([mb_cut($f['family'], 120)]);
+            try {
+                $photo = save_photo('photo');
+            } catch (RuntimeException $e) {
+                $photo = null; // the photo is optional: can be added later in Instellingen
+            }
+            db()->prepare("INSERT INTO fp_families (name, photo, status) VALUES (?, ?, 'PENDING')")->execute([mb_cut($f['family'], 120), $photo]);
             $familyId = (int) db()->lastInsertId();
             db()->prepare('INSERT INTO fp_users (family_id, name, last_name, email, password_hash) VALUES (?, ?, ?, ?, ?)')
                 ->execute([$familyId, mb_cut($f['first'], 100), mb_cut($f['last'], 100), $email, password_hash($pw, PASSWORD_DEFAULT)]);
@@ -50,7 +56,7 @@ page_start('Gezin aanmaken', ['narrow' => true, 'bodyClass' => 'login-page']);
     </div>
   <?php else: ?>
     <p class="sub">Maak een planner aan voor je eigen gezin.</p>
-    <form method="post" class="card form">
+    <form method="post" enctype="multipart/form-data" class="card form">
       <?= csrf_field() ?>
       <?php if ($error): ?><div class="flash error"><?= e($error) ?></div><?php endif; ?>
       <label for="family">Naam gezin</label>
@@ -65,6 +71,7 @@ page_start('Gezin aanmaken', ['narrow' => true, 'bodyClass' => 'login-page']);
         <div><label for="password">Wachtwoord</label><input id="password" name="password" type="password" minlength="8" autocomplete="new-password" required></div>
         <div><label for="password2">Herhaal wachtwoord</label><input id="password2" name="password2" type="password" minlength="8" autocomplete="new-password" required></div>
       </div>
+      <?= photo_field(null, 'Gezinsfoto (mag ook later)', 'Gezinsfoto') ?>
       <p class="hint" style="margin:14px 0 0">👫 Vul hier alleen je eigen gegevens in. Een andere ouder of verzorger kun je later toevoegen via <b>Instellingen</b>. Die krijgt dan een eigen e-mailadres en wachtwoord.</p>
       <input name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
       <button class="btn wide" type="submit">Gezin aanmaken</button>

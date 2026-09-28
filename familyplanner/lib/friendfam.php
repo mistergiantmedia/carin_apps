@@ -45,13 +45,13 @@ function friend_families(): array
         return $cache;
     }
     $me = current_family_id();
-    $stmt = db()->prepare("SELECT l.id AS link_id, l.accepted_at, IF(l.family_a = ?, l.family_b, l.family_a) AS fid, f.name
+    $stmt = db()->prepare("SELECT l.id AS link_id, l.accepted_at, IF(l.family_a = ?, l.family_b, l.family_a) AS fid, f.name, f.photo
         FROM fp_family_links l JOIN fp_families f ON f.id = IF(l.family_a = ?, l.family_b, l.family_a)
         WHERE (l.family_a = ? OR l.family_b = ?) AND l.status = 'ACCEPTED' AND f.status = 'ACTIVE' ORDER BY f.name");
     $stmt->execute([$me, $me, $me, $me]);
     $cache = [];
     foreach ($stmt as $r) {
-        $cache[(int) $r['fid']] = ['id' => (int) $r['fid'], 'name' => $r['name'], 'link_id' => (int) $r['link_id'], 'since' => $r['accepted_at']];
+        $cache[(int) $r['fid']] = ['id' => (int) $r['fid'], 'name' => $r['name'], 'photo' => $r['photo'], 'link_id' => (int) $r['link_id'], 'since' => $r['accepted_at']];
     }
     return $cache;
 }
@@ -60,7 +60,7 @@ function friend_families(): array
 function friend_requests(): array
 {
     $me = current_family_id();
-    $stmt = db()->prepare("SELECT l.*, IF(l.family_a = ?, l.family_b, l.family_a) AS fid, f.name FROM fp_family_links l
+    $stmt = db()->prepare("SELECT l.*, IF(l.family_a = ?, l.family_b, l.family_a) AS fid, f.name, f.photo FROM fp_family_links l
         JOIN fp_families f ON f.id = IF(l.family_a = ?, l.family_b, l.family_a)
         WHERE (l.family_a = ? OR l.family_b = ?) AND l.status = 'PENDING' ORDER BY l.created_at DESC");
     $stmt->execute([$me, $me, $me, $me]);
@@ -389,6 +389,24 @@ function shared_event_json(array $ev): array
     $j['readOnly'] = true;
     $j['ownerFamily'] = $ev['owner_family'];
     return $j;
+}
+
+/** A family photo may be seen by that family, families it has a friendship (or invitation) with, and the site admins. */
+function family_photo_visible(string $file): bool
+{
+    $stmt = db()->prepare('SELECT id FROM fp_families WHERE photo = ?');
+    $stmt->execute([$file]);
+    $fid = (int) $stmt->fetchColumn();
+    if (!$fid) {
+        return false;
+    }
+    $me = current_family_id();
+    if ($fid === $me || is_site_admin()) {
+        return true;
+    }
+    $stmt = db()->prepare('SELECT 1 FROM fp_family_links WHERE (family_a = ? AND family_b = ?) OR (family_a = ? AND family_b = ?)');
+    $stmt->execute([$fid, $me, $me, $fid]);
+    return (bool) $stmt->fetchColumn();
 }
 
 /** Photos of friend families' members that are shared with us may be shown here too. */
