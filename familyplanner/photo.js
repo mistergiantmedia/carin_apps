@@ -277,11 +277,20 @@
         const file = new File([blob], 'foto-' + Date.now() + '.jpg', { type: 'image/jpeg' });
         setFiles(input, file, multiple);
         close();
+        if (!multiple && input.hasAttribute('data-autosave')) autosave(input.form);
       }, 'image/jpeg', 0.9);
     };
 
     d.showModal();
     if (initialFile) load(initialFile);
+  }
+
+  /** "Gebruiken" also saves: click the form's own save button (so required fields are still checked). */
+  function autosave(form) {
+    if (!form) return;
+    const buttons = Array.from(form.querySelectorAll('button')).filter((b) => (b.getAttribute('type') || 'submit') === 'submit');
+    const save = buttons[buttons.length - 1];
+    if (save) save.click(); else form.submit();
   }
 
   /** Put the cropped photo into the real input and show a preview next to it. */

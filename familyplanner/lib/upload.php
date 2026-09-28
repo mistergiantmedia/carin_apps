@@ -156,14 +156,15 @@ function photo_used_elsewhere(string $name): bool
 }
 
 /** File input + preview of the current photo, with an option to remove it. */
-function photo_field(?string $current, string $label = 'Foto', string $pasteLabel = ''): string
+/** $autosave: after "Gebruiken" in the photo dialog the form is saved right away (not on forms with more to fill in). */
+function photo_field(?string $current, string $label = 'Foto', string $pasteLabel = '', bool $autosave = true): string
 {
     $html = '<label>' . e($label) . '</label><div class="photo-field">';
     if ($current) {
         $html .= '<img src="foto.php?f=' . e($current) . '&amp;s=t" alt="">'
             . '<label class="check"><input type="checkbox" name="remove_photo" value="1"> Foto verwijderen</label>';
     }
-    return $html . '<input type="file" name="photo" accept="image/*"' . ($pasteLabel !== '' ? ' data-photo-label="' . e($pasteLabel) . '"' : '') . '></div>';
+    return $html . '<input type="file" name="photo" accept="image/*"' . ($pasteLabel !== '' ? ' data-photo-label="' . e($pasteLabel) . '"' : '') . ($autosave ? ' data-autosave' : '') . '></div>';
 }
 
 /**

@@ -71,7 +71,7 @@ page_start('Gezin aanmaken', ['narrow' => true, 'bodyClass' => 'login-page']);
         <div><label for="password">Wachtwoord</label><input id="password" name="password" type="password" minlength="8" autocomplete="new-password" required></div>
         <div><label for="password2">Herhaal wachtwoord</label><input id="password2" name="password2" type="password" minlength="8" autocomplete="new-password" required></div>
       </div>
-      <?= photo_field(null, 'Gezinsfoto (mag ook later)', 'Gezinsfoto') ?>
+      <?= photo_field(null, 'Gezinsfoto (mag ook later)', 'Gezinsfoto', false) ?>
       <p class="hint" style="margin:14px 0 0">👫 Vul hier alleen je eigen gegevens in. Een andere ouder of verzorger kun je later toevoegen via <b>Instellingen</b>. Die krijgt dan een eigen e-mailadres en wachtwoord.</p>
       <input name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
       <button class="btn wide" type="submit">Gezin aanmaken</button>
