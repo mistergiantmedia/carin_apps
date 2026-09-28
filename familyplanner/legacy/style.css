@@ -615,6 +615,8 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 @media (max-width:700px){#net{height:calc(100vh - 260px)}.net-panel{top:auto;bottom:12px;max-height:45%}}
 .net-node.drop-target circle{stroke-width:9;stroke-opacity:.9;filter:drop-shadow(0 0 10px rgba(108,92,231,.8))}
 .net-node.drop-target .net-label{font-size:14px}
+.matrix-head .matrix-cell.today-head{color:#4B3CC4}
+.matrix-head .matrix-cell{display:flex;flex-direction:column;align-items:center}
 
 /* Appended to legacy/style.css by build.js. Only old browsers (no ES modules) load that file.
    Old engines (Chrome 38 on webOS 3.x) have no CSS grid and no flex "gap": flexbox layouts with margins. */

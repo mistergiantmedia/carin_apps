@@ -36,29 +36,54 @@ page_header('👨‍👩‍👧‍👦 Ons gezin');
     <button class="btn secondary small" onclick="window.print()">🖨</button>
   </div>
 </div>
+<?php
+/** Everything of one family member on one day: birthdays, their events and what they bring / pick up. */
+$cell = function (array $m, string $d) use ($events, $birthdays): string {
+    $html = '';
+    foreach ($birthdays as $b) {
+        if ($b['date'] !== $d || ($b['kind'] === 'member' && (int) $b['person']['id'] !== (int) $m['id'])) {
+            continue;
+        }
+        if ($b['kind'] === 'contact') {
+            $links = db()->prepare('SELECT 1 FROM fp_contact_members WHERE contact_id = ? AND member_id = ?');
+            $links->execute([$b['person']['id'], $m['id']]);
+            if (!$links->fetchColumn()) {
+                continue;
+            }
+        }
+        $html .= '<span class="mtag" style="--ec:#E0568A">🎂 ' . e($b['name']) . '</span>';
+    }
+    foreach ($events as $ev) {
+        if (substr($ev['start_at'], 0, 10) > $d || substr($ev['end_at'], 0, 10) < $d) {
+            continue;
+        }
+        $role = in_array((int) $m['id'], $ev['members'], true) ? '' : ((int) $ev['drop_member_id'] === (int) $m['id'] ? '🚗 brengen: ' : ((int) $ev['pickup_member_id'] === (int) $m['id'] ? '🏠 halen: ' : null));
+        if ($role === null) {
+            continue;
+        }
+        $html .= '<a class="mtag' . ($ev['done'] ? ' done' : '') . '" style="--ec:' . e(event_color($ev)) . ';color:inherit" href="event.php?id=' . (int) $ev['id'] . '&amp;occ=' . e($ev['occ']) . '" data-edit-event="' . (int) $ev['id'] . '" data-occ="' . e($ev['occ']) . '">'
+            . ($ev['all_day'] ? '' : e(substr($ev['start_at'], 11, 5)) . ' ') . e($role) . event_emoji($ev) . ' ' . e($ev['title']) . '</a>';
+    }
+    return $html;
+};
+$days = [];
+for ($i = 0; $i < 7; $i++) {
+    $days[] = date('Y-m-d', strtotime("$weekStart +$i day"));
+}
+?>
 <div class="card matrix">
-  <div class="matrix-row matrix-head" style="grid-template-columns:110px repeat(<?= count(members()) ?>,minmax(0,1fr))"><div></div>
-    <?php foreach (members() as $m): ?><div class="matrix-cell" style="text-transform:none;flex-direction:row;align-items:center;justify-content:center;gap:8px"><?= avatar($m, 26) ?> <?= e($m['name']) ?></div><?php endforeach; ?>
+  <div class="matrix-row matrix-head"><div></div>
+    <?php foreach ($days as $d): ?>
+      <div class="matrix-cell<?= $d === today() ? ' today-head' : '' ?>"><span style="text-transform:capitalize"><?= e(DAYS[(int) date('w', strtotime($d))]) ?></span><small class="muted" style="text-transform:none;font-weight:600"><?= e(format_date_short($d)) ?></small></div>
+    <?php endforeach; ?>
   </div>
-  <?php for ($i = 0; $i < 7; $i++): $d = date('Y-m-d', strtotime("$weekStart +$i day")); ?>
-    <div class="matrix-row" style="grid-template-columns:110px repeat(<?= count(members()) ?>,minmax(0,1fr))">
-      <div class="who" style="flex-direction:column;align-items:flex-start;gap:0"><span style="text-transform:capitalize"><?= e(DAYS[(int) date('w', strtotime($d))]) ?></span><small class="muted"><?= e(format_date_short($d)) ?></small></div>
-      <?php foreach (members() as $m): ?>
-        <div class="matrix-cell<?= $d === today() ? ' today' : '' ?>">
-          <?php foreach ($birthdays as $b): if ($b['date'] === $d && ($b['kind'] !== 'member' || (int) $b['person']['id'] === (int) $m['id'])) :
-              if ($b['kind'] === 'contact') { $links = db()->prepare('SELECT 1 FROM fp_contact_members WHERE contact_id = ? AND member_id = ?'); $links->execute([$b['person']['id'], $m['id']]); if (!$links->fetchColumn()) continue; } ?>
-            <span class="mtag" style="--ec:#E0568A">🎂 <?= e($b['name']) ?></span>
-          <?php endif; endforeach; ?>
-          <?php foreach ($events as $ev):
-              if (substr($ev['start_at'], 0, 10) > $d || substr($ev['end_at'], 0, 10) < $d) continue;
-              $role = in_array((int) $m['id'], $ev['members'], true) ? '' : ((int) $ev['drop_member_id'] === (int) $m['id'] ? '🚗 brengen: ' : ((int) $ev['pickup_member_id'] === (int) $m['id'] ? '🏠 halen: ' : null));
-              if ($role === null) continue; ?>
-            <a class="mtag<?= $ev['done'] ? ' done' : '' ?>" style="--ec:<?= e(event_color($ev)) ?>;color:inherit" href="event.php?id=<?= (int) $ev['id'] ?>&amp;occ=<?= e($ev['occ']) ?>" data-edit-event="<?= (int) $ev['id'] ?>" data-occ="<?= e($ev['occ']) ?>">
-              <?= $ev['all_day'] ? '' : e(substr($ev['start_at'], 11, 5)) . ' ' ?><?= e($role) ?><?= event_emoji($ev) ?> <?= e($ev['title']) ?></a>
-          <?php endforeach; ?>
-        </div>
+  <?php foreach (members() as $m): ?>
+    <div class="matrix-row">
+      <a class="who" href="persoon.php?id=<?= (int) $m['id'] ?>" style="color:inherit"><?= avatar($m, 30) ?> <?= e($m['name']) ?></a>
+      <?php foreach ($days as $d): ?>
+        <div class="matrix-cell<?= $d === today() ? ' today' : '' ?>"><?= $cell($m, $d) ?></div>
       <?php endforeach; ?>
     </div>
-  <?php endfor; ?>
+  <?php endforeach; ?>
 </div>
 <?php page_end();

@@ -621,3 +621,5 @@ kbd{background:var(--card2);border:1px solid var(--line);border-radius:6px;paddi
 @media (max-width:700px){#net{height:calc(100vh - 260px)}.net-panel{top:auto;bottom:12px;max-height:45%}}
 .net-node.drop-target circle{stroke-width:9;stroke-opacity:.9;filter:drop-shadow(0 0 10px rgba(108,92,231,.8))}
 .net-node.drop-target .net-label{font-size:14px}
+.matrix-head .matrix-cell.today-head{color:var(--accent-ink)}
+.matrix-head .matrix-cell{display:flex;flex-direction:column;align-items:center}
