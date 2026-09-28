@@ -7,7 +7,7 @@
   'use strict';
   const svg = document.getElementById('net');
   if (!svg || !window.FP) return;
-  const { api, esc } = window.FP;
+  const { api, esc, toast } = window.FP;
   const NS = 'http://www.w3.org/2000/svg';
   const XLINK = 'http://www.w3.org/1999/xlink';
   const RADIUS = { home: 30, member: 26, group: 22, household: 13, contact: 17 };
@@ -47,20 +47,39 @@
   const linkLayer = el('g', { class: 'net-links' }, viewport);
   const nodeLayer = el('g', { class: 'net-nodes' }, viewport);
 
-  api('graph').then((data) => {
-    nodes = data.nodes;
-    links = data.links.filter((l) => l.source !== l.target);
-    nodes.forEach((n) => { byId[n.id] = n; n.links = []; });
-    links = links.filter((l) => byId[l.source] && byId[l.target]);
-    links.forEach((l) => {
-      l.s = byId[l.source];
-      l.t = byId[l.target];
-      l.s.links.push(l);
-      l.t.links.push(l);
+  /** Load the web. Later reloads (after connecting people) keep everyone where they were. */
+  function loadGraph(first) {
+    return api('graph').then((data) => {
+      const old = byId;
+      byId = {};
+      nodes = data.nodes;
+      links = data.links.filter((l) => l.source !== l.target);
+      nodes.forEach((n) => { byId[n.id] = n; n.links = []; });
+      links = links.filter((l) => byId[l.source] && byId[l.target]);
+      links.forEach((l) => {
+        l.s = byId[l.source];
+        l.t = byId[l.target];
+        l.s.links.push(l);
+        l.t.links.push(l);
+      });
+      if (first) {
+        placeInitially();
+        buildFilters(data.groupTypes);
+      } else {
+        nodes.forEach((n) => {
+          const o = old[n.id];
+          n.r = RADIUS[n.kind] || 16;
+          n.vx = 0; n.vy = 0;
+          n.x = o ? o.x : (Math.random() - 0.5) * 300;
+          n.y = o ? o.y : (Math.random() - 0.5) * 300;
+        });
+      }
+      draw();
+      if (selected) select(byId[selected.id] || null);
     });
-    placeInitially();
-    buildFilters(data.groupTypes);
-    draw();
+  }
+
+  loadGraph(true).then(() => {
     const focus = svg.dataset.focus;
     if (focus && byId[focus]) {
       select(byId[focus]);
@@ -127,6 +146,8 @@
 
   // ---------- Drawing ----------
   function draw() {
+    while (linkLayer.firstChild) linkLayer.removeChild(linkLayer.firstChild);
+    while (nodeLayer.firstChild) nodeLayer.removeChild(nodeLayer.firstChild);
     links.forEach((l) => {
       const c = l.kind === 'group' ? (l.s.kind === 'group' ? l.s.color : l.t.color) : l.kind === 'household' ? '#A0522D' : l.kind === 'friend' ? '#8E6CDF' : '#6C5CE7';
       l.el = el('line', { class: 'net-link ' + l.kind, stroke: c }, linkLayer);
@@ -190,6 +211,7 @@
       const a = vis[i];
       for (let j = i + 1; j < vis.length; j++) {
         const b = vis[j];
+        if (a.dragging || b.dragging) continue; // don't push away what you're dragging onto
         let dx = b.x - a.x;
         let dy = b.y - a.y;
         let d2 = dx * dx + dy * dy;
@@ -255,12 +277,54 @@
     const px = e.clientX - r.left;
     const py = e.clientY - r.top;
     userMoved = true;
-    const k = Math.max(0.15, Math.min(4, view.k * (e.deltaY < 0 ? 1.12 : 1 / 1.12)));
+    // Zoom by how far the wheel / trackpad pinch moved (a pinch sends many small ctrl+wheel events)
+    const dy = e.deltaY * (e.deltaMode === 1 ? 16 : 1);
+    const k = Math.max(0.15, Math.min(4, view.k * Math.exp(-dy * (e.ctrlKey ? 0.004 : 0.0012))));
     view.x = px - ((px - view.x) / view.k) * k;
     view.y = py - ((py - view.y) / view.k) * k;
     view.k = k;
     applyView();
   }, { passive: false });
+
+  // ---------- Connecting by dragging one node onto another ----------
+  const PAIRS = { 'member|group': 1, 'contact|group': 1, 'contact|household': 1, 'contact|member': 1 };
+  const canConnect = (a, b) => !!(PAIRS[a.kind + '|' + b.kind] || PAIRS[b.kind + '|' + a.kind]);
+  const connected = (a, b) => a.links.some((l) => l.s === b || l.t === b);
+  function dropTarget(n) {
+    let best = null;
+    let bestD = Infinity;
+    nodes.forEach((o) => {
+      if (o === n || !o.visible || !canConnect(n, o) || connected(n, o)) return;
+      const d = Math.hypot(o.x - n.x, o.y - n.y);
+      // Hit area: the target itself, but never smaller than ~28px on screen (small when zoomed out)
+      if (d < Math.max(o.r + n.r * 0.7, 28 / view.k) && d < bestD) { best = o; bestD = d; }
+    });
+    return best;
+  }
+  function describe(a, b, undo) {
+    const person = a.kind === 'group' || a.kind === 'household' || (a.kind === 'member' && b.kind === 'contact') ? b : a;
+    const other = person === a ? b : a;
+    const name = person.full || person.label;
+    if (other.kind === 'group') return undo ? `${name} uit ${other.label} gehaald` : `${name} toegevoegd aan ${other.label}`;
+    if (other.kind === 'household') return undo ? `${name} woont niet meer bij ${other.label}` : `${name} woont nu bij ${other.label}`;
+    return undo ? `${name} is geen vriend meer van ${other.label}` : `${name} is nu vriend van ${other.label}`;
+  }
+  function connect(a, b) {
+    api('graph.link', { a: a.id, b: b.id }).then(() => {
+      toast('✓ ' + describe(a, b, false), 'Ongedaan maken', () => {
+        api('graph.unlink', { a: a.id, b: b.id }).then(() => loadGraph(false)).then(() => start(0.3));
+      });
+      return loadGraph(false);
+    }).then(() => start(0.5)).catch((e) => toast(e.message));
+  }
+  function disconnect(a, b) {
+    api('graph.unlink', { a: a.id, b: b.id }).then(() => {
+      toast(describe(a, b, true), 'Ongedaan maken', () => {
+        api('graph.link', { a: a.id, b: b.id }).then(() => loadGraph(false)).then(() => start(0.3));
+      });
+      return loadGraph(false);
+    }).then(() => start(0.4)).catch((e) => toast(e.message));
+  }
 
   let drag = null;
   function nodeDown(e, n) {
@@ -268,12 +332,36 @@
     drag = { node: n, x: e.clientX, y: e.clientY, moved: false, id: e.pointerId };
     svg.setPointerCapture(e.pointerId);
   }
+  // Two-finger pinch on touch screens: zoom exactly as far as the fingers move
+  const touches = new Map();
+  let pinch = null;
   svg.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'mouse') touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.size === 2) {
+      const [a, b] = Array.from(touches.values());
+      pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, k: view.k };
+      drag = null;
+      userMoved = true;
+      return;
+    }
     if (drag) return;
     drag = { pan: true, x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false, id: e.pointerId };
     svg.setPointerCapture(e.pointerId);
   });
   svg.addEventListener('pointermove', (e) => {
+    if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && touches.size === 2) {
+      const [a, b] = Array.from(touches.values());
+      const r = svg.getBoundingClientRect();
+      const px = (a.x + b.x) / 2 - r.left;
+      const py = (a.y + b.y) / 2 - r.top;
+      const k = Math.max(0.15, Math.min(4, pinch.k * (Math.hypot(a.x - b.x, a.y - b.y) / pinch.dist)));
+      view.x = px - ((px - view.x) / view.k) * k;
+      view.y = py - ((py - view.y) / view.k) * k;
+      view.k = k;
+      applyView();
+      return;
+    }
     if (!drag || e.pointerId !== drag.id) return;
     const dist = Math.hypot(e.clientX - drag.x, e.clientY - drag.y);
     if (dist > 4) drag.moved = true;
@@ -287,16 +375,37 @@
       const p = toWorld(e.clientX, e.clientY);
       drag.node.x = p.x; drag.node.y = p.y;
       drag.node.fixed = true;
-      start(0.3);
+      drag.node.dragging = true;
+      const target = dropTarget(drag.node);
+      if (target !== drag.target) {
+        if (drag.target) toggleClass(drag.target.el, 'drop-target', false);
+        drag.target = target;
+        if (target) toggleClass(target.el, 'drop-target', true);
+      }
       render();
     }
   });
   const up = (e) => {
+    touches.delete(e.pointerId);
+    if (touches.size < 2) pinch = null;
     if (!drag || e.pointerId !== drag.id) return;
     const d = drag;
     drag = null;
     if (d.node) {
       d.node.fixed = false;
+      d.node.dragging = false;
+      if (d.target) {
+        toggleClass(d.target.el, 'drop-target', false);
+        // Step back from the target so they don't end up on top of each other
+        const dx = d.node.x - d.target.x || 1;
+        const dy = d.node.y - d.target.y || 1;
+        const len = Math.hypot(dx, dy);
+        d.node.x = d.target.x + (dx / len) * (d.target.r + d.node.r + 30);
+        d.node.y = d.target.y + (dy / len) * (d.target.r + d.node.r + 30);
+        connect(d.node, d.target);
+        return;
+      }
+      if (d.moved) start(0.3); // let the web settle around the new spot
       if (!d.moved) select(d.node === selected ? null : d.node);
     } else if (!d.moved) {
       select(null);
@@ -333,12 +442,14 @@
       (o.kind === 'group' || o.kind === 'household' || o.kind === 'home' ? groups : people).push(item);
     });
     const row = (it) => `<li><a href="#" data-node="${esc(it.o.id)}">${it.o.emoji && !it.o.photo ? esc(it.o.emoji) + ' ' : ''}${esc(it.o.full || it.o.label)}</a>`
-      + `${it.role ? ' <span class="muted">· ' + esc(it.role) + '</span>' : ''}${it.kind === 'friend' ? ' <span class="muted">· vriend van</span>' : ''}</li>`;
+      + `${it.role ? ' <span class="muted">· ' + esc(it.role) + '</span>' : ''}${it.kind === 'friend' ? ' <span class="muted">· vriend van</span>' : ''}`
+      + `${canConnect(n, it.o) ? ` <button class="link muted small" data-unlink="${esc(it.o.id)}" title="Verbinding weghalen">✕</button>` : ''}</li>`;
     panel.innerHTML = `<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
         <div><h3>${n.emoji && n.kind !== 'member' ? esc(n.emoji) + ' ' : ''}${esc(n.full || n.label)}</h3>${n.sub ? `<p class="muted small" style="margin:2px 0 0">${esc(n.sub)}</p>` : ''}</div>
         <button class="x" data-close aria-label="Sluiten">×</button></div>
       ${groups.length ? `<h4>Hoort bij</h4><ul>${groups.map(row).join('')}</ul>` : ''}
       ${people.length ? `<h4>${n.kind === 'group' || n.kind === 'household' ? 'Mensen' : 'Verbonden met'} (${people.length})</h4><ul>${people.map(row).join('')}</ul>` : ''}
+      ${n.kind === 'contact' || n.kind === 'member' ? '<p class="muted small" style="margin:10px 0 0">Tip: sleep deze persoon op een groep, huishouden of gezinslid om ze te verbinden.</p>' : ''}
       <div class="pop-actions">
         ${n.url ? `<a class="btn small" href="${esc(n.url)}">Openen</a>` : ''}
         <button class="btn small secondary" data-focus>${focusSet ? 'Alles tonen' : '🔎 Alleen dit netwerk'}</button>
@@ -348,6 +459,8 @@
   panel.addEventListener('click', (e) => {
     const a = e.target.closest('[data-node]');
     if (a) { e.preventDefault(); const n = byId[a.dataset.node]; if (n) { select(n); center(n); } return; }
+    const un = e.target.closest('[data-unlink]');
+    if (un) { const o = byId[un.dataset.unlink]; if (o && selected) disconnect(selected, o); return; }
     if (e.target.closest('[data-close]')) select(null);
     if (e.target.closest('[data-focus]')) { setFocus(focusSet ? null : selected); select(selected); }
   });

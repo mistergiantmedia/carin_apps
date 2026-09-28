@@ -24,6 +24,6 @@ page_start('Netwerk', ['wide' => true, 'bodyClass' => 'net-page']);
 <div class="net-wrap">
   <svg id="net" data-focus="<?= e($focus) ?>" aria-label="Netwerk van relaties"></svg>
   <aside class="net-panel card" id="net-panel" hidden></aside>
-  <div class="net-legend small muted">Klik op iemand om de verbindingen te zien · dubbelklik om te openen · sleep om te verplaatsen · scroll om te zoomen</div>
+  <div class="net-legend small muted">Klik op iemand voor de verbindingen · sleep iemand op een groep, huishouden of gezinslid om ze te verbinden · dubbelklik om te openen · scroll om te zoomen</div>
 </div>
 <?php page_end(['network.js']);

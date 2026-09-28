@@ -277,7 +277,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     frame.addEventListener('wheel', function (e) {
       e.preventDefault();
       var r = frame.getBoundingClientRect();
-      zoomTo(st.scale / st.min * (e.deltaY < 0 ? 1.08 : 1 / 1.08), e.clientX - r.left, e.clientY - r.top);
+      var dy = e.deltaY * (e.deltaMode === 1 ? 16 : 1);
+      zoomTo(st.scale / st.min * Math.exp(-dy * (e.ctrlKey ? 0.004 : 0.0012)), e.clientX - r.left, e.clientY - r.top);
     }, {
       passive: false
     });

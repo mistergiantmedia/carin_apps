@@ -619,3 +619,5 @@ kbd{background:var(--card2);border:1px solid var(--line);border-radius:6px;paddi
 .net-panel ul{margin:0;padding-left:18px;font-size:14px;line-height:1.7}
 .net-legend{position:absolute;left:14px;bottom:10px;pointer-events:none}
 @media (max-width:700px){#net{height:calc(100vh - 260px)}.net-panel{top:auto;bottom:12px;max-height:45%}}
+.net-node.drop-target circle{stroke-width:9;stroke-opacity:.9;filter:drop-shadow(0 0 10px rgba(108,92,231,.8))}
+.net-node.drop-target .net-label{font-size:14px}

@@ -210,7 +210,8 @@
     frame.addEventListener('wheel', (e) => {
       e.preventDefault();
       const r = frame.getBoundingClientRect();
-      zoomTo((st.scale / st.min) * (e.deltaY < 0 ? 1.08 : 1 / 1.08), e.clientX - r.left, e.clientY - r.top);
+      const dy = e.deltaY * (e.deltaMode === 1 ? 16 : 1);
+      zoomTo((st.scale / st.min) * Math.exp(-dy * (e.ctrlKey ? 0.004 : 0.0012)), e.clientX - r.left, e.clientY - r.top);
     }, { passive: false });
 
     // Drag to move; two fingers to pinch-zoom

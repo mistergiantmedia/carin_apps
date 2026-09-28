@@ -37,6 +37,41 @@ function valid_date(string $d): bool
     return (bool) preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) && strtotime($d);
 }
 
+/**
+ * What connecting two relation-web nodes means. Ids look like m3 (member), c12 (contact), g4 (group), h7 (household).
+ * Returns [kind, first id, second id] or null: group-member [member, group], group-contact [contact, group],
+ * household [contact, household], friend [contact, member].
+ */
+function graph_pair(string $a, string $b): ?array
+{
+    $parse = function ($s) {
+        return preg_match('/^([mcgh])(\d+)$/', $s, $m) ? [$m[1], (int) $m[2]] : null;
+    };
+    $p = $parse($a);
+    $q = $parse($b);
+    if (!$p || !$q) {
+        return null;
+    }
+    $by = [$p[0] => $p[1]];
+    if (isset($by[$q[0]])) {
+        return null; // same kind (two groups, two contacts…)
+    }
+    $by[$q[0]] = $q[1];
+    if (isset($by['g'], $by['m'])) {
+        return member($by['m']) ? ['group-member', $by['m'], $by['g']] : null;
+    }
+    if (isset($by['g'], $by['c'])) {
+        return ['group-contact', $by['c'], $by['g']];
+    }
+    if (isset($by['h'], $by['c'])) {
+        return ['household', $by['c'], $by['h']];
+    }
+    if (isset($by['m'], $by['c'])) {
+        return member($by['m']) ? ['friend', $by['c'], $by['m']] : null;
+    }
+    return null;
+}
+
 /** The occurrence of event $id on $occ as calendar JSON (after a change). */
 function occurrence_json(int $id, string $occ): ?array
 {
@@ -124,6 +159,35 @@ try {
             reply(['nodes' => $nodes, 'links' => $links, 'groupTypes' => array_map(function ($t) {
                 return ['label' => $t[0], 'emoji' => $t[1], 'color' => $t[2]];
             }, GROUP_TYPES)]);
+
+        case 'graph.link':
+        case 'graph.unlink':
+            // Connect / disconnect two nodes of the relations web: person ↔ group, contact ↔ household, contact ↔ family member
+            $a = in_str($in, 'a');
+            $b = in_str($in, 'b');
+            $pair = graph_pair($a, $b);
+            if (!$pair) {
+                reply(['error' => 'Deze twee kunnen niet met elkaar verbonden worden.'], 400);
+            }
+            [$kind, $x, $y] = $pair;
+            $link = $action === 'graph.link';
+            if ($kind === 'group-member') {
+                $link ? db()->prepare('INSERT IGNORE INTO fp_group_members (group_id, member_id) VALUES (?, ?)')->execute([$y, $x])
+                      : db()->prepare('DELETE FROM fp_group_members WHERE group_id = ? AND member_id = ?')->execute([$y, $x]);
+            } elseif ($kind === 'group-contact') {
+                $g = db()->prepare('SELECT type FROM fp_groups WHERE id = ?');
+                $g->execute([$y]);
+                $type = (string) $g->fetchColumn();
+                $link ? db()->prepare('INSERT IGNORE INTO fp_group_contacts (group_id, contact_id, role) VALUES (?, ?, ?)')->execute([$y, $x, (GROUP_TYPES[$type][4] ?? '') ?: null])
+                      : db()->prepare('DELETE FROM fp_group_contacts WHERE group_id = ? AND contact_id = ?')->execute([$y, $x]);
+            } elseif ($kind === 'household') {
+                $link ? db()->prepare('UPDATE fp_contacts SET household_id = ? WHERE id = ?')->execute([$y, $x])
+                      : db()->prepare('UPDATE fp_contacts SET household_id = NULL WHERE id = ? AND household_id = ?')->execute([$x, $y]);
+            } elseif ($kind === 'friend') {
+                $link ? db()->prepare('INSERT IGNORE INTO fp_contact_members (contact_id, member_id) VALUES (?, ?)')->execute([$x, $y])
+                      : db()->prepare('DELETE FROM fp_contact_members WHERE contact_id = ? AND member_id = ?')->execute([$x, $y]);
+            }
+            reply(['ok' => true]);
 
         case 'duty':
             // Who brings / picks up for one occurrence of a "per keer bepalen" event
