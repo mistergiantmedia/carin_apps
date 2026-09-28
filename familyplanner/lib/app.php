@@ -410,6 +410,7 @@ function nav_items(): array
         ['netwerk.php', '🕸️', 'Netwerk'],
         ['bucketlist.php', '🌟', 'Bucketlist'],
         ['clubjes.php', '🎯', 'Clubjes & sport'],
+        ['vrijedagen.php', '🎒', 'Vrije dagen & vakanties'],
         ['activiteiten.php', '🎡', 'Uitjes & feestjes'],
         ['ideeen.php', '💡', 'Ideeën & attent'],
         ['oppas.php', '🍼', 'Oppas'],

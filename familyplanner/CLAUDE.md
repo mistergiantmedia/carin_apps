@@ -71,3 +71,12 @@ Hand-written ES5 helpers for old browsers are in `_legacy/dom.js`, extra layout 
   separately: they are their repeating SPORT/ACTIVITY/OTHER events (`member_clubs()`).
 - `netwerk.php` + `network.js` draw all of this as a relations web (data from `api.php?a=graph`).
 - The auto-refresh fingerprint (`api.php?a=stamp`) lists watched tables in `$watch`; add new tables there.
+
+## Days off (lib/freedays.php, vrijedagen.php)
+- Event types STUDYDAY, STUDYPM (afternoon off, start time = when school ends) and SCHOOLHOLIDAY (for the children).
+  Repeating SCHOOL events are dropped on those days and on official public holidays, and end early on a
+  study afternoon (`apply_school_free()` in lib/events.php).
+- Public holidays and fun days are computed (`load_feasts()`, Easter algorithm), not stored.
+- School holidays can be imported per region (`fp_settings.school_region`) from the Rijksoverheid open data API.
+- The children's school is Pieterskerkhof (Utrecht, regio Midden); migration 014 holds its 2026-2027 calendar
+  (school runs 8:30-14:00). Add a new migration for the next school year from `fp_settings.school_url`.

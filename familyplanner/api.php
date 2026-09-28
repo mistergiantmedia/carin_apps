@@ -117,6 +117,7 @@ try {
                 'fp_bucket_contacts' => 'bucket_id, contact_id',
                 'fp_contact_week' => 'id, contact_id, weekday, start_time, end_time, kind, title, emoji',
                 'fp_contact_days' => 'contact_id, weekday, status',
+                'fp_settings' => 'name, value',
             ];
             $parts = [];
             foreach ($watch as $table => $cols) {
@@ -140,7 +141,8 @@ try {
             }
             $events = array_map('event_json', load_events($from, $to, $filter));
             $birthdays = empty($_GET['nobirthdays']) ? array_map('birthday_json', load_birthdays($from, $to, $filter)) : [];
-            reply(['events' => $events, 'birthdays' => $birthdays]);
+            require_once __DIR__ . '/lib/freedays.php';
+            reply(['events' => $events, 'birthdays' => $birthdays, 'feasts' => array_map('feast_json', load_feasts($from, $to))]);
 
         case 'event':
             $id = (int) ($_GET['id'] ?? 0);

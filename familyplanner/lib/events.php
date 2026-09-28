@@ -181,10 +181,78 @@ function load_events(string $from, string $to, array $filter = []): array
             $out[] = apply_duties($o, $duties);
         }
     }
+    $out = apply_school_free($out, $from, $to);
     usort($out, function ($a, $b) {
         return [$b['all_day'], $a['start_at']] <=> [$a['all_day'], $b['start_at']];
     });
     return $out;
+}
+
+/**
+ * No school on days off: repeating SCHOOL events are left out on study days, school holidays and
+ * official public holidays, and end early on a study afternoon. A day off only counts for the children
+ * it is for (no children chosen = everyone).
+ */
+function apply_school_free(array $out, string $from, string $to): array
+{
+    $hasSchool = false;
+    foreach ($out as $o) {
+        if ($o['type'] === 'SCHOOL' && $o['recurring']) {
+            $hasSchool = true;
+            break;
+        }
+    }
+    if (!$hasSchool) {
+        return $out;
+    }
+    require_once __DIR__ . '/freedays.php';
+    $stmt = db()->prepare("SELECT e.id, e.type, e.start_at, e.end_at, e.all_day, GROUP_CONCAT(em.member_id) AS members FROM fp_events e
+        LEFT JOIN fp_event_members em ON em.event_id = e.id
+        WHERE e.type IN ('STUDYDAY', 'STUDYPM', 'SCHOOLHOLIDAY') AND e.start_at < ? AND e.end_at >= ? GROUP BY e.id");
+    $stmt->execute([$to . ' 00:00:00', $from . ' 00:00:00']);
+    $free = $stmt->fetchAll();
+    $official = [];
+    foreach (load_feasts($from, $to) as $f) {
+        if ($f['official']) {
+            $official[$f['date']] = true;
+        }
+    }
+    $result = [];
+    foreach ($out as $o) {
+        if ($o['type'] !== 'SCHOOL' || !$o['recurring']) {
+            $result[] = $o;
+            continue;
+        }
+        $day = substr($o['start_at'], 0, 10);
+        if (isset($official[$day])) {
+            continue;
+        }
+        $drop = false;
+        foreach ($free as $f) {
+            if ($day < substr($f['start_at'], 0, 10) || $day > substr($f['end_at'], 0, 10)) {
+                continue;
+            }
+            $fm = $f['members'] ? array_map('intval', explode(',', $f['members'])) : [];
+            if ($fm && array_diff($o['members'], $fm)) {
+                continue; // not everyone in this school event is free
+            }
+            if ($f['type'] === 'STUDYPM') {
+                $cut = $day . ' ' . substr($f['start_at'], 11, 8);
+                if ($cut > $o['start_at'] && $cut < $o['end_at']) {
+                    $o['end_at'] = $cut;
+                    $o['short_day'] = true;
+                } elseif ($cut <= $o['start_at']) {
+                    $drop = true;
+                }
+            } else {
+                $drop = true;
+            }
+        }
+        if (!$drop) {
+            $result[] = $o;
+        }
+    }
+    return $result;
 }
 
 /**

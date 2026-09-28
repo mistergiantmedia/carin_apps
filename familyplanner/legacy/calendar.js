@@ -61,6 +61,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     type: params.get('type') || '',
     colorBy: LS('colorBy') || 'type',
     birthdays: LS('birthdays') !== false,
+    feasts: LS('feasts') !== false,
+    feastItems: [],
     events: [],
     birthdayItems: [],
     loadedKey: ''
@@ -211,7 +213,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       k = _ref4[0],
       t = _ref4[1];
     return "<option value=\"".concat(k, "\">").concat(t.emoji, " ").concat(esc(t.label), "</option>");
-  }).join(''), "\n      </select>\n      <label class=\"check small\" style=\"margin:0 6px\"><input type=\"checkbox\" data-bdays> \uD83C\uDF82 Verjaardagen</label>\n      <div class=\"tabs\" style=\"margin-left:auto\" title=\"Kleur van afspraken\"><button data-color=\"type\">Kleur per soort</button><button data-color=\"member\">per persoon</button></div>\n    </div>\n    <div class=\"cal\"></div>");
+  }).join(''), "\n      </select>\n      <label class=\"check small\" style=\"margin:0 6px\"><input type=\"checkbox\" data-bdays> \uD83C\uDF82 Verjaardagen</label>\n      <label class=\"check small\" style=\"margin:0 6px\"><input type=\"checkbox\" data-feasts> \uD83C\uDF89 Feestdagen</label>\n      <div class=\"tabs\" style=\"margin-left:auto\" title=\"Kleur van afspraken\"><button data-color=\"type\">Kleur per soort</button><button data-color=\"member\">per persoon</button></div>\n    </div>\n    <div class=\"cal\"></div>");
   var cal = root.querySelector('.cal');
   function syncToolbar() {
     root.querySelector('.cal-title').innerHTML = title();
@@ -225,6 +227,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       c.checked = state.members.length === 0 || state.members.includes(Number(c.value));
     });
     root.querySelector('[data-bdays]').checked = state.birthdays;
+    root.querySelector('[data-feasts]').checked = state.feasts;
     root.querySelector('.cal-type').value = state.type;
     var url = new URL(location.href);
     url.searchParams.set('view', state.view);
@@ -275,6 +278,11 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
   root.querySelector('[data-bdays]').addEventListener('change', function (e) {
     state.birthdays = e.target.checked;
     LS('birthdays', state.birthdays);
+    render();
+  });
+  root.querySelector('[data-feasts]').addEventListener('change', function (e) {
+    state.feasts = e.target.checked;
+    LS('feasts', state.feasts);
     render();
   });
   document.addEventListener('keydown', function (e) {
@@ -351,6 +359,11 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
           case 4:
             state.events = data.events.map(prep);
             state.birthdayItems = data.birthdays.map(prep);
+            // Special days behave like birthdays (not draggable, own popover), marked with feast
+            state.feastItems = (data.feasts || []).map(function (f) {
+              f.birthday = true;
+              return prep(f);
+            });
             state.loadedKey = key;
             render();
             _context3.n = 6;
@@ -373,7 +386,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     return ev;
   }
   function visibleEvents() {
-    return state.birthdays ? state.events.concat(state.birthdayItems) : state.events;
+    return state.events.concat(state.birthdays ? state.birthdayItems : [], state.feasts ? state.feastItems : []);
   }
   function colorOf(ev) {
     if (state.colorBy === 'member' && !ev.birthday && !ev.customColor) {
@@ -454,7 +467,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
         lane = _ref7.lane;
       var contL = dayDiff(first, ev.s) < 0;
       var contR = dayDiff(first, addMinutes(ev.e, -1)) > n - 1;
-      return "<div class=\"cal-aev".concat(ev.birthday ? ' bday' : '').concat(ev.done ? ' done' : '', "\" data-key=\"").concat(esc(ev.key), "\" style=\"--c:").concat(colorOf(ev), ";left:calc(").concat(a / n * 100, "% + 2px);width:calc(").concat((b - a + 1) / n * 100, "% - 4px);top:").concat(3 + lane * 25, "px\">").concat(contL ? '‹ ' : '').concat(ev.birthday ? '' : (ev.emoji || '') + ' ').concat(esc(ev.title)).concat(!ev.allDay ? ' <span class="muted">' + fmtTime(ev.s) + '</span>' : '').concat(contR ? ' ›' : '').concat(!ev.birthday && !contR ? '<span class="rz right"></span>' : '', "</div>");
+      return "<div class=\"cal-aev".concat(ev.feast ? ' feast' : ev.birthday ? ' bday' : '').concat(ev.done ? ' done' : '', "\" data-key=\"").concat(esc(ev.key), "\" style=\"--c:").concat(colorOf(ev), ";left:calc(").concat(a / n * 100, "% + 2px);width:calc(").concat((b - a + 1) / n * 100, "% - 4px);top:").concat(3 + lane * 25, "px\">").concat(contL ? '‹ ' : '').concat(ev.birthday ? '' : (ev.emoji || '') + ' ').concat(esc(ev.title)).concat(!ev.allDay ? ' <span class="muted">' + fmtTime(ev.s) + '</span>' : '').concat(contR ? ' ›' : '').concat(!ev.birthday && !contR ? '<span class="rz right"></span>' : '', "</div>");
     }).join('') + "</div></div>";
     html += "<div class=\"cal-scroll\"><div class=\"cal-body\" style=\"grid-template-columns:".concat(cols, ";--hour:").concat(HOUR, "px\"><div class=\"cal-times\">") + Array.from({
       length: 24
@@ -595,7 +608,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
           return;
         }
         var ev = it.ev;
-        var cls = ev.birthday ? 'bday' : it.span ? 'span' : 'timed';
+        var cls = ev.feast ? 'feast' : ev.birthday ? 'bday' : it.span ? 'span' : 'timed';
         var q = ev.dropOpen || ev.pickupOpen ? '❓ ' : '';
         var label = q + (it.span ? esc(ev.title) : isSmall() ? "".concat(ev.emoji || '', " ").concat(esc(ev.title)) : "<b>".concat(fmtTime(ev.s), "</b> ").concat(ev.emoji || '', " ").concat(esc(ev.title)));
         bars += "<div class=\"cal-mev ".concat(cls).concat(ev.done ? ' done' : '', "\" data-key=\"").concat(esc(ev.key), "\" style=\"--c:").concat(colorOf(ev), ";top:").concat(lane * laneH, "px;left:calc(").concat(it.a / 7 * 100, "% + 3px);width:calc(").concat((it.b - it.a + 1) / 7 * 100, "% - 6px)\">").concat(label).concat(it.span && !ev.birthday ? '<span class="rz"></span>' : '', "</div>");
@@ -638,9 +651,9 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
           var list = byDay[ymd(d)] || [];
           var other = d.getMonth() !== m;
           var cls = [other ? 'other' : '', isToday(d) && !other ? 'today' : '', list.length ? 'has' : '', list.some(function (e) {
-            return e.birthday;
+            return e.birthday && !e.feast;
           }) ? 'bday' : '', list.some(function (e) {
-            return e.type === 'HOLIDAY';
+            return e.type === 'HOLIDAY' || e.type === 'SCHOOLHOLIDAY' || e.feast && e.official;
           }) ? 'holiday' : ''].join(' ');
           var tip = list.map(function (e) {
             return e.title;
@@ -715,7 +728,9 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     pop = document.createElement('div');
     pop.className = 'popover';
     pop.setAttribute('role', 'dialog');
-    if (ev.birthday) {
+    if (ev.feast) {
+      pop.innerHTML = "<div class=\"pop-head\"><h3>".concat(esc(ev.title), "</h3><button class=\"x\" data-pop=\"close\">\xD7</button></div>\n        <p class=\"pop-meta\">").concat(dayLong(ev.s)).concat(ev.official ? ' · officiële feestdag' : '', "</p>\n        <div class=\"pop-actions\"><a class=\"btn small\" href=\"").concat(esc(ev.link), "\">\uD83D\uDCA1 Idee\xEBn voor deze dag</a></div>");
+    } else if (ev.birthday) {
       pop.innerHTML = "<div class=\"pop-head\">".concat(avatarHtml({
         name: ev.name,
         photo: ev.photo,

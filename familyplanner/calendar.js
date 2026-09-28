@@ -26,6 +26,8 @@
     type: params.get('type') || '',
     colorBy: LS('colorBy') || 'type',
     birthdays: LS('birthdays') !== false,
+    feasts: LS('feasts') !== false,
+    feastItems: [],
     events: [],
     birthdayItems: [],
     loadedKey: '',
@@ -119,6 +121,7 @@
         ${Object.entries(DATA.types).map(([k, t]) => `<option value="${k}">${t.emoji} ${esc(t.label)}</option>`).join('')}
       </select>
       <label class="check small" style="margin:0 6px"><input type="checkbox" data-bdays> 🎂 Verjaardagen</label>
+      <label class="check small" style="margin:0 6px"><input type="checkbox" data-feasts> 🎉 Feestdagen</label>
       <div class="tabs" style="margin-left:auto" title="Kleur van afspraken"><button data-color="type">Kleur per soort</button><button data-color="member">per persoon</button></div>
     </div>
     <div class="cal"></div>`;
@@ -130,6 +133,7 @@
     root.querySelectorAll('[data-color]').forEach((b) => b.classList.toggle('on', b.dataset.color === state.colorBy));
     root.querySelectorAll('[data-member]').forEach((c) => { c.checked = state.members.length === 0 || state.members.includes(Number(c.value)); });
     root.querySelector('[data-bdays]').checked = state.birthdays;
+    root.querySelector('[data-feasts]').checked = state.feasts;
     root.querySelector('.cal-type').value = state.type;
     const url = new URL(location.href);
     url.searchParams.set('view', state.view);
@@ -158,6 +162,7 @@
   }));
   root.querySelector('.cal-type').addEventListener('change', (e) => { state.type = e.target.value; refresh(true); });
   root.querySelector('[data-bdays]').addEventListener('change', (e) => { state.birthdays = e.target.checked; LS('birthdays', state.birthdays); render(); });
+  root.querySelector('[data-feasts]').addEventListener('change', (e) => { state.feasts = e.target.checked; LS('feasts', state.feasts); render(); });
 
   document.addEventListener('keydown', (e) => {
     if (e.target.closest('input,textarea,select,dialog') || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -197,6 +202,8 @@
       if (seq !== loadSeq) return;
       state.events = data.events.map(prep);
       state.birthdayItems = data.birthdays.map(prep);
+      // Special days behave like birthdays (not draggable, own popover), marked with feast
+      state.feastItems = (data.feasts || []).map((f) => { f.birthday = true; return prep(f); });
       state.loadedKey = key;
       render();
     } catch (e) {
@@ -210,7 +217,7 @@
     return ev;
   }
   function visibleEvents() {
-    return state.birthdays ? state.events.concat(state.birthdayItems) : state.events;
+    return state.events.concat(state.birthdays ? state.birthdayItems : [], state.feasts ? state.feastItems : []);
   }
   function colorOf(ev) {
     if (state.colorBy === 'member' && !ev.birthday && !ev.customColor) {
@@ -275,7 +282,7 @@
       placed.map(({ ev, a, b, lane }) => {
         const contL = dayDiff(first, ev.s) < 0;
         const contR = dayDiff(first, addMinutes(ev.e, -1)) > n - 1;
-        return `<div class="cal-aev${ev.birthday ? ' bday' : ''}${ev.done ? ' done' : ''}" data-key="${esc(ev.key)}" style="--c:${colorOf(ev)};left:calc(${a / n * 100}% + 2px);width:calc(${(b - a + 1) / n * 100}% - 4px);top:${3 + lane * 25}px">${contL ? '‹ ' : ''}${ev.birthday ? '' : (ev.emoji || '') + ' '}${esc(ev.title)}${!ev.allDay ? ' <span class="muted">' + fmtTime(ev.s) + '</span>' : ''}${contR ? ' ›' : ''}${!ev.birthday && !contR ? '<span class="rz right"></span>' : ''}</div>`;
+        return `<div class="cal-aev${ev.feast ? ' feast' : ev.birthday ? ' bday' : ''}${ev.done ? ' done' : ''}" data-key="${esc(ev.key)}" style="--c:${colorOf(ev)};left:calc(${a / n * 100}% + 2px);width:calc(${(b - a + 1) / n * 100}% - 4px);top:${3 + lane * 25}px">${contL ? '‹ ' : ''}${ev.birthday ? '' : (ev.emoji || '') + ' '}${esc(ev.title)}${!ev.allDay ? ' <span class="muted">' + fmtTime(ev.s) + '</span>' : ''}${contR ? ' ›' : ''}${!ev.birthday && !contR ? '<span class="rz right"></span>' : ''}</div>`;
       }).join('') + `</div></div>`;
 
     html += `<div class="cal-scroll"><div class="cal-body" style="grid-template-columns:${cols};--hour:${HOUR}px"><div class="cal-times">` +
@@ -371,7 +378,7 @@
         (lanes[lane] = lanes[lane] || []).push([it.a, it.b]);
         if (lane >= maxLanes) { for (let k = it.a; k <= it.b; k++) hidden[k]++; return; }
         const ev = it.ev;
-        const cls = ev.birthday ? 'bday' : it.span ? 'span' : 'timed';
+        const cls = ev.feast ? 'feast' : ev.birthday ? 'bday' : it.span ? 'span' : 'timed';
         const q = ev.dropOpen || ev.pickupOpen ? '❓ ' : '';
         const label = q + (it.span ? esc(ev.title) : isSmall() ? `${ev.emoji || ''} ${esc(ev.title)}` : `<b>${fmtTime(ev.s)}</b> ${ev.emoji || ''} ${esc(ev.title)}`);
         bars += `<div class="cal-mev ${cls}${ev.done ? ' done' : ''}" data-key="${esc(ev.key)}" style="--c:${colorOf(ev)};top:${lane * laneH}px;left:calc(${it.a / 7 * 100}% + 3px);width:calc(${(it.b - it.a + 1) / 7 * 100}% - 6px)">${label}${it.span && !ev.birthday ? '<span class="rz"></span>' : ''}</div>`;
@@ -410,7 +417,7 @@
           const list = byDay[ymd(d)] || [];
           const other = d.getMonth() !== m;
           const cls = [other ? 'other' : '', isToday(d) && !other ? 'today' : '', list.length ? 'has' : '',
-            list.some((e) => e.birthday) ? 'bday' : '', list.some((e) => e.type === 'HOLIDAY') ? 'holiday' : ''].join(' ');
+            list.some((e) => e.birthday && !e.feast) ? 'bday' : '', list.some((e) => e.type === 'HOLIDAY' || e.type === 'SCHOOLHOLIDAY' || (e.feast && e.official)) ? 'holiday' : ''].join(' ');
           const tip = list.map((e) => e.title).join('\n');
           const ec = list.find((e) => !e.birthday);
           html += `<td class="${cls}"><a href="#" data-goto="${ymd(d)}" title="${esc(tip)}" style="${ec ? '--ec:' + colorOf(ec) : ''}">${d.getDate()}</a></td>`;
@@ -463,7 +470,11 @@
     pop = document.createElement('div');
     pop.className = 'popover';
     pop.setAttribute('role', 'dialog');
-    if (ev.birthday) {
+    if (ev.feast) {
+      pop.innerHTML = `<div class="pop-head"><h3>${esc(ev.title)}</h3><button class="x" data-pop="close">×</button></div>
+        <p class="pop-meta">${dayLong(ev.s)}${ev.official ? ' · officiële feestdag' : ''}</p>
+        <div class="pop-actions"><a class="btn small" href="${esc(ev.link)}">💡 Ideeën voor deze dag</a></div>`;
+    } else if (ev.birthday) {
       pop.innerHTML = `<div class="pop-head">${avatarHtml({ name: ev.name, photo: ev.photo, color: '#E0568A' }, 44)}<h3>${esc(ev.title)}</h3><button class="x" data-pop="close">×</button></div>
         <p class="pop-meta">${dayLong(ev.s)}</p>
         <div class="pop-actions"><a class="btn small" href="${esc(ev.link)}">Bekijk ${esc(ev.name)}</a><a class="btn secondary small" href="verjaardagen.php">🎁 Verjaardagen</a></div>`;

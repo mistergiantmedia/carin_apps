@@ -24,6 +24,11 @@ $bdayByDay = [];
 foreach ($birthdays as $b) {
     $bdayByDay[$b['date']][] = $b;
 }
+require_once __DIR__ . '/lib/freedays.php';
+$feastByDay = [];
+foreach (load_feasts($today, date('Y-m-d', strtotime('+8 day'))) as $f) {
+    $feastByDay[$f['date']][] = $f;
+}
 
 // Next thing per family member
 $nextFor = [];
@@ -42,9 +47,13 @@ $books = open_friendbooks();
 $hour = (int) date('G');
 $greet = $hour < 6 ? 'Goedenacht' : ($hour < 12 ? 'Goedemorgen' : ($hour < 18 ? 'Goedemiddag' : 'Goedenavond'));
 
-function day_events_html(array $events, array $bdays): string
+function day_events_html(array $events, array $bdays, array $feasts = []): string
 {
     $html = '';
+    foreach ($feasts as $f) {
+        $html .= '<a class="ev" style="--c:#E8A317" href="vrijedagen.php#f' . e($f['date']) . '"><div class="ev-emoji">' . $f['emoji'] . '</div><div class="ev-body"><span class="ev-title">' . e($f['title']) . '</span>'
+            . '<span class="ev-meta">' . ($f['official'] ? 'Feestdag · vrij' : 'Speciale dag') . ' · 💡 ideeën</span></div></a>';
+    }
     foreach ($bdays as $b) {
         $html .= '<a class="ev" style="--c:#E0568A" href="' . ($b['kind'] === 'member' ? 'persoon.php?id=' : 'contact.php?id=') . (int) $b['person']['id'] . '">'
             . '<div class="ev-emoji">🎂</div><div class="ev-body"><span class="ev-title">' . e($b['name']) . ' is jarig' . ($b['age'] !== null ? ' en wordt ' . $b['age'] : '') . '!</span></div>' . avatar($b['person'], 36) . '</a>';
@@ -152,14 +161,15 @@ if ($incomplete): ?>
         $d = date('Y-m-d', strtotime("+$i day"));
         $evs = $byDay[$d] ?? [];
         $bd = $bdayByDay[$d] ?? [];
-        if ($i > 1 && !$evs && !$bd) {
+        $fs = $feastByDay[$d] ?? [];
+        if ($i > 1 && !$evs && !$bd && !$fs) {
             continue;
         }
         $shown++; ?>
       <div class="day-group">
         <h3 class="<?= $i === 0 ? 'today' : '' ?>"><?= e(day_label($d)) ?><?= $i < 2 ? ' · ' . e(format_date($d)) : '' ?></h3>
-        <?= day_events_html($evs, $bd) ?>
-        <?php if (!$evs && !$bd): ?>
+        <?= day_events_html($evs, $bd, $fs) ?>
+        <?php if (!$evs && !$bd && !$fs): ?>
           <div class="card flat tight muted"><?= $i === 0 ? 'Niets gepland vandaag. ' : 'Nog niets gepland. ' ?><a href="#" data-new-event='<?= e(json_encode(['start' => $d . 'T15:00', 'end' => $d . 'T16:00'])) ?>'>＋ Iets plannen</a></div>
         <?php endif; ?>
       </div>

@@ -2,7 +2,7 @@
 // Fixed lists used across the app. Labels are Dutch because they are shown to the family.
 
 // Bump when style.css / *.js change, so browsers load the new version.
-const ASSET_VERSION = '23';
+const ASSET_VERSION = '24';
 
 // Calendar event types: label, emoji, colour. Order = order in pickers.
 const EVENT_TYPES = [
@@ -13,6 +13,9 @@ const EVENT_TYPES = [
     'OUTING' => ['Uitje', '🎡', '#1FA2B8'],
     'HOLIDAY' => ['Vakantie', '🏖️', '#F2B705'],
     'SCHOOL' => ['School', '🏫', '#4A6FE3'],
+    'STUDYDAY' => ['Studiedag (vrij)', '📚', '#0E9F9A'],
+    'STUDYPM' => ['Studiemiddag', '🕐', '#14B8A6'],
+    'SCHOOLHOLIDAY' => ['Schoolvakantie', '🎒', '#E8A317'],
     'FAMILY' => ['Familie', '👵', '#C2489B'],
     'BORREL' => ['Borrel', '🥂', '#B8860B'],
     'BBQ' => ['BBQ', '🍖', '#D95F43'],

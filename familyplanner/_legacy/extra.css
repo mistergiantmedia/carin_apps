@@ -74,6 +74,11 @@
 .week-grid>*+*{margin-left:6px}
 .week-day>*+*{margin-top:4px}
 
+/* Free days */
+.fd-body{display:flex;flex-wrap:wrap}
+.fd-body>*{width:240px;margin:0 14px 14px 0}
+.free-day summary>*{margin-right:10px}
+
 /* Missing prefixes */
 .cal,.pick span,.crop-frame{-webkit-user-select:none}
 

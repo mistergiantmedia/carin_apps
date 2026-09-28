@@ -39,6 +39,10 @@ function kid_week_board(array $kid, string $weekStart, bool $showDone = true, in
     }));
     $birthdays = load_birthdays($weekStart, $weekEnd, ['members' => [(int) $kid['id']]]);
     $byDay = group_by_day($events, $birthdays, $weekStart, $weekEnd);
+    require_once __DIR__ . '/freedays.php';
+    foreach (load_feasts($weekStart, $weekEnd) as $f) {
+        $byDay[$f['date']]['feasts'][] = $f;
+    }
     $html = '<div class="kid-week" style="--c:' . e($kid['color']) . '">';
     for ($i = 0; $i < $days; $i++) {
         $d = date('Y-m-d', strtotime("$weekStart +$i day"));
@@ -46,6 +50,11 @@ function kid_week_board(array $kid, string $weekStart, bool $showDone = true, in
         $html .= '<div class="kid-day' . ($d === today() ? ' today' : '') . ($w === 0 || $w === 6 ? ' weekend' : '') . '">'
             . '<div class="kid-day-head"><div class="dn">' . ($d === today() ? 'Vandaag' : e(DAYS[$w])) . '</div><div class="dd">' . (int) substr($d, 8) . ' ' . e(MONTHS[(int) substr($d, 5, 2)]) . '</div></div>';
         $items = 0;
+        foreach ($byDay[$d]['feasts'] ?? [] as $f) {
+            $items++;
+            $html .= '<a class="kid-item" style="--ec:#E8A317" href="vrijedagen.php#f' . e($f['date']) . '"><div class="ki-emoji">' . $f['emoji'] . '</div><div class="ki-title">' . e($f['title']) . '</div>'
+                . ($f['official'] ? '<div class="ki-time">vrij!</div>' : '') . '</a>';
+        }
         foreach ($byDay[$d]['birthdays'] ?? [] as $b) {
             $items++;
             $html .= '<div class="kid-item" style="--ec:#E0568A"><div class="ki-emoji">🎂</div><div class="ki-title">' . e($b['person']['nickname'] ?? '' ?: ($b['kind'] === 'member' ? $b['name'] : $b['person']['first_name'])) . ' is jarig!</div>'
@@ -63,6 +72,9 @@ function kid_week_board(array $kid, string $weekStart, bool $showDone = true, in
                 $friends .= '<span class="ki-friend">' . avatar($c, 52) . e(contact_name($c, false)) . '</span>';
             }
             $time = $ev['all_day'] ? '' : substr($ev['start_at'], 11, 5) . ' – ' . substr($ev['end_at'], 11, 5);
+            if (!empty($ev['short_day'])) {
+                $time .= ' (studiemiddag!)';
+            }
             $where = where_text($ev);
             $html .= '<a class="kid-item' . ($ev['done'] ? ' done' : '') . '" style="--ec:' . e(event_color($ev)) . '" href="event.php?id=' . (int) $ev['id'] . '&amp;occ=' . e($ev['occ']) . '">'
                 . '<div class="ki-emoji">' . event_emoji($ev) . '</div><div class="ki-title">' . e($ev['title']) . '</div>'
@@ -155,7 +167,7 @@ function year_grid(int $year, array $events, array $birthdays): string
                     $cls[] = 'bday';
                 }
                 foreach ($evs as $ev) {
-                    if ($ev['type'] === 'HOLIDAY') {
+                    if ($ev['type'] === 'HOLIDAY' || $ev['type'] === 'SCHOOLHOLIDAY') {
                         $cls[] = 'holiday';
                         break;
                     }

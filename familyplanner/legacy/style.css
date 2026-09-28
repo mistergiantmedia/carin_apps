@@ -638,6 +638,19 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 .avail-table td.yes{background:#E4F6EE}
 .avail-table td.no{background:#FDECEA}
 
+/* Special days (feestdagen) and free days */
+.cal-aev.feast,.cal-mev.feast{background:#FFF3D6;border-left:4px solid #E8A317;color:#7a5200;font-weight:700}
+[data-theme=dark] .cal-aev.feast,[data-theme=dark] .cal-mev.feast{background:#3d2f10;color:#ffe2a8}
+
+.free-day summary{display:flex;align-items:center;gap:12px;cursor:pointer;list-style:none}
+.free-day summary::-webkit-details-marker{display:none}
+.free-day summary .grow{display:flex;flex-direction:column;flex:1;min-width:0}
+.free-day .fd-emoji{font-size:32px;line-height:1}
+.free-day.official{border-left:5px solid #E8A317}
+.fd-body{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:12px}
+.fd-col h4{font-size:12.5px;text-transform:uppercase;letter-spacing:.4px;color:#76737F;margin:0 0 6px}
+.fd-col ul{margin:0;padding-left:18px;line-height:1.7;font-size:14px}
+
 /* Appended to legacy/style.css by build.js. Only old browsers (no ES modules) load that file.
    Old engines (Chrome 38 on webOS 3.x) have no CSS grid and no flex "gap": flexbox layouts with margins. */
 
@@ -713,6 +726,11 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 .week-grid>*{flex:1 1 0;min-width:0}
 .week-grid>*+*{margin-left:6px}
 .week-day>*+*{margin-top:4px}
+
+/* Free days */
+.fd-body{display:flex;flex-wrap:wrap}
+.fd-body>*{width:240px;margin:0 14px 14px 0}
+.free-day summary>*{margin-right:10px}
 
 /* Missing prefixes */
 .cal,.pick span,.crop-frame{-webkit-user-select:none}

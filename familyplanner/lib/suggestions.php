@@ -194,6 +194,37 @@ function build_suggestions(): array
         ], 45, 'weekend');
     }
 
+    // 8b. Days off from school coming up: plan something nice, and check whether someone is home
+    require_once __DIR__ . '/freedays.php';
+    foreach (upcoming_free_days($today, 14) as $fd) {
+        if (!$fd['event'] && !$fd['official']) {
+            continue;
+        }
+        if ($fd['kind'] === 'feast' && !in_array((int) date('N', strtotime($fd['date'])), [1, 2, 3, 4, 5], true)) {
+            continue; // a public holiday in the weekend changes nothing
+        }
+        $busyParents = 0;
+        foreach (array_keys(parents()) as $pid) {
+            foreach (load_events($fd['date'], date('Y-m-d', strtotime($fd['date'] . ' +1 day'))) as $pe) {
+                if (in_array((int) $pid, $pe['members'], true) && !$pe['all_day'] && substr($pe['start_at'], 11, 5) < '15:00' && $pe['type'] !== 'SCHOOL') {
+                    $busyParents++;
+                    break;
+                }
+            }
+        }
+        $days = days_until($fd['date']);
+        $text = e($fd['emoji']) . ' <b>' . e($fd['title']) . '</b> ' . e(day_label($fd['date'])) . ($fd['end'] > $fd['date'] ? ' t/m ' . e(format_date_short($fd['end'])) : '') . ': de kinderen zijn vrij.';
+        $needSitter = $busyParents >= count(parents()) && count(parents()) > 0;
+        $actions = [['💡 Ideeën', 'vrijedagen.php#' . ($fd['event'] ? 'e' . $fd['event']['id'] : 'f' . $fd['date'])]];
+        if ($needSitter) {
+            $text .= ' Jullie hebben allebei al iets staan: oppas nodig?';
+            $actions[] = ['🍼 Oppas regelen', null, ['type' => 'BABYSIT', 'title' => 'Oppas', 'members' => array_map('intval', array_keys(children())), 'start' => $fd['date'] . 'T08:30', 'end' => $fd['date'] . 'T17:00']];
+        } else {
+            $text .= ' Iets leuks plannen?';
+        }
+        $out[] = suggestion('🎒', $text, $actions, $needSitter ? 7 : ($days <= 7 ? 14 : 28), 'free-' . $fd['date'] . $fd['title']);
+    }
+
     // 9. Money still to pay
     $unpaid = db()->query("SELECT id, title, cost, start_at FROM fp_events WHERE cost > 0 AND paid = 0 AND start_at < NOW() ORDER BY start_at")->fetchAll();
     if ($unpaid) {

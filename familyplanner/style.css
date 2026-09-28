@@ -643,3 +643,16 @@ kbd{background:var(--card2);border:1px solid var(--line);border-radius:6px;paddi
 .avail-table td{text-align:center}
 .avail-table td.yes{background:var(--ok-soft)}
 .avail-table td.no{background:var(--bad-soft)}
+
+/* Special days (feestdagen) and free days */
+.cal-aev.feast,.cal-mev.feast{background:#FFF3D6;border-left:4px solid #E8A317;color:#7a5200;font-weight:700}
+[data-theme=dark] .cal-aev.feast,[data-theme=dark] .cal-mev.feast{background:#3d2f10;color:#ffe2a8}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .cal-aev.feast,:root:not([data-theme=light]) .cal-mev.feast{background:#3d2f10;color:#ffe2a8}}
+.free-day summary{display:flex;align-items:center;gap:12px;cursor:pointer;list-style:none}
+.free-day summary::-webkit-details-marker{display:none}
+.free-day summary .grow{display:flex;flex-direction:column;flex:1;min-width:0}
+.free-day .fd-emoji{font-size:32px;line-height:1}
+.free-day.official{border-left:5px solid #E8A317}
+.fd-body{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:12px}
+.fd-col h4{font-size:12.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin:0 0 6px}
+.fd-col ul{margin:0;padding-left:18px;line-height:1.7;font-size:14px}
