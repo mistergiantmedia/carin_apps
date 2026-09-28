@@ -53,6 +53,19 @@ function delete_family(int $familyId): void
     } finally {
         $raw->exec('SET FOREIGN_KEY_CHECKS = 1');
     }
+    // Friendships: weekly items other families copied from this family's children, links and shares
+    $stmt = $raw->prepare('SELECT family_id, contact_id FROM fp_contact_links WHERE other_family = ?');
+    $stmt->execute([$familyId]);
+    foreach ($stmt->fetchAll() as $l) {
+        try {
+            $raw->prepare('DELETE FROM `' . \Familie\family_prefix((int) $l['family_id']) . "contact_week` WHERE contact_id = ? AND source = 'LINK'")->execute([$l['contact_id']]);
+        } catch (PDOException $e) {
+            // that family's tables are gone too
+        }
+    }
+    $raw->prepare('DELETE FROM fp_contact_links WHERE family_id = ? OR other_family = ?')->execute([$familyId, $familyId]);
+    $raw->prepare('DELETE FROM fp_family_shares WHERE owner_family = ? OR friend_family = ?')->execute([$familyId, $familyId]);
+    $raw->prepare('DELETE FROM fp_family_links WHERE family_a = ? OR family_b = ?')->execute([$familyId, $familyId]);
     $raw->prepare('DELETE FROM fp_users WHERE family_id = ?')->execute([$familyId]);
     $raw->prepare('DELETE FROM fp_families WHERE id = ?')->execute([$familyId]);
 }

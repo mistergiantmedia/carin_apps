@@ -128,8 +128,31 @@ function delete_photo(?string $name): void
     if (!$name || !preg_match('/^[a-f0-9]{24}\.jpg$/', $name)) {
         return;
     }
+    if (photo_used_elsewhere($name)) {
+        return; // a linked friend family uses the same file (their child's photo)
+    }
     @unlink(UPLOAD_DIR . '/' . $name);
     @unlink(UPLOAD_DIR . '/' . thumb_name($name));
+}
+
+/** Is this photo file still used by another family (linked contacts share their family's photo)? */
+function photo_used_elsewhere(string $name): bool
+{
+    $me = current_family_id();
+    foreach (db()->query("SELECT id FROM fp_families WHERE status IN ('ACTIVE', 'BLOCKED')")->fetchAll(PDO::FETCH_COLUMN) as $fid) {
+        if ((int) $fid === $me) {
+            continue;
+        }
+        $used = with_family((int) $fid, function () use ($name) {
+            $s = db()->prepare('SELECT 1 FROM fp_members WHERE photo = ? UNION SELECT 1 FROM fp_contacts WHERE photo = ? LIMIT 1');
+            $s->execute([$name, $name]);
+            return (bool) $s->fetchColumn();
+        });
+        if ($used) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /** File input + preview of the current photo, with an option to remove it. */

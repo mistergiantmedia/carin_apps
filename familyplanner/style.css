@@ -425,6 +425,8 @@ dialog.modal::backdrop{background:rgba(27,21,44,0.6)}
 .cal-ev.ghost{opacity:.35}
 .cal-ev.selection{background:color-mix(in srgb,var(--accent) 28%,transparent);border-left-color:var(--accent);pointer-events:none;z-index:10}
 .cal-ev.pending-touch{outline:2px solid var(--accent)}
+.cal-ev.shared,.cal-aev.shared,.cal-mev.shared{border-left-style:dashed;background-image:repeating-linear-gradient(135deg,transparent 0 8px,rgba(255,255,255,0.18) 8px 16px)}
+.shared-note{background:var(--soft,rgba(108,92,231,0.08));border-radius:8px;padding:6px 10px}
 .cal-aev{position:absolute;height:22px;border-radius:6px;padding:2px 6px;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;pointer-events:auto;background:color-mix(in srgb,var(--c) 26%,var(--card));border-left:4px solid var(--c);color:var(--ink)}
 .cal-aev.bday{background:#fde7ef;border-left-color:#E0568A;color:#8a1d45}
 [data-theme=dark] .cal-aev.bday{background:#4a1f30;color:#ffd2e2}

@@ -9,7 +9,7 @@ $user = require_login();
 
 $today = today();
 $tomorrow = date('Y-m-d', strtotime('+1 day'));
-$weekAhead = load_events($today, date('Y-m-d', strtotime('+8 day')));
+$weekAhead = with_shared_events(load_events($today, date('Y-m-d', strtotime('+8 day'))), $today, date('Y-m-d', strtotime('+8 day')));
 $now = date('Y-m-d H:i:s');
 
 $byDay = [];
@@ -70,6 +70,9 @@ function day_events_html(array $events, array $bdays, array $feasts = []): strin
             $who .= avatar($c, 26);
         }
         $meta = [$t[0]];
+        if (!empty($ev['shared'])) {
+            $meta[] = '🤝 van ' . $ev['owner_family'];
+        }
         if ($ev['location']) {
             $meta[] = '📍 ' . $ev['location'];
         }
@@ -85,7 +88,7 @@ function day_events_html(array $events, array $bdays, array $feasts = []): strin
         if ($ev['pickup_member_id'] && member((int) $ev['pickup_member_id'])) {
             $meta[] = '🏠 ' . member((int) $ev['pickup_member_id'])['name'];
         }
-        $html .= '<a class="ev' . ($ev['done'] ? ' done' : '') . '" style="--c:' . e(event_color($ev)) . '" href="event.php?id=' . (int) $ev['id'] . '&amp;occ=' . e($ev['occ']) . '" data-edit-event="' . (int) $ev['id'] . '" data-occ="' . e($ev['occ']) . '">'
+        $html .= '<a class="ev' . ($ev['done'] ? ' done' : '') . '" style="--c:' . e(event_color($ev)) . '" href="' . e(event_link($ev)) . '"' . (empty($ev['shared']) ? ' data-edit-event="' . (int) $ev['id'] . '" data-occ="' . e($ev['occ']) . '"' : '') . '>'
             . '<div class="ev-time">' . e($ev['all_day'] ? 'hele dag' : substr($ev['start_at'], 11, 5)) . '</div>'
             . '<div class="ev-body"><span class="ev-title">' . event_emoji($ev) . ' ' . e($ev['title']) . '</span><span class="ev-meta">' . e(implode(' · ', $meta)) . '</span>'
             . ($who ? '<div class="avatars">' . $who . '</div>' : '') . '</div></a>';

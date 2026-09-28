@@ -9,7 +9,7 @@ require __DIR__ . '/lib/friends.php';
 require __DIR__ . '/lib/views.php';
 require __DIR__ . '/lib/bucket.php';
 require __DIR__ . '/lib/groups.php';
-require __DIR__ . '/lib/week.php';
+require_once __DIR__ . '/lib/week.php';
 require_login();
 
 $m = member(get_int('id'));
@@ -133,7 +133,7 @@ page_start($m['name'], ['active' => 'gezin.php']);
         $from = date('Y-m-d', strtotime('monday this week', strtotime("$ym-01")));
         $to = date('Y-m-d', strtotime('+6 week', strtotime($from)));
     }
-    $events = array_values(array_filter(load_events($from, $to), $mine));
+    $events = array_values(array_filter(with_shared_events(load_events($from, $to), $from, $to), $mine));
     $birthdays = load_birthdays($from, $to, ['members' => [$id]]);
     $prev = date('Y-m', strtotime(($view === 'year' ? '-1 year' : '-1 month'), strtotime("$ym-01")));
     $next = date('Y-m', strtotime(($view === 'year' ? '+1 year' : '+1 month'), strtotime("$ym-01")));

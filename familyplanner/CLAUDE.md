@@ -92,8 +92,15 @@ Hand-written ES5 helpers for old browsers are in `_legacy/dom.js`, extra layout 
 - Never query fp_users without `family_id` when listing accounts. foto.php only serves photos referenced by the
   current family's tables.
 
-### Planned next: families as friends (not built yet)
-- Families can become friends; per friend family full control over what is shared (birthdays, selected events,
-  bucketlist…). Nothing is shared by default: cross-family reads must be explicit (FamilyPDO isolates otherwise).
-- Link a contact (e.g. Sonya in our address book) to the matching child in the friend family once both agree:
-  then her photo/details come from her own family, and playdates between linked families show in both agendas.
+### Friend families (lib/friendfam.php, vriendgezinnen.php)
+- Shared tables (never prefix-rewritten, listed in SHARED_TABLES + the rewrite_sql regex): fp_family_links
+  (friendship, family_a < family_b, PENDING/ACCEPTED), fp_family_shares (owner_family → friend_family: PROFILE,
+  BIRTHDAYS, CLUBS, PLAYDATES, EVENTS), fp_contact_links (our contact ↔ member in the friend family).
+  Per family: fp_event_shares (events explicitly shared, needs EVENTS) and fp_contact_week.source = 'LINK'.
+- Nothing is shared by default. Reading another family's tables only via with_family($fid, fn), and only after
+  checking shares_from($fid, current_family_id()). Never call members()/member() inside with_family (static cache).
+- sync_links() (from require_login, every 15 min per session) copies photo/birthday/clubs of linked members into
+  our contacts. shared_events() returns friend playdates with our linked kids + shared events, read-only
+  (id 'x{fid}-{id}', shared=true, owner_family); api events, index, gezin, persoon and kid boards include them
+  (with_shared_events, event_link). Calendar: readOnly → click only, own popover.
+- Photos may be referenced by several families: delete_photo() skips files other families still use.

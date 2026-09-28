@@ -103,6 +103,10 @@ function load_events(string $from, string $to, array $filter = []): array
             FROM fp_event_contacts ec JOIN fp_contacts c ON c.id = ec.contact_id WHERE ec.event_id IN ($ids) ORDER BY c.first_name") as $r) {
         $contacts[$r['event_id']][] = $r;
     }
+    $shares = [];
+    foreach (db()->query("SELECT event_id, friend_family FROM fp_event_shares WHERE event_id IN ($ids)") as $r) {
+        $shares[$r['event_id']][] = (int) $r['friend_family'];
+    }
     $exceptions = [];
     $doneDates = [];
     $recurringIds = [];
@@ -139,6 +143,7 @@ function load_events(string $from, string $to, array $filter = []): array
     foreach ($events as $ev) {
         $ev['members'] = $members[$ev['id']] ?? [];
         $ev['contacts'] = $contacts[$ev['id']] ?? [];
+        $ev['shares'] = $shares[$ev['id']] ?? [];
         $ev['recurring'] = $ev['recurrence'] !== '';
         if (!$ev['recurring']) {
             $ev['occ'] = substr($ev['start_at'], 0, 10);
@@ -358,6 +363,9 @@ function find_event(int $id): ?array
     $stmt = db()->prepare('SELECT ec.rsvp, c.* FROM fp_event_contacts ec JOIN fp_contacts c ON c.id = ec.contact_id WHERE ec.event_id = ? ORDER BY c.first_name');
     $stmt->execute([$id]);
     $ev['contacts'] = $stmt->fetchAll();
+    $stmt = db()->prepare('SELECT friend_family FROM fp_event_shares WHERE event_id = ?');
+    $stmt->execute([$id]);
+    $ev['shares'] = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     $ev['recurring'] = $ev['recurrence'] !== '';
     return $ev;
 }
@@ -435,7 +443,21 @@ function normalise_event(array $in): array
         'paid' => !empty($in['paid']) ? 1 : 0,
         '_members' => $memberIds,
         '_contacts' => $contacts,
+        // Friend families this event is shared with (null = leave as it is)
+        '_shares' => isset($in['shares']) ? event_share_targets((array) $in['shares']) : null,
     ];
+}
+
+/** Keep only friend families we share single events with. */
+function event_share_targets(array $ids): array
+{
+    $ok = [];
+    foreach (array_unique(array_map('intval', $ids)) as $fid) {
+        if (isset(friend_families()[$fid]) && in_array('EVENTS', shares_from(current_family_id(), $fid), true)) {
+            $ok[] = $fid;
+        }
+    }
+    return $ok;
 }
 
 /** Insert or update an event from normalised data. Returns the id. */
@@ -444,7 +466,8 @@ function save_event(array $data, ?int $id = null): int
     $pdo = db();
     $members = $data['_members'];
     $contacts = $data['_contacts'];
-    unset($data['_members'], $data['_contacts']);
+    $shares = $data['_shares'] ?? null;
+    unset($data['_members'], $data['_contacts'], $data['_shares']);
     $pdo->beginTransaction();
     try {
         if ($id) {
@@ -462,6 +485,12 @@ function save_event(array $data, ?int $id = null): int
             $id = (int) $pdo->lastInsertId();
         }
         set_event_people($id, $members, $contacts);
+        if ($shares !== null) {
+            $pdo->prepare('DELETE FROM fp_event_shares WHERE event_id = ?')->execute([$id]);
+            foreach ($shares as $fid) {
+                $pdo->prepare('INSERT INTO fp_event_shares (event_id, friend_family) VALUES (?, ?)')->execute([$id, $fid]);
+            }
+        }
         $pdo->commit();
     } catch (Throwable $e) {
         $pdo->rollBack();
@@ -520,6 +549,7 @@ function copy_occurrence(array $ev, string $occ): int
         'contacts' => array_map(function ($c) {
             return ['id' => $c['id'], 'rsvp' => $c['rsvp']];
         }, $ev['contacts']),
+        'shares' => $ev['shares'] ?? [],
     ];
     $newId = save_event(normalise_event($data));
     $stmt = $pdo->prepare('SELECT 1 FROM fp_event_done WHERE event_id = ? AND occurs_on = ?');
@@ -616,6 +646,12 @@ function set_event_done(int $id, string $occ, bool $done): void
     }
 }
 
+/** Link to an event's page; a friend family's shared event opens the agenda (it can't be edited here). */
+function event_link(array $ev): string
+{
+    return !empty($ev['shared']) ? 'agenda.php' : 'event.php?id=' . (int) $ev['id'] . '&occ=' . $ev['occ'];
+}
+
 /** Compact array for the calendar front-end. */
 function event_json(array $ev): array
 {
@@ -649,6 +685,7 @@ function event_json(array $ev): array
         'pickupOpen' => !empty($ev['pickup_open']),
         'cost' => $ev['cost'] !== null ? (float) $ev['cost'] : null,
         'paid' => (bool) $ev['paid'],
+        'shares' => array_map('intval', $ev['shares'] ?? []),
         'contacts' => array_map(function ($c) {
             return [
                 'id' => (int) $c['id'],

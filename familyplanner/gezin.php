@@ -8,7 +8,7 @@ require_login();
 $weekOffset = (int) ($_GET['week'] ?? 0);
 $weekStart = date('Y-m-d', strtotime(date('Y-m-d', strtotime('monday this week', strtotime(today()))) . ' +' . ($weekOffset * 7) . ' day'));
 $weekEnd = date('Y-m-d', strtotime("$weekStart +7 day"));
-$events = load_events($weekStart, $weekEnd);
+$events = with_shared_events(load_events($weekStart, $weekEnd), $weekStart, $weekEnd);
 $birthdays = load_birthdays($weekStart, $weekEnd);
 
 page_start('Gezin');
@@ -61,7 +61,7 @@ $cell = function (array $m, string $d) use ($events, $birthdays): string {
         if ($role === null) {
             continue;
         }
-        $html .= '<a class="mtag' . ($ev['done'] ? ' done' : '') . '" style="--ec:' . e(event_color($ev)) . ';color:inherit" href="event.php?id=' . (int) $ev['id'] . '&amp;occ=' . e($ev['occ']) . '" data-edit-event="' . (int) $ev['id'] . '" data-occ="' . e($ev['occ']) . '">'
+        $html .= '<a class="mtag' . ($ev['done'] ? ' done' : '') . '" style="--ec:' . e(event_color($ev)) . ';color:inherit" href="' . e(event_link($ev)) . '"' . (empty($ev['shared']) ? ' data-edit-event="' . (int) $ev['id'] . '" data-occ="' . e($ev['occ']) . '"' : '') . '>'
             . ($ev['all_day'] ? '' : e(substr($ev['start_at'], 11, 5)) . ' ') . e($role) . event_emoji($ev) . ' ' . e($ev['title']) . '</a>';
     }
     return $html;

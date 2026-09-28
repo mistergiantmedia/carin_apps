@@ -4,7 +4,7 @@
 // put a trial lesson on the bucketlist together with that friend.
 require __DIR__ . '/lib/app.php';
 require __DIR__ . '/lib/events.php';
-require __DIR__ . '/lib/week.php';
+require_once __DIR__ . '/lib/week.php';
 require __DIR__ . '/lib/bucket.php';
 require_login();
 

@@ -34,7 +34,7 @@ function where_text(array $ev): string
 function kid_week_board(array $kid, string $weekStart, bool $showDone = true, int $days = 9): string
 {
     $weekEnd = date('Y-m-d', strtotime("$weekStart +$days day"));
-    $events = array_values(array_filter(load_events($weekStart, $weekEnd), function ($ev) use ($kid) {
+    $events = array_values(array_filter(with_shared_events(load_events($weekStart, $weekEnd), $weekStart, $weekEnd), function ($ev) use ($kid) {
         return in_array((int) $kid['id'], $ev['members'], true);
     }));
     $birthdays = load_birthdays($weekStart, $weekEnd, ['members' => [(int) $kid['id']]]);
@@ -76,7 +76,7 @@ function kid_week_board(array $kid, string $weekStart, bool $showDone = true, in
                 $time .= ' (studiemiddag!)';
             }
             $where = where_text($ev);
-            $html .= '<a class="kid-item' . ($ev['done'] ? ' done' : '') . '" style="--ec:' . e(event_color($ev)) . '" href="event.php?id=' . (int) $ev['id'] . '&amp;occ=' . e($ev['occ']) . '">'
+            $html .= '<a class="kid-item' . ($ev['done'] ? ' done' : '') . '" style="--ec:' . e(event_color($ev)) . '" href="' . e(event_link($ev)) . '">'
                 . '<div class="ki-emoji">' . event_emoji($ev) . '</div><div class="ki-title">' . e($ev['title']) . '</div>'
                 . ($time ? '<div class="ki-time">' . e($time) . '</div>' : '')
                 . ($friends ? '<div class="ki-friends">' . $friends . '</div>' : '')
@@ -123,7 +123,7 @@ function month_table(int $year, int $month, array $events, array $birthdays, str
         foreach ($byDay[$d]['events'] ?? [] as $ev) {
             $t = event_type($ev['type']);
             $time = $ev['all_day'] ? '' : substr($ev['start_at'], 11, 5) . ' ';
-            $html .= '<a class="mev" style="--ec:' . e(event_color($ev)) . '" href="event.php?id=' . (int) $ev['id'] . '&amp;occ=' . e($ev['occ']) . '" title="' . e($time . $ev['title']) . '">' . event_emoji($ev) . ' ' . e($time . $ev['title']) . '</a>';
+            $html .= '<a class="mev" style="--ec:' . e(event_color($ev)) . '" href="' . e(event_link($ev)) . '" title="' . e($time . $ev['title']) . '">' . event_emoji($ev) . ' ' . e($time . $ev['title']) . '</a>';
         }
         $html .= '</td>';
         if ($i % 7 === 6) {

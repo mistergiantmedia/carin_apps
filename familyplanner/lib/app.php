@@ -3,6 +3,7 @@
 // Keep this PHP 7.4 compatible.
 require_once dirname(__DIR__) . '/db.php';
 require_once __DIR__ . '/constants.php';
+require_once __DIR__ . '/friendfam.php';
 
 date_default_timezone_set('Europe/Amsterdam');
 
@@ -188,6 +189,7 @@ function require_login(): array
     if (!empty($user['must_change_password']) && basename($_SERVER['SCRIPT_NAME'] ?? '') !== 'wachtwoord.php') {
         redirect('wachtwoord.php');
     }
+    sync_links(); // linked friends: photo, birthday and clubs from their own family (every 15 min)
     return $user;
 }
 
@@ -445,6 +447,7 @@ function nav_items(): array
         ['vrijedagen.php', '🎒', 'Vrije dagen & vakanties'],
         ['activiteiten.php', '🎡', 'Uitjes & feestjes'],
         ['ideeen.php', '💡', 'Ideeën & attent'],
+        ['vriendgezinnen.php', '🤝', 'Vriendgezinnen'],
         ['oppas.php', '🍼', 'Oppas'],
         ['fotos.php', '📸', "Schoolfoto's"],
         ['instellingen.php', '⚙️', 'Instellingen'],
@@ -529,6 +532,9 @@ function page_start(string $title, array $options = []): void
   <?php if ($user && ($active !== 'beheer.php') && pending_families()): ?>
     <div class="flash warn">🆕 <?= pending_families() === 1 ? 'Er wacht 1 gezin' : 'Er wachten ' . pending_families() . ' gezinnen' ?> op goedkeuring. <a href="beheer.php">Bekijken →</a></div>
   <?php endif; ?>
+  <?php if ($user && $active !== 'vriendgezinnen.php' && ($incoming = count(friend_requests()['in']))): ?>
+    <div class="flash warn">🤝 <?= $incoming === 1 ? 'Een ander gezin wil' : $incoming . ' gezinnen willen' ?> vrienden met jullie worden. <a href="vriendgezinnen.php">Bekijken →</a></div>
+  <?php endif; ?>
     <?php
 }
 
@@ -571,6 +577,12 @@ function front_end_data(): array
         'hosts' => HOSTS,
         'rsvps' => RSVPS,
         'today' => today(),
+        // Friend families we share single events with (chips in the event editor)
+        'friendFamilies' => array_values(array_map(function ($f) {
+            return ['id' => $f['id'], 'name' => $f['name']];
+        }, array_filter(friend_families(), function ($f) {
+            return in_array('EVENTS', shares_from(current_family_id(), $f['id']), true);
+        }))),
     ];
 }
 

@@ -271,6 +271,10 @@
           ${ev.dropEach ? `<label>🚗 brengt <select data-duty="DROP">${memberOpts(ev.dropMember)}</select></label>` : ''}
           ${ev.pickupEach ? `<label>🏠 haalt <select data-duty="PICKUP">${memberOpts(ev.pickupMember)}</select></label>` : ''}
         </div>` : '';
+      // Friend families that may see this event in their agenda (only those we share single events with)
+      const friendFams = DATA.friendFamilies || [];
+      const shareChips = friendFams.length ? `<div class="label">🤝 Delen met vriendgezinnen <small>(zij zien deze afspraak in hun agenda)</small></div>
+            <div class="picker">${friendFams.map((fam) => `<label class="pick sm"><input type="checkbox" name="shares" value="${fam.id}"${(ev.shares || []).includes(fam.id) ? ' checked' : ''}><span>🏡 ${esc(fam.name)}</span></label>`).join('')}</div>` : '';
       const opts = (obj, sel) => Object.entries(obj).map(([k, v]) => `<option value="${k}"${k === (sel || '') ? ' selected' : ''}>${esc(v)}</option>`).join('');
       d.innerHTML = `
         <form method="dialog" class="form" novalidate>
@@ -301,6 +305,7 @@
               <div><label>Waar</label><input name="location" value="${esc(ev.location || '')}" placeholder="Adres of plek"></div>
               <div><label>Bij wie</label><select name="host">${opts(DATA.hosts, ev.host)}</select></div>
             </div>
+            ${shareChips}
             <details class="more"${ev.dropMember || ev.pickupMember || ev.dropEach || ev.pickupEach || ev.cost || ev.description ? ' open' : ''}>
               <summary>Meer opties</summary>
               <div class="row2">
@@ -446,6 +451,7 @@
           description: f.elements.description.value,
           contacts: people.value(),
         };
+        if (friendFams.length) body.shares = Array.from(f.querySelectorAll('[name=shares]:checked')).map((c) => Number(c.value));
         if (!f.elements.startDate.value) { err.textContent = 'Kies een datum.'; err.hidden = false; return; }
         if (ev.id && ev.recurring) {
           const scope = await askScope('edit');
@@ -488,7 +494,7 @@
         await api('restore', {
           title: ev.title, type: ev.type, emoji: ev.customEmoji || '', start: ev.start, end: ev.end, all_day: ev.allDay, location: ev.location, host: ev.host,
           description: ev.description, color: ev.customColor || '', drop_member_id: ev.dropMember, pickup_member_id: ev.pickupMember,
-          cost: ev.cost, paid: ev.paid, members: ev.members, contacts: (ev.contacts || []).map((c) => ({ id: c.id, rsvp: c.rsvp })),
+          cost: ev.cost, paid: ev.paid, members: ev.members, shares: ev.shares || [], contacts: (ev.contacts || []).map((c) => ({ id: c.id, rsvp: c.rsvp })),
         });
         document.dispatchEvent(new CustomEvent('fp:changed'));
         if (!window.FP_CAL) location.reload();

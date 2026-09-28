@@ -282,7 +282,7 @@
       placed.map(({ ev, a, b, lane }) => {
         const contL = dayDiff(first, ev.s) < 0;
         const contR = dayDiff(first, addMinutes(ev.e, -1)) > n - 1;
-        return `<div class="cal-aev${ev.feast ? ' feast' : ev.birthday ? ' bday' : ''}${ev.done ? ' done' : ''}" data-key="${esc(ev.key)}" style="--c:${colorOf(ev)};left:calc(${a / n * 100}% + 2px);width:calc(${(b - a + 1) / n * 100}% - 4px);top:${3 + lane * 25}px">${contL ? '‹ ' : ''}${ev.birthday ? '' : (ev.emoji || '') + ' '}${esc(ev.title)}${!ev.allDay ? ' <span class="muted">' + fmtTime(ev.s) + '</span>' : ''}${contR ? ' ›' : ''}${!ev.birthday && !contR ? '<span class="rz right"></span>' : ''}</div>`;
+        return `<div class="cal-aev${ev.feast ? ' feast' : ev.birthday ? ' bday' : ''}${ev.done ? ' done' : ''}${ev.readOnly ? ' shared' : ''}" data-key="${esc(ev.key)}" style="--c:${colorOf(ev)};left:calc(${a / n * 100}% + 2px);width:calc(${(b - a + 1) / n * 100}% - 4px);top:${3 + lane * 25}px">${contL ? '‹ ' : ''}${ev.birthday ? '' : (ev.emoji || '') + ' '}${esc(ev.title)}${!ev.allDay ? ' <span class="muted">' + fmtTime(ev.s) + '</span>' : ''}${contR ? ' ›' : ''}${!ev.birthday && !ev.readOnly && !contR ? '<span class="rz right"></span>' : ''}</div>`;
       }).join('') + `</div></div>`;
 
     html += `<div class="cal-scroll"><div class="cal-body" style="grid-template-columns:${cols};--hour:${HOUR}px"><div class="cal-times">` +
@@ -304,8 +304,8 @@
       colEls[i].innerHTML = segs.map((sg) => {
         const h = Math.max(18, (sg.e - sg.s) / 60 * HOUR - 2);
         const short = h < 36;
-        return `<div class="cal-ev${short ? ' short' : ''}${sg.ev.done ? ' done' : ''}" data-key="${esc(sg.ev.key)}" style="--c:${colorOf(sg.ev)};top:${sg.s / 60 * HOUR + 1}px;height:${h}px;left:calc(${sg.col / sg.cols * 100}% + 1px);width:calc(${sg.span / sg.cols * 100}% - 3px)">` +
-          (sg.startsHere ? '<span class="rz top"></span>' : '') + eventInner(sg.ev, short) + (sg.endsHere ? '<span class="rz bottom"></span>' : '') + '</div>';
+        return `<div class="cal-ev${short ? ' short' : ''}${sg.ev.done ? ' done' : ''}${sg.ev.readOnly ? ' shared' : ''}" data-key="${esc(sg.ev.key)}" style="--c:${colorOf(sg.ev)};top:${sg.s / 60 * HOUR + 1}px;height:${h}px;left:calc(${sg.col / sg.cols * 100}% + 1px);width:calc(${sg.span / sg.cols * 100}% - 3px)">` +
+          (sg.startsHere && !sg.ev.readOnly ? '<span class="rz top"></span>' : '') + eventInner(sg.ev, short) + (sg.endsHere && !sg.ev.readOnly ? '<span class="rz bottom"></span>' : '') + '</div>';
       }).join('') + (isToday(d) ? `<div class="cal-now" style="top:${minutesOfDay(new Date()) / 60 * HOUR}px"></div>` : '');
     });
 
@@ -381,7 +381,7 @@
         const cls = ev.feast ? 'feast' : ev.birthday ? 'bday' : it.span ? 'span' : 'timed';
         const q = ev.dropOpen || ev.pickupOpen ? '❓ ' : '';
         const label = q + (it.span ? esc(ev.title) : isSmall() ? `${ev.emoji || ''} ${esc(ev.title)}` : `<b>${fmtTime(ev.s)}</b> ${ev.emoji || ''} ${esc(ev.title)}`);
-        bars += `<div class="cal-mev ${cls}${ev.done ? ' done' : ''}" data-key="${esc(ev.key)}" style="--c:${colorOf(ev)};top:${lane * laneH}px;left:calc(${it.a / 7 * 100}% + 3px);width:calc(${(it.b - it.a + 1) / 7 * 100}% - 6px)">${label}${it.span && !ev.birthday ? '<span class="rz"></span>' : ''}</div>`;
+        bars += `<div class="cal-mev ${cls}${ev.done ? ' done' : ''}${ev.readOnly ? ' shared' : ''}" data-key="${esc(ev.key)}" style="--c:${colorOf(ev)};top:${lane * laneH}px;left:calc(${it.a / 7 * 100}% + 3px);width:calc(${(it.b - it.a + 1) / 7 * 100}% - 6px)">${label}${it.span && !ev.birthday && !ev.readOnly ? '<span class="rz"></span>' : ''}</div>`;
       });
       hidden.forEach((n, k) => {
         if (n) bars += `<div class="cal-more" data-goto="${ymd(addDays(ws, k))}" style="top:${maxLanes * laneH}px;left:calc(${k / 7 * 100}%)">+${n} meer</div>`;
@@ -499,13 +499,13 @@
         </div>` : ''}
         ${ev.cost != null ? `<div class="pop-row">💶 € ${ev.cost.toFixed(2).replace('.', ',')} ${ev.paid ? '<span class="badge ok">betaald</span>' : '<span class="badge warn">nog betalen</span>'}</div>` : ''}
         ${ev.description ? `<div class="pop-row" style="white-space:pre-line">${esc(ev.description)}</div>` : ''}
-        <div class="pop-actions">
+        ${ev.readOnly ? `<div class="pop-row shared-note"><span>🤝 Van <b>${esc(ev.ownerFamily)}</b>. Alleen zij kunnen deze afspraak aanpassen.</span></div>` : `<div class="pop-actions">
           <button class="btn small ${ev.done ? 'secondary' : 'ok'}" data-pop="done">${ev.done ? '↺ Niet gedaan' : '✓ Afvinken'}</button>
           <button class="btn small soft" data-pop="edit">✏️ Bewerken</button>
           <a class="btn small secondary" href="event.php?id=${ev.id}&occ=${ev.occ}">📋 Details</a>
           <button class="btn small secondary" data-pop="copy" title="Dupliceren">⧉</button>
           <button class="btn small danger" data-pop="delete" title="Verwijderen">🗑</button>
-        </div>`;
+        </div>`}`;
     }
     document.body.appendChild(pop);
     const r = anchor.getBoundingClientRect();
@@ -616,7 +616,7 @@
       mode: rz ? (rz.classList.contains('top') ? 'resize-start' : 'resize-end') : (evEl ? 'move' : 'create'),
       active: false, armed: e.pointerType === 'mouse',
     };
-    if (ev && ev.birthday) g.mode = 'click';
+    if (ev && (ev.birthday || ev.readOnly)) g.mode = 'click'; // friend family's events can't be moved
     g.cells = collectCells();
     g.origin = pointToSlot(e.clientX, e.clientY);
     if (g.touch) {

@@ -7,7 +7,7 @@ require __DIR__ . '/lib/upload.php';
 require __DIR__ . '/lib/friends.php';
 require __DIR__ . '/lib/bucket.php';
 require __DIR__ . '/lib/groups.php';
-require __DIR__ . '/lib/week.php';
+require_once __DIR__ . '/lib/week.php';
 require_login();
 
 $id = get_int('id');
@@ -76,6 +76,7 @@ if (is_post()) {
             redirect($next !== '' ? safe_next($next) : 'contact.php?id=' . $id);
         }
         if ($action === 'delete' && $c) {
+            unlink_contact($id);
             delete_photo($c['photo']);
             db()->prepare('DELETE FROM fp_contacts WHERE id = ?')->execute([$id]);
             flash(contact_name($c) . ' is verwijderd');
@@ -248,6 +249,7 @@ page_start(contact_name($c), ['active' => 'mensen.php']);
       <?php if ($memberIds): ?> van <?= e(implode(' & ', array_map(function ($mid) { return member($mid)['name'] ?? ''; }, $memberIds))) ?><?php endif; ?>
       <?php $a = age($c); if ($a !== null): ?> · <?= $a ?> jaar<?php endif; ?>
     </p>
+    <?php $flink = contact_link($id); if ($flink): ?><p style="margin:6px 0 0"><a class="badge ok" href="vriendgezinnen.php">🔗 Gekoppeld aan <?= e($flink['family_name']) ?></a> <span class="muted small">foto, verjaardag en clubjes komen uit hun eigen planner</span></p><?php endif; ?>
     <?php if ($nb): ?><p style="margin:6px 0 0">🎂 <?= e(birthday_text($c)) ?> · <b><?= e(in_days_label(days_until($nb))) ?></b><?= $c['birth_year'] ? ' wordt ' . (int) (substr($nb, 0, 4) - $c['birth_year']) : '' ?></p><?php endif; ?>
   </div>
   <div class="head-actions">
@@ -333,7 +335,7 @@ page_start(contact_name($c), ['active' => 'mensen.php']);
               <button class="week-status" title="<?= e(WEEKDAYS[$wd]) ?>: tik om te wisselen"><b><?= $short ?></b><span><?= $st === 'YES' ? '✅' : ($st === 'NO' ? '❌' : '❓') ?></span></button></form>
             <?php foreach ($week[$wd] ?? [] as $it): ?>
               <div class="week-item" title="<?= e(WEEK_KINDS[$it['kind']][0] ?? '') ?>"><span><?= e(week_emoji($it)) ?></span> <?= e($it['title']) ?><?php if (week_time($it)): ?><small><?= e(week_time($it)) ?></small><?php endif; ?>
-                <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="week_delete"><input type="hidden" name="item_id" value="<?= (int) $it['id'] ?>"><button class="link muted small" title="Weghalen">✕</button></form></div>
+                <?php if ($it['source'] === 'LINK'): ?><span class="muted small" title="Uit de planner van hun eigen gezin">🔗</span><?php else: ?><form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="week_delete"><input type="hidden" name="item_id" value="<?= (int) $it['id'] ?>"><button class="link muted small" title="Weghalen">✕</button></form><?php endif; ?></div>
             <?php endforeach; ?>
           </div>
         <?php endforeach; ?>

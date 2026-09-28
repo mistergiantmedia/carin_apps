@@ -16,7 +16,7 @@ use RuntimeException;
 
 const CONFIG_FILE = __DIR__ . '/../config.php';
 const MIGRATIONS_DIR = __DIR__ . '/../migrations';
-const SHARED_TABLES = ['fp_users', 'fp_families', 'fp_schema_migrations'];
+const SHARED_TABLES = ['fp_users', 'fp_families', 'fp_schema_migrations', 'fp_family_links', 'fp_family_shares', 'fp_contact_links'];
 
 /** Table prefix of a family: 1 → fp_, 7 → fp7_. */
 function family_prefix(int $familyId): string
@@ -30,7 +30,7 @@ function rewrite_sql(string $sql, string $prefix): string
     if ($prefix === 'fp_') {
         return $sql;
     }
-    return preg_replace('/\bfp_(?!users\b|families\b|schema_migrations\b)(?=[a-z])/', $prefix, $sql);
+    return preg_replace('/\bfp_(?!users\b|families\b|schema_migrations\b|family_links\b|family_shares\b|contact_links\b)(?=[a-z])/', $prefix, $sql);
 }
 
 /**

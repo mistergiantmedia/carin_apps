@@ -118,12 +118,20 @@ try {
                 'fp_contact_week' => 'id, contact_id, weekday, start_time, end_time, kind, title, emoji',
                 'fp_contact_days' => 'contact_id, weekday, status',
                 'fp_settings' => 'name, value',
+                'fp_event_shares' => 'event_id, friend_family',
+                'fp_family_links' => 'id, status',
+                'fp_family_shares' => 'owner_family, friend_family, what',
+                'fp_contact_links' => 'family_id, contact_id, other_family, member_id',
             ];
             $parts = [];
             foreach ($watch as $table => $cols) {
                 $parts[] = "(SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', $cols)))) FROM $table)";
             }
             $fingerprint = db()->query("SELECT CONCAT_WS('|', " . implode(', ', $parts) . ')')->fetchColumn();
+            if (friend_families()) {
+                // What friend families share with us changes in their tables: include the coming weeks
+                $fingerprint .= json_encode(shared_events(today(), date('Y-m-d', strtotime('+6 weeks'))));
+            }
             reply(['stamp' => md5((string) $fingerprint), 'today' => today()]);
 
         case 'events':
@@ -140,6 +148,12 @@ try {
                 $filter['types'] = array_values(array_intersect(explode(',', (string) $_GET['types']), array_keys(EVENT_TYPES)));
             }
             $events = array_map('event_json', load_events($from, $to, $filter));
+            // Playdates and events friend families share with us (read-only)
+            foreach (shared_events($from, $to) as $sev) {
+                if (empty($filter['members']) || !$sev['members'] || array_intersect($sev['members'], $filter['members'])) {
+                    $events[] = shared_event_json($sev);
+                }
+            }
             $birthdays = empty($_GET['nobirthdays']) ? array_map('birthday_json', load_birthdays($from, $to, $filter)) : [];
             require_once __DIR__ . '/lib/freedays.php';
             reply(['events' => $events, 'birthdays' => $birthdays, 'feasts' => array_map('feast_json', load_feasts($from, $to))]);

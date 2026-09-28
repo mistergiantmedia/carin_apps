@@ -4,7 +4,7 @@
 require __DIR__ . '/lib/app.php';
 require __DIR__ . '/lib/events.php';
 require __DIR__ . '/lib/friends.php';
-require __DIR__ . '/lib/week.php';
+require_once __DIR__ . '/lib/week.php';
 require_login();
 
 $kids = children();
