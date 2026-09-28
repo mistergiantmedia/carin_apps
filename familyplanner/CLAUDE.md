@@ -110,3 +110,5 @@ Hand-written ES5 helpers for old browsers are in `_legacy/dom.js`, extra layout 
   linked_family → friend family). Groups of type FAMILY are "Grote familie" (grandparents etc.). FAMILY groups
   without any of our members were merged into gezinnen once per planner family (merge_family_groups, setting
   gezinnen_v1). Don't reintroduce "huishouden/adressen" wording.
+- Weather (lib/weather.php): Open-Meteo (no key), place = setting 'city', geocode + forecast cached in
+  fp_settings (value is TEXT since migration 020). weather_forecast() never throws.

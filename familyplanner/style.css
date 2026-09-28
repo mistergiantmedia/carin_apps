@@ -215,6 +215,13 @@ details.more[open]>summary::before{content:'－ '}
 /* ---------- Dashboard ---------- */
 .hello{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
 .hello h1{font-size:30px}
+.weather{display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin-bottom:18px;padding:14px 18px}
+.w-now{display:flex;gap:12px;align-items:center}
+.w-emoji{font-size:52px;line-height:1}
+.w-temp{font-size:34px;font-weight:800;line-height:1}
+.w-day{flex:1;min-width:220px;display:flex;flex-direction:column;gap:4px}
+.w-parts{display:flex;gap:14px;flex-wrap:wrap;font-size:14px}
+.w-tips{display:flex;gap:6px;flex-wrap:wrap;max-width:360px}
 .hello .date{color:var(--muted);font-weight:600}
 .quick{display:flex;gap:8px;flex-wrap:wrap}
 .quick a{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-weight:700;font-size:13.5px;color:var(--ink)}

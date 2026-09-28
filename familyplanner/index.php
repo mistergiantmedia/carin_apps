@@ -5,6 +5,7 @@ require __DIR__ . '/lib/app.php';
 require __DIR__ . '/lib/events.php';
 require __DIR__ . '/lib/tasks.php';
 require __DIR__ . '/lib/suggestions.php';
+require __DIR__ . '/lib/weather.php';
 $user = require_login();
 
 $today = today();
@@ -44,6 +45,7 @@ $tasks = load_tasks(['until' => $tomorrow]);
 $suggestions = array_slice(build_suggestions(), 0, 6);
 $books = open_friendbooks();
 
+$weather = weather_forecast();
 $hour = (int) date('G');
 $greet = $hour < 6 ? 'Goedenacht' : ($hour < 12 ? 'Goedemorgen' : ($hour < 18 ? 'Goedemiddag' : 'Goedenavond'));
 
@@ -110,6 +112,32 @@ page_start('Vandaag');
     <a href="contact.php?new=1">👋 Persoon</a>
   </div>
 </div>
+
+<?php if ($weather):
+    [$wEmoji, $wText] = weather_code($weather['current']['weather_code'] ?? $weather['daily']['weather_code'][0]);
+    $tips = weather_tips($weather, 0); ?>
+  <div class="card weather">
+    <div class="w-now">
+      <span class="w-emoji"><?= $wEmoji ?></span>
+      <div><div class="w-temp"><?= round($weather['current']['temperature_2m'] ?? $weather['daily']['temperature_2m_max'][0]) ?>°</div>
+        <div class="small muted"><?= e($wText) ?> · <?= e($weather['place']) ?></div></div>
+    </div>
+    <div class="w-day">
+      <div><b>Vandaag</b> <?= round($weather['daily']['temperature_2m_max'][0]) ?>° / <?= round($weather['daily']['temperature_2m_min'][0]) ?>° · 🌧 <?= (int) ($weather['daily']['precipitation_probability_max'][0] ?? 0) ?>%</div>
+      <div class="w-parts">
+        <?php foreach (['Ochtend' => 8, 'Middag' => 13, 'Avond' => 18] as $label => $h): $at = weather_at($weather, $today, $h); if (!$at || $hour > $h + 2) { continue; } ?>
+          <span><?= e($label) ?> <?= weather_code($at['code'])[0] ?> <?= round($at['temp']) ?>°<?= $at['rain'] >= 30 ? ' <small>☔' . (int) $at['rain'] . '%</small>' : '' ?></span>
+        <?php endforeach; ?>
+      </div>
+      <?php if (isset($weather['daily']['time'][1])): [$tE, $tT] = weather_code($weather['daily']['weather_code'][1]); ?>
+        <div class="small muted">Morgen <?= $tE ?> <?= e(mb_strtolower($tT)) ?>, <?= round($weather['daily']['temperature_2m_max'][1]) ?>° / <?= round($weather['daily']['temperature_2m_min'][1]) ?>°<?= ($weather['daily']['precipitation_probability_max'][1] ?? 0) >= 50 ? ' · ☔ kans op regen' : '' ?></div>
+      <?php endif; ?>
+    </div>
+    <?php if ($tips): ?><div class="w-tips"><?php foreach ($tips as [$te, $tt]): ?><span class="chip small"><?= $te ?> <?= e($tt) ?></span><?php endforeach; ?></div><?php endif; ?>
+  </div>
+<?php elseif (trim((string) setting('city', '')) === ''): ?>
+  <p class="muted small">🌤️ Wil je hier het weer zien? Vul jullie plaats in bij <a href="instellingen.php#gezin">Instellingen → Ons gezin</a>.</p>
+<?php endif; ?>
 
 <?php if (db()->query('SELECT 1 FROM fp_contacts WHERE is_demo = 1 LIMIT 1')->fetchColumn()): ?>
   <div class="flash warn" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
