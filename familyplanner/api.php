@@ -123,6 +123,89 @@ try {
             $fingerprint = db()->query("SELECT CONCAT_WS('|', " . implode(', ', $parts) . ')')->fetchColumn();
             reply(['stamp' => md5((string) $fingerprint), 'today' => today()]);
 
+        case 'events':
+            $from = (string) ($_GET['from'] ?? '');
+            $to = (string) ($_GET['to'] ?? '');
+            if (!valid_date($from) || !valid_date($to) || $to <= $from || (strtotime($to) - strtotime($from)) > 400 * 86400) {
+                reply(['error' => 'Ongeldige periode.'], 400);
+            }
+            $filter = [];
+            if (!empty($_GET['members'])) {
+                $filter['members'] = array_filter(array_map('intval', explode(',', (string) $_GET['members'])));
+            }
+            if (!empty($_GET['types'])) {
+                $filter['types'] = array_values(array_intersect(explode(',', (string) $_GET['types']), array_keys(EVENT_TYPES)));
+            }
+            $events = array_map('event_json', load_events($from, $to, $filter));
+            $birthdays = empty($_GET['nobirthdays']) ? array_map('birthday_json', load_birthdays($from, $to, $filter)) : [];
+            reply(['events' => $events, 'birthdays' => $birthdays]);
+
+        case 'event':
+            $id = (int) ($_GET['id'] ?? 0);
+            $occ = (string) ($_GET['occ'] ?? '');
+            $ev = valid_date($occ) ? occurrence_json($id, $occ) : null;
+            if (!$ev) {
+                $row = find_event($id);
+                if (!$row) {
+                    reply(['error' => 'Deze afspraak bestaat niet meer.'], 404);
+                }
+                $row['occ'] = substr($row['start_at'], 0, 10);
+                $ev = event_json($row);
+            }
+            $ev['tasks'] = event_tasks($id);
+            reply(['event' => $ev]);
+
+        case 'save':
+            $id = (int) ($in['id'] ?? 0);
+            $scope = in_str($in, 'scope', 'all');
+            $occ = in_str($in, 'occ');
+            $data = normalise_event($in);
+            if ($id) {
+                $existing = find_event($id);
+                if (!$existing) {
+                    reply(['error' => 'Deze afspraak bestaat niet meer.'], 404);
+                }
+                if ($existing['recurring'] && $scope === 'one' && valid_date($occ)) {
+                    // Edit just this occurrence: take it out of the series and save as its own event
+                    $id = detach_occurrence($existing, $occ);
+                    $data['recurrence'] = '';
+                    $data['recur_until'] = null;
+                } elseif ($existing['recurring'] && valid_date($occ) && $data['recurrence'] !== '') {
+                    // Editing the series from one occurrence: keep the series' first date, apply the new time/length
+                    $delta = strtotime(substr($data['start_at'], 0, 10)) - strtotime($occ);
+                    $seriesStart = date('Y-m-d', strtotime(substr($existing['start_at'], 0, 10)) + $delta);
+                    $len = strtotime($data['end_at']) - strtotime($data['start_at']);
+                    $data['start_at'] = $seriesStart . substr($data['start_at'], 10);
+                    $data['end_at'] = date('Y-m-d H:i:s', strtotime($data['start_at']) + $len);
+                }
+            }
+            $newId = save_event($data, $id ?: null);
+            $occDate = substr($data['start_at'], 0, 10);
+            if ($id && valid_date($occ) && $scope !== 'one' && $data['recurrence'] !== '') {
+                $occDate = date('Y-m-d', strtotime(substr($in['start'] ?? $occ, 0, 10)));
+            }
+            reply(['ok' => true, 'id' => $newId, 'event' => occurrence_json($newId, $occDate)]);
+
+        case 'move':
+            $id = (int) ($in['id'] ?? 0);
+            $occ = in_str($in, 'occ');
+            if (!valid_date($occ)) {
+                reply(['error' => 'Ongeldige datum.'], 400);
+            }
+            $newId = move_event($id, $occ, in_str($in, 'start'), in_str($in, 'end'), !empty($in['allDay']), in_str($in, 'scope', 'all'));
+            reply(['ok' => true, 'id' => $newId, 'event' => occurrence_json($newId, substr(str_replace('T', ' ', in_str($in, 'start')), 0, 10))]);
+
+        case 'delete':
+            $occ = in_str($in, 'occ');
+            delete_event((int) ($in['id'] ?? 0), valid_date($occ) ? $occ : '', in_str($in, 'scope', 'all'));
+            reply(['ok' => true]);
+
+        case 'restore':
+            // Undo of a delete: the client sends the full event back
+            $data = normalise_event($in);
+            $newId = save_event($data);
+            reply(['ok' => true, 'id' => $newId]);
+
         case 'graph':
             // Relations web: our family, groups, households, address book people and "friend of" links
             $nodes = [['id' => 'home', 'kind' => 'home', 'label' => 'Ons gezin', 'emoji' => '🏡', 'color' => '#6C5CE7']];

@@ -109,6 +109,25 @@ function buildJs() {
   }
 }
 
+/** Safety check: every api('action') the pages call must exist as a case in api.php. */
+function checkApi() {
+  const used = new Set();
+  const files = fs.readdirSync(ROOT).filter((f) => /\.(js|php)$/.test(f));
+  files.forEach((f) => {
+    const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    for (const m of src.matchAll(/api\('([a-z.]+)'/g)) used.add(m[1]);
+    for (const m of src.matchAll(/api\.php\?a=([a-z.]+)/g)) used.add(m[1]);
+  });
+  const api = fs.readFileSync(path.join(ROOT, 'api.php'), 'utf8');
+  const have = new Set(Array.from(api.matchAll(/case '([a-z.]+)':/g), (m) => m[1]));
+  const missing = [...used].filter((a) => !have.has(a));
+  if (missing.length) {
+    console.error('api.php is missing actions used by the pages: ' + missing.join(', '));
+    process.exit(1);
+  }
+}
+
+checkApi();
 buildCss();
 buildJs();
 console.log('legacy/ built:', fs.readdirSync(OUT).map((f) => f + ' ' + Math.round(fs.statSync(path.join(OUT, f)).size / 1024) + 'kB').join(', '));
