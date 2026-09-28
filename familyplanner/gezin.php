@@ -12,16 +12,17 @@ $events = load_events($weekStart, $weekEnd);
 $birthdays = load_birthdays($weekStart, $weekEnd);
 
 page_start('Gezin');
-page_header('👨‍👩‍👧‍👦 Ons gezin', 'Klik op iemand voor een eigen overzicht: een weekplanning voor de kinderen, maand en jaar voor de ouders.');
+page_header('👨‍👩‍👧‍👦 Ons gezin');
 ?>
-<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr))">
-  <?php foreach (members() as $m): $age = age($m); $nb = next_birthday($m['birth_day'] ? (int) $m['birth_day'] : null, $m['birth_month'] ? (int) $m['birth_month'] : null); ?>
-    <a class="fam" href="persoon.php?id=<?= (int) $m['id'] ?>" style="--c:<?= e($m['color']) ?>;align-items:center;text-align:center;padding:20px">
-      <?= avatar($m, 88, 'ring') ?>
-      <b style="font-size:20px"><?= e($m['name']) ?></b>
-      <span class="muted small"><?= $m['role'] === 'PARENT' ? ($m['name'] === 'Carin' ? 'Mama' : ($m['name'] === 'Rene' ? 'Papa' : 'Ouder')) : 'Kind' ?><?= $age !== null ? ' · ' . $age . ' jaar' : '' ?></span>
-      <?php if ($nb): ?><span class="badge">🎂 <?= e(in_days_label(days_until($nb))) ?></span><?php endif; ?>
-      <span class="btn soft small" style="margin-top:4px"><?= $m['role'] === 'CHILD' ? '🗓 Weekplanning' : '📅 Maand & jaar' ?></span>
+<div class="family-strip">
+  <?php foreach (members() as $m):
+      $age = age($m);
+      $nb = next_birthday($m['birth_day'] ? (int) $m['birth_day'] : null, $m['birth_month'] ? (int) $m['birth_month'] : null);
+      $lower = mb_strtolower($m['name']);
+      $role = $m['role'] === 'CHILD' ? null : (strpos($lower, 'carin') === 0 ? 'Mama' : (strpos($lower, 'ren') === 0 ? 'Papa' : 'Ouder'));
+      $info = array_filter([$role, $age !== null ? $age . ' jaar' : null, $nb ? '🎂 ' . in_days_label(days_until($nb)) : null]); ?>
+    <a class="fam" href="persoon.php?id=<?= (int) $m['id'] ?>" style="--c:<?= e($m['color']) ?>" title="<?= $m['role'] === 'CHILD' ? 'Weekplanning' : 'Maand & jaar' ?>">
+      <div class="fam-head"><?= avatar($m, 44) ?><div><b><?= e($m['name']) ?></b><div class="muted small"><?= e(implode(' · ', $info)) ?></div></div></div>
     </a>
   <?php endforeach; ?>
 </div>
@@ -37,7 +38,7 @@ page_header('👨‍👩‍👧‍👦 Ons gezin', 'Klik op iemand voor een eige
 </div>
 <div class="card matrix">
   <div class="matrix-row matrix-head" style="grid-template-columns:110px repeat(<?= count(members()) ?>,minmax(0,1fr))"><div></div>
-    <?php foreach (members() as $m): ?><div class="matrix-cell" style="text-transform:none"><?= avatar($m, 30) ?><br><?= e($m['name']) ?></div><?php endforeach; ?>
+    <?php foreach (members() as $m): ?><div class="matrix-cell" style="text-transform:none;flex-direction:row;align-items:center;justify-content:center;gap:8px"><?= avatar($m, 26) ?> <?= e($m['name']) ?></div><?php endforeach; ?>
   </div>
   <?php for ($i = 0; $i < 7; $i++): $d = date('Y-m-d', strtotime("$weekStart +$i day")); ?>
     <div class="matrix-row" style="grid-template-columns:110px repeat(<?= count(members()) ?>,minmax(0,1fr))">
