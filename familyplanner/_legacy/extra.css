@@ -53,6 +53,9 @@
 [style*="flex-wrap:wrap"]>*{margin-bottom:6px}
 .quick-member>*+*{margin-left:8px}
 
+/* Old browsers have no CSS variables, so no dark mode */
+.theme-toggle{display:none}
+
 /* Missing prefixes */
 .cal,.pick span,.crop-frame{-webkit-user-select:none}
 

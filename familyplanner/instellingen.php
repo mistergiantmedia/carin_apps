@@ -179,6 +179,27 @@ page_header('⚙️ Instellingen');
   </div>
 
   <div class="stack">
+    <div class="card" id="weergave">
+      <h2>🌗 Weergave</h2>
+      <p class="muted small">Licht of donker, per apparaat onthouden (de tv kan dus anders staan dan je telefoon). Snel wisselen kan ook met 🌙/☀️ onderaan het menu.</p>
+      <div class="picker" id="theme-picker">
+        <label class="pick"><input type="radio" name="theme" value="auto"><span>📱 Automatisch</span></label>
+        <label class="pick"><input type="radio" name="theme" value="light"><span>☀️ Licht</span></label>
+        <label class="pick"><input type="radio" name="theme" value="dark"><span>🌙 Donker</span></label>
+      </div>
+      <script>
+      (function () {
+        var cur = 'auto';
+        try { cur = localStorage.getItem('fp.theme') || 'auto'; } catch (e) {}
+        var radios = document.querySelectorAll('#theme-picker input');
+        for (var i = 0; i < radios.length; i++) {
+          radios[i].checked = radios[i].value === cur;
+          radios[i].onchange = function () { fpSetTheme(this.value === 'auto' ? null : this.value); };
+        }
+      })();
+      </script>
+    </div>
+
     <form method="post" class="card form" id="wachtwoord">
       <?= csrf_field() ?><input type="hidden" name="action" value="password">
       <h2>🔒 Mijn wachtwoord</h2>

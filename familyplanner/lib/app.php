@@ -437,6 +437,21 @@ function page_start(string $title, array $options = []): void
 <meta name="csrf" content="<?= e(csrf_token()) ?>">
 <title><?= e($title) ?> · Familie Planner</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏡</text></svg>">
+<script>
+// Light / dark: saved per device ('fp.theme' = light | dark; nothing = follow the device). Runs before the CSS to avoid a flash.
+(function () {
+  var d = document.documentElement;
+  try { var t = localStorage.getItem('fp.theme'); if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t); } catch (e) {}
+  window.fpSetTheme = function (t) {
+    if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t); else d.removeAttribute('data-theme');
+    try { if (t === 'light' || t === 'dark') localStorage.setItem('fp.theme', t); else localStorage.removeItem('fp.theme'); } catch (e) {}
+  };
+  window.fpToggleTheme = function () {
+    var cur = d.getAttribute('data-theme') || (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    window.fpSetTheme(cur === 'dark' ? 'light' : 'dark');
+  };
+})();
+</script>
 <link rel="stylesheet" href="style.css?v=<?= ASSET_VERSION ?>">
 <script nomodule>document.write('<link rel="stylesheet" href="legacy/style.css?v=<?= ASSET_VERSION ?>">');</script>
 <?= $options['head'] ?? '' ?>
@@ -455,6 +470,7 @@ function page_start(string $title, array $options = []): void
   </div>
   <div class="sidebar-user">
     <?= $me ? avatar($me, 26) : '' ?> <span><?= e($user['name']) ?></span>
+    <button type="button" class="theme-toggle" onclick="fpToggleTheme()" title="Licht of donker"><span class="to-dark">🌙</span><span class="to-light">☀️</span></button>
     <a href="logout.php" class="muted">Uitloggen</a>
   </div>
 </nav>

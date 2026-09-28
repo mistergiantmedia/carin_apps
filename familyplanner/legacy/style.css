@@ -7,6 +7,13 @@
   --shadow:0 1px 2px rgba(59,42,20,0.031),0 6px 20px rgba(59,42,20,0.051);--radius:18px;
   --side:236px;--now:#E5484D;
 }
+:root{color-scheme:light}
+/* Dark: html[data-theme=dark], or the device is dark and the user didn't pick light */
+:root[data-theme=dark]{color-scheme:dark;
+  --bg:#17161C;--card:#211F28;--card2:#1C1A22;--ink:#EEEDF3;--muted:#A19EAD;--line:#35323F;--line2:#2B2934;
+  --accent:#9A8CFF;--accent-soft:#2E2A4A;--accent-ink:#C4BCFF;
+  --ok-soft:#173A2D;--warn-soft:#3D2F17;--bad-soft:#40201E;--shadow:0 1px 2px rgba(0,0,0,0.267),0 6px 20px rgba(0,0,0,0.2);
+}
 
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -395,6 +402,7 @@ dialog.modal::backdrop{background:rgba(27,21,44,0.6)}
 .cal-now{position:absolute;left:-1px;right:0;height:2px;background:#E5484D;z-index:4;pointer-events:none}
 .cal-now::before{content:'';position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:#E5484D}
 .cal-ev{position:absolute;border-radius:8px;padding:3px 6px;font-size:12px;line-height:1.25;overflow:hidden;cursor:pointer;color:#1d1b24;background:rgb(223,219,250);border-left:4px solid #6C5CE7;box-shadow:0 1px 2px rgba(0,0,0,0.067);z-index:2}
+[data-theme=dark] .cal-ev{--ev-ink:#f3f1fa;background:rgb(199,193,246)}
 
 .cal-ev:hover{z-index:6;box-shadow:0 4px 14px rgba(0,0,0,0.133)}
 .cal-ev .t{font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -415,6 +423,7 @@ dialog.modal::backdrop{background:rgba(27,21,44,0.6)}
 .cal-ev.pending-touch{outline:2px solid #6C5CE7}
 .cal-aev{position:absolute;height:22px;border-radius:6px;padding:2px 6px;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;pointer-events:auto;background:rgb(217,213,249);border-left:4px solid #6C5CE7;color:#2B2A33}
 .cal-aev.bday{background:#fde7ef;border-left-color:#E0568A;color:#8a1d45}
+[data-theme=dark] .cal-aev.bday{background:#4a1f30;color:#ffd2e2}
 
 .cal-aev .rz{position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize}
 .cal-aev .rz.left{left:0}
@@ -443,6 +452,7 @@ dialog.modal::backdrop{background:rgba(27,21,44,0.6)}
 .cal-mev.timed:hover{background:#FBF6EF}
 .cal-mev.span{background:rgb(217,213,249);border-left:4px solid #6C5CE7;font-weight:700;color:#2B2A33}
 .cal-mev.bday{background:#fde7ef;border-left:4px solid #E0568A;color:#8a1d45;font-weight:700}
+[data-theme=dark] .cal-mev.bday{background:#4a1f30;color:#ffd2e2}
 
 .cal-mev.done{opacity:.5;text-decoration:line-through}
 .cal-mev .rz{position:absolute;top:0;bottom:0;right:0;width:8px;cursor:ew-resize}
@@ -526,6 +536,14 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 .duty-now select{width:auto;min-height:32px;padding:3px 8px}
 .open-duty{color:#A8650B;font-weight:700}
 
+/* Light / dark switch (sidebar). The icon shows what you switch to. */
+.theme-toggle{background:none;border:1px solid #ECE5DC;border-radius:10px;padding:4px 8px;cursor:pointer;font-size:15px;line-height:1.2;color:#2B2A33}
+.theme-toggle:hover{background:#FBF6EF}
+.theme-toggle .to-light{display:none}
+[data-theme=dark] .theme-toggle .to-light{display:inline}
+[data-theme=dark] .theme-toggle .to-dark{display:none}
+
+
 /* Appended to legacy/style.css by build.js. Only old browsers (no ES modules) load that file.
    Old engines (Chrome 38 on webOS 3.x) have no CSS grid and no flex "gap": flexbox layouts with margins. */
 
@@ -580,6 +598,9 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 [style*="gap"]>*:last-child{margin-right:0}
 [style*="flex-wrap:wrap"]>*{margin-bottom:6px}
 .quick-member>*+*{margin-left:8px}
+
+/* Old browsers have no CSS variables, so no dark mode */
+.theme-toggle{display:none}
 
 /* Missing prefixes */
 .cal,.pick span,.crop-frame{-webkit-user-select:none}
