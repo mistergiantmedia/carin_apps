@@ -100,7 +100,7 @@ if (!$ev) {
         $preContacts = $stmt->fetchAll();
     }
     $ev = [
-        'id' => null, 'title' => (string) ($_GET['title'] ?? ''), 'type' => $type,
+        'id' => null, 'title' => (string) ($_GET['title'] ?? ''), 'type' => $type, 'emoji' => null,
         'start_at' => $date . ' ' . ($type === 'PLAYDATE' ? '14:00' : '09:00') . ':00',
         'end_at' => $date . ' ' . ($type === 'PLAYDATE' ? '17:00' : '10:00') . ':00',
         'all_day' => in_array($type, ['HOLIDAY'], true) ? 1 : 0, 'location' => '', 'host' => $type === 'PLAYDATE' ? 'HOME' : '',
@@ -123,7 +123,7 @@ page_start($isNew ? 'Nieuwe afspraak' : $ev['title'], ['active' => 'agenda.php']
 <?php if (!$isNew): ?>
 <div class="card" style="border-top:6px solid <?= e(event_color($ev)) ?>">
   <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
-    <div style="font-size:44px;line-height:1"><?= $t[1] ?></div>
+    <div style="font-size:44px;line-height:1"><?= event_emoji($ev) ?></div>
     <div style="flex:1;min-width:220px">
       <h1<?= $ev['done'] ? ' style="text-decoration:line-through;opacity:.6"' : '' ?>><?= e($ev['title']) ?></h1>
       <p class="sub muted" style="margin-top:6px">
@@ -215,7 +215,10 @@ page_start($isNew ? 'Nieuwe afspraak' : $ev['title'], ['active' => 'agenda.php']
   <form method="post" class="form" id="event-form">
     <?= csrf_field() ?><input type="hidden" name="action" value="save">
     <label for="title">Titel</label>
-    <input id="title" name="title" value="<?= e($ev['title']) ?>" placeholder="Wat gaan jullie doen?" <?= $isNew ? 'autofocus' : '' ?>>
+    <div style="display:flex;gap:8px;position:relative">
+      <input name="emoji" value="<?= e($ev['emoji'] ?? '') ?>" data-emoji-picker data-default="<?= e(event_type($ev['type'])[1]) ?>" aria-label="Eigen emoji">
+      <input id="title" name="title" value="<?= e($ev['title']) ?>" placeholder="Wat gaan jullie doen?" <?= $isNew ? 'autofocus' : '' ?>>
+    </div>
     <div class="label">Soort</div>
     <div class="type-picker">
       <?php foreach (EVENT_TYPES as $k => [$label, $emoji, $color]): ?>

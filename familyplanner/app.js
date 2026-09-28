@@ -275,7 +275,10 @@
         <form method="dialog" class="form" novalidate>
           <div class="modal-head"><h2>${isNew ? 'Nieuwe afspraak' : 'Afspraak bewerken'}</h2><button type="button" class="x" data-close aria-label="Sluiten">×</button></div>
           <div class="modal-body">
-            <input name="title" class="title-input" placeholder="Wat gaan jullie doen?" value="${esc(ev.title)}" style="font-size:18px;font-weight:700;margin-top:10px" autocomplete="off">
+            <div style="display:flex;gap:8px;margin-top:10px;position:relative">
+              <input name="emoji" value="${esc(ev.customEmoji || '')}" data-emoji-picker data-default="${esc((DATA.types[ev.type] || DATA.types.OTHER).emoji)}" aria-label="Eigen emoji">
+              <input name="title" class="title-input" placeholder="Wat gaan jullie doen?" value="${esc(ev.title)}" style="font-size:18px;font-weight:700" autocomplete="off">
+            </div>
             <div class="label">Soort</div><div class="type-picker">${typeChips}</div>
             <div class="label">Wie <small>(van ons gezin)</small></div><div class="picker">${memberChips}</div>
             <label class="check" style="margin-top:14px"><input type="checkbox" name="allDay"${ev.allDay ? ' checked' : ''}> Hele dag</label>
@@ -336,6 +339,8 @@
         title.placeholder = t ? t.label : 'Wat gaan jullie doen?';
       };
       f.querySelectorAll('[name=type]').forEach((r) => r.addEventListener('change', () => {
+        const t = DATA.types[r.value];
+        if (t) { f.elements.emoji.dataset.default = t.emoji; f.elements.emoji.dispatchEvent(new Event('fp:emoji-default')); }
         setDefaultTitle();
         if (r.value === 'PLAYDATE' && !f.elements.host.value) f.elements.host.value = 'HOME';
       }));
@@ -405,6 +410,7 @@
           id: ev.id || 0,
           occ: ev.occ || '',
           title: title.value.trim(),
+          emoji: f.elements.emoji.value,
           type: f.elements.type.value || 'OTHER',
           members: Array.from(f.querySelectorAll('[name=members]:checked')).map((c) => Number(c.value)),
           all_day: allDay,
@@ -462,7 +468,7 @@
     if (!ev.recurring) {
       toast('Verwijderd', 'Ongedaan maken', async () => {
         await api('restore', {
-          title: ev.title, type: ev.type, start: ev.start, end: ev.end, all_day: ev.allDay, location: ev.location, host: ev.host,
+          title: ev.title, type: ev.type, emoji: ev.customEmoji || '', start: ev.start, end: ev.end, all_day: ev.allDay, location: ev.location, host: ev.host,
           description: ev.description, color: ev.customColor || '', drop_member_id: ev.dropMember, pickup_member_id: ev.pickupMember,
           cost: ev.cost, paid: ev.paid, members: ev.members, contacts: (ev.contacts || []).map((c) => ({ id: c.id, rsvp: c.rsvp })),
         });
@@ -475,6 +481,46 @@
     document.dispatchEvent(new CustomEvent('fp:changed'));
     return true;
   }
+
+  // ---------- Emoji picker ----------
+  // <input data-emoji-picker data-default="🏫">: empty value = the default (the event type's emoji).
+  const EMOJI = ('🏫 📚 ✏️ 🎒 🧑‍🏫 ⚽ 🏀 🏐 🎾 🏊 🤸 🩰 💃 🎭 🎨 🎹 🎸 🎻 🥁 🎤 🐴 🏇 🚴 🛹 ⛸️ 🏒 🥋 🧗 🏕️ 🎡 🎢 🎪 🦁 🐠 🌳 🏖️ ✈️ 🚗 🚂 '
+    + '🎂 🎈 🎁 🥳 🍕 🍔 🍝 🥞 🍦 🧁 🍽️ 🥂 🍖 ☕ 🧸 👧 👦 👵 👴 👶 🍼 💑 ❤️ 🩺 🦷 💇 🛒 🧹 🧺 📌 ⭐ 🎉 📞 💼 🏥 🎬 📖 🧩 🎮 🐶 🐱 🌈 ☀️ ❄️ 🎃 🎄').split(' ');
+  function emojiPicker(input) {
+    if (input.dataset.pickerReady) return;
+    input.dataset.pickerReady = '1';
+    input.type = 'hidden';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'emoji-btn';
+    btn.title = 'Kies een emoji';
+    const show = () => { btn.textContent = input.value || input.dataset.default || '📌'; btn.classList.toggle('custom', !!input.value); };
+    show();
+    input.addEventListener('fp:emoji-default', show);
+    input.after(btn);
+    btn.onclick = () => {
+      const open = btn.parentNode.querySelector('.emoji-panel');
+      if (open) { open.remove(); return; }
+      const panel = document.createElement('div');
+      panel.className = 'emoji-panel';
+      panel.innerHTML = `<div class="emoji-grid">${EMOJI.map((x) => `<button type="button">${x}</button>`).join('')}</div>
+        <div class="emoji-own"><input type="text" placeholder="Of typ/plak je eigen emoji" maxlength="16"><button type="button" class="btn small secondary" data-reset>Standaard ${esc(input.dataset.default || '')}</button></div>`;
+      const choose = (v) => { input.value = v; show(); panel.remove(); };
+      panel.querySelectorAll('.emoji-grid button').forEach((b) => { b.onclick = () => choose(b.textContent); });
+      const own = panel.querySelector('.emoji-own input');
+      own.addEventListener('input', () => { if (own.value.trim()) { input.value = own.value.trim(); show(); } });
+      own.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); panel.remove(); } });
+      panel.querySelector('[data-reset]').onclick = () => choose('');
+      btn.after(panel);
+    };
+  }
+  const initEmojiPickers = (root) => (root.querySelectorAll ? root.querySelectorAll('input[data-emoji-picker]') : []).forEach(emojiPicker);
+  initEmojiPickers(document);
+  new MutationObserver((list) => list.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType === 1) initEmojiPickers(n); })))
+    .observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.emoji-panel, .emoji-btn')) document.querySelectorAll('.emoji-panel').forEach((p) => p.remove());
+  });
 
   // ---------- Progressive enhancements ----------
   document.addEventListener('change', async (e) => {

@@ -69,7 +69,7 @@ page_header('🎡 Uitjes & feestjes', 'Alles wat jullie plannen buiten de gewone
         <tr>
           <td style="text-transform:capitalize"><?= e(DAYS[(int) date('w', strtotime($ev['start_at']))]) ?></td>
           <td class="nowrap"><?= e(substr($ev['start_at'], 11, 5) . '–' . substr($ev['end_at'], 11, 5)) ?></td>
-          <td><a href="event.php?id=<?= (int) $ev['id'] ?>&amp;occ=<?= e($ev['occ']) ?>"><?= event_type($ev['type'])[1] ?> <?= e($ev['title']) ?></a><?= $ev['location'] ? '<br><span class="muted small">' . e($ev['location']) . '</span>' : '' ?></td>
+          <td><a href="event.php?id=<?= (int) $ev['id'] ?>&amp;occ=<?= e($ev['occ']) ?>"><?= event_emoji($ev) ?> <?= e($ev['title']) ?></a><?= $ev['location'] ? '<br><span class="muted small">' . e($ev['location']) . '</span>' : '' ?></td>
           <td><?php foreach ($ev['members'] as $mid): if ($m = member($mid)): ?><?= member_chip($m, true) ?> <?php endif; endforeach; ?></td>
           <td><?= e(member((int) $ev['drop_member_id'])['name'] ?? '—') ?></td>
           <td><?= e(member((int) $ev['pickup_member_id'])['name'] ?? '—') ?></td>
@@ -91,7 +91,7 @@ page_header('🎡 Uitjes & feestjes', 'Alles wat jullie plannen buiten de gewone
         $rsvp = array_count_values(array_column($ev['contacts'], 'rsvp')); ?>
       <a class="card" href="event.php?id=<?= (int) $ev['id'] ?>&amp;occ=<?= e($ev['occ']) ?>" style="color:inherit;border-top:6px solid <?= e(event_color($ev)) ?>;text-decoration:none;display:block">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-          <div style="font-size:34px;line-height:1"><?= $emoji ?></div>
+          <div style="font-size:34px;line-height:1"><?= event_emoji($ev) ?></div>
           <?php if (!$showPast): ?><span class="badge <?= $days <= 7 ? 'accent' : '' ?>"><?= $days === 0 ? 'vandaag' : ($ev['type'] === 'HOLIDAY' ? 'nog ' . $days . ' nachtjes' : e(in_days_label($days))) ?></span><?php endif; ?>
         </div>
         <h2 style="margin:10px 0 4px<?= $ev['done'] ? ';text-decoration:line-through' : '' ?>"><?= e($ev['title']) ?></h2>

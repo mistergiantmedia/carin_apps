@@ -230,8 +230,9 @@ details.more[open]>summary::before{content:'－ '}
 .stat span{color:var(--muted);font-size:13px}
 
 /* ---------- Kid week board ---------- */
-.kid-hero{display:flex;align-items:center;gap:18px;padding:22px;border-radius:26px;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 22%,var(--card)),var(--card));border:1px solid var(--line);margin-bottom:20px;flex-wrap:wrap}
-.kid-hero h1{font-size:34px}
+.kid-hero{display:flex;align-items:center;gap:16px;padding:8px 16px 8px 8px;border-radius:60px 26px 26px 60px;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 22%,var(--card)),var(--card));border:1px solid var(--line);margin-bottom:20px;flex-wrap:wrap}
+.kid-hero h1{font-size:30px}
+.kid-hero p{margin:2px 0 0}
 .kid-hero .avatar{box-shadow:0 0 0 5px var(--card)}
 .kid-week{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:8px}
 .kid-week .kid-day{padding:8px 6px}
@@ -549,3 +550,14 @@ kbd{background:var(--card2);border:1px solid var(--line);border-radius:6px;paddi
   :root:not([data-theme=light]) .theme-toggle .to-light{display:inline}
   :root:not([data-theme=light]) .theme-toggle .to-dark{display:none}
 }
+
+/* Emoji picker (app.js) */
+.emoji-btn{flex:none;width:52px;min-height:48px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:26px;cursor:pointer;line-height:1;padding:0}
+.emoji-btn:hover{background:var(--card2)}
+.emoji-btn.custom{border-color:var(--accent)}
+.emoji-panel{position:absolute;z-index:30;top:54px;left:0;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:10px;width:330px;max-width:calc(100vw - 40px)}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;max-height:210px;overflow:auto}
+.emoji-grid button{border:0;background:none;font-size:22px;padding:4px;border-radius:8px;cursor:pointer;line-height:1.2}
+.emoji-grid button:hover{background:var(--card2)}
+.emoji-own{display:flex;gap:6px;margin-top:8px;align-items:center}
+.emoji-own input{min-height:36px!important;padding:6px 10px!important}

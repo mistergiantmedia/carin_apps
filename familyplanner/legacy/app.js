@@ -509,7 +509,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
           return "<option value=\"".concat(k, "\"").concat(k === (sel || '') ? ' selected' : '', ">").concat(esc(v), "</option>");
         }).join('');
       };
-      d.innerHTML = "\n        <form method=\"dialog\" class=\"form\" novalidate>\n          <div class=\"modal-head\"><h2>".concat(isNew ? 'Nieuwe afspraak' : 'Afspraak bewerken', "</h2><button type=\"button\" class=\"x\" data-close aria-label=\"Sluiten\">\xD7</button></div>\n          <div class=\"modal-body\">\n            <input name=\"title\" class=\"title-input\" placeholder=\"Wat gaan jullie doen?\" value=\"").concat(esc(ev.title), "\" style=\"font-size:18px;font-weight:700;margin-top:10px\" autocomplete=\"off\">\n            <div class=\"label\">Soort</div><div class=\"type-picker\">").concat(typeChips, "</div>\n            <div class=\"label\">Wie <small>(van ons gezin)</small></div><div class=\"picker\">").concat(memberChips, "</div>\n            <label class=\"check\" style=\"margin-top:14px\"><input type=\"checkbox\" name=\"allDay\"").concat(ev.allDay ? ' checked' : '', "> Hele dag</label>\n            <div class=\"row2 when\">\n              <div><label>Begin</label><div class=\"row2\" style=\"gap:6px\"><input type=\"date\" name=\"startDate\" value=\"").concat(ymd(s), "\"><input type=\"time\" name=\"startTime\" step=\"300\" value=\"").concat(hm(s), "\" class=\"t\"></div></div>\n              <div><label>Eind</label><div class=\"row2\" style=\"gap:6px\"><input type=\"date\" name=\"endDate\" value=\"").concat(ymd(e), "\"><input type=\"time\" name=\"endTime\" step=\"300\" value=\"").concat(ev.allDay ? '' : hm(e), "\" class=\"t\"></div></div>\n            </div>\n            <div class=\"label\">\uD83D\uDD01 Herhalen</div>\n            <div class=\"picker repeat-picker\">").concat(Object.entries(DATA.recurrences).map(function (_ref8) {
+      d.innerHTML = "\n        <form method=\"dialog\" class=\"form\" novalidate>\n          <div class=\"modal-head\"><h2>".concat(isNew ? 'Nieuwe afspraak' : 'Afspraak bewerken', "</h2><button type=\"button\" class=\"x\" data-close aria-label=\"Sluiten\">\xD7</button></div>\n          <div class=\"modal-body\">\n            <div style=\"display:flex;gap:8px;margin-top:10px;position:relative\">\n              <input name=\"emoji\" value=\"").concat(esc(ev.customEmoji || ''), "\" data-emoji-picker data-default=\"").concat(esc((DATA.types[ev.type] || DATA.types.OTHER).emoji), "\" aria-label=\"Eigen emoji\">\n              <input name=\"title\" class=\"title-input\" placeholder=\"Wat gaan jullie doen?\" value=\"").concat(esc(ev.title), "\" style=\"font-size:18px;font-weight:700\" autocomplete=\"off\">\n            </div>\n            <div class=\"label\">Soort</div><div class=\"type-picker\">").concat(typeChips, "</div>\n            <div class=\"label\">Wie <small>(van ons gezin)</small></div><div class=\"picker\">").concat(memberChips, "</div>\n            <label class=\"check\" style=\"margin-top:14px\"><input type=\"checkbox\" name=\"allDay\"").concat(ev.allDay ? ' checked' : '', "> Hele dag</label>\n            <div class=\"row2 when\">\n              <div><label>Begin</label><div class=\"row2\" style=\"gap:6px\"><input type=\"date\" name=\"startDate\" value=\"").concat(ymd(s), "\"><input type=\"time\" name=\"startTime\" step=\"300\" value=\"").concat(hm(s), "\" class=\"t\"></div></div>\n              <div><label>Eind</label><div class=\"row2\" style=\"gap:6px\"><input type=\"date\" name=\"endDate\" value=\"").concat(ymd(e), "\"><input type=\"time\" name=\"endTime\" step=\"300\" value=\"").concat(ev.allDay ? '' : hm(e), "\" class=\"t\"></div></div>\n            </div>\n            <div class=\"label\">\uD83D\uDD01 Herhalen</div>\n            <div class=\"picker repeat-picker\">").concat(Object.entries(DATA.recurrences).map(function (_ref8) {
         var _ref9 = _slicedToArray(_ref8, 2),
           k = _ref9[0],
           v = _ref9[1];
@@ -534,6 +534,11 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       };
       f.querySelectorAll('[name=type]').forEach(function (r) {
         return r.addEventListener('change', function () {
+          var t = DATA.types[r.value];
+          if (t) {
+            f.elements.emoji.dataset.default = t.emoji;
+            f.elements.emoji.dispatchEvent(new Event('fp:emoji-default'));
+          }
           setDefaultTitle();
           if (r.value === 'PLAYDATE' && !f.elements.host.value) f.elements.host.value = 'HOME';
         });
@@ -669,6 +674,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
                   id: ev.id || 0,
                   occ: ev.occ || '',
                   title: title.value.trim(),
+                  emoji: f.elements.emoji.value,
                   type: f.elements.type.value || 'OTHER',
                   members: Array.from(f.querySelectorAll('[name=members]:checked')).map(function (c) {
                     return Number(c.value);
@@ -750,7 +756,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
   /** Delete with the right scope question and an undo for single events. Resolves true when deleted. */
   function deleteEvent(_x5) {
     return _deleteEvent.apply(this, arguments);
-  } // ---------- Progressive enhancements ----------
+  } // ---------- Emoji picker ----------
+  // <input data-emoji-picker data-default="🏫">: empty value = the default (the event type's emoji).
   function _deleteEvent() {
     _deleteEvent = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(ev) {
       var scope, ok, _t0;
@@ -817,6 +824,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
                       return api('restore', {
                         title: ev.title,
                         type: ev.type,
+                        emoji: ev.customEmoji || '',
                         start: ev.start,
                         end: ev.end,
                         all_day: ev.allDay,
@@ -854,6 +862,83 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     }));
     return _deleteEvent.apply(this, arguments);
   }
+  var EMOJI = ('🏫 📚 ✏️ 🎒 🧑‍🏫 ⚽ 🏀 🏐 🎾 🏊 🤸 🩰 💃 🎭 🎨 🎹 🎸 🎻 🥁 🎤 🐴 🏇 🚴 🛹 ⛸️ 🏒 🥋 🧗 🏕️ 🎡 🎢 🎪 🦁 🐠 🌳 🏖️ ✈️ 🚗 🚂 ' + '🎂 🎈 🎁 🥳 🍕 🍔 🍝 🥞 🍦 🧁 🍽️ 🥂 🍖 ☕ 🧸 👧 👦 👵 👴 👶 🍼 💑 ❤️ 🩺 🦷 💇 🛒 🧹 🧺 📌 ⭐ 🎉 📞 💼 🏥 🎬 📖 🧩 🎮 🐶 🐱 🌈 ☀️ ❄️ 🎃 🎄').split(' ');
+  function emojiPicker(input) {
+    if (input.dataset.pickerReady) return;
+    input.dataset.pickerReady = '1';
+    input.type = 'hidden';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'emoji-btn';
+    btn.title = 'Kies een emoji';
+    var show = function show() {
+      btn.textContent = input.value || input.dataset.default || '📌';
+      btn.classList.toggle('custom', !!input.value);
+    };
+    show();
+    input.addEventListener('fp:emoji-default', show);
+    input.after(btn);
+    btn.onclick = function () {
+      var open = btn.parentNode.querySelector('.emoji-panel');
+      if (open) {
+        open.remove();
+        return;
+      }
+      var panel = document.createElement('div');
+      panel.className = 'emoji-panel';
+      panel.innerHTML = "<div class=\"emoji-grid\">".concat(EMOJI.map(function (x) {
+        return "<button type=\"button\">".concat(x, "</button>");
+      }).join(''), "</div>\n        <div class=\"emoji-own\"><input type=\"text\" placeholder=\"Of typ/plak je eigen emoji\" maxlength=\"16\"><button type=\"button\" class=\"btn small secondary\" data-reset>Standaard ").concat(esc(input.dataset.default || ''), "</button></div>");
+      var choose = function choose(v) {
+        input.value = v;
+        show();
+        panel.remove();
+      };
+      panel.querySelectorAll('.emoji-grid button').forEach(function (b) {
+        b.onclick = function () {
+          return choose(b.textContent);
+        };
+      });
+      var own = panel.querySelector('.emoji-own input');
+      own.addEventListener('input', function () {
+        if (own.value.trim()) {
+          input.value = own.value.trim();
+          show();
+        }
+      });
+      own.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          panel.remove();
+        }
+      });
+      panel.querySelector('[data-reset]').onclick = function () {
+        return choose('');
+      };
+      btn.after(panel);
+    };
+  }
+  var initEmojiPickers = function initEmojiPickers(root) {
+    return (root.querySelectorAll ? root.querySelectorAll('input[data-emoji-picker]') : []).forEach(emojiPicker);
+  };
+  initEmojiPickers(document);
+  new MutationObserver(function (list) {
+    return list.forEach(function (m) {
+      return m.addedNodes.forEach(function (n) {
+        if (n.nodeType === 1) initEmojiPickers(n);
+      });
+    });
+  }).observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('.emoji-panel, .emoji-btn')) document.querySelectorAll('.emoji-panel').forEach(function (p) {
+      return p.remove();
+    });
+  });
+
+  // ---------- Progressive enhancements ----------
   document.addEventListener('change', /*#__PURE__*/function () {
     var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(e) {
       var box, li, _t5;

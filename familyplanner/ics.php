@@ -74,7 +74,7 @@ foreach (load_events($from, $to, $filter) as $ev) {
         $out .= 'DTSTART;TZID=Europe/Amsterdam:' . date('Ymd\THis', strtotime($ev['start_at'])) . "\r\n";
         $out .= 'DTEND;TZID=Europe/Amsterdam:' . date('Ymd\THis', strtotime($ev['end_at'])) . "\r\n";
     }
-    $out .= ics_line('SUMMARY:' . ics_escape($t[1] . ' ' . $ev['title'] . ($ev['done'] ? ' ✓' : '')));
+    $out .= ics_line('SUMMARY:' . ics_escape(event_emoji($ev) . ' ' . $ev['title'] . ($ev['done'] ? ' ✓' : '')));
     if ($ev['location']) {
         $out .= ics_line('LOCATION:' . ics_escape($ev['location']));
     }

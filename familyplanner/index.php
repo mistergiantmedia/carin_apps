@@ -78,7 +78,7 @@ function day_events_html(array $events, array $bdays): string
         }
         $html .= '<a class="ev' . ($ev['done'] ? ' done' : '') . '" style="--c:' . e(event_color($ev)) . '" href="event.php?id=' . (int) $ev['id'] . '&amp;occ=' . e($ev['occ']) . '" data-edit-event="' . (int) $ev['id'] . '" data-occ="' . e($ev['occ']) . '">'
             . '<div class="ev-time">' . e($ev['all_day'] ? 'hele dag' : substr($ev['start_at'], 11, 5)) . '</div>'
-            . '<div class="ev-body"><span class="ev-title">' . $t[1] . ' ' . e($ev['title']) . '</span><span class="ev-meta">' . e(implode(' · ', $meta)) . '</span>'
+            . '<div class="ev-body"><span class="ev-title">' . event_emoji($ev) . ' ' . e($ev['title']) . '</span><span class="ev-meta">' . e(implode(' · ', $meta)) . '</span>'
             . ($who ? '<div class="avatars">' . $who . '</div>' : '') . '</div></a>';
     }
     return $html;
@@ -135,7 +135,7 @@ if ($incomplete): ?>
       <div class="fam-head"><?= avatar($m, 44) ?><div><b><?= e($m['name']) ?></b><?php if ($age !== null): ?><div class="muted small"><?= $age ?> jaar</div><?php endif; ?></div></div>
       <div class="fam-next">
         <?php if ($next): ?>
-          <?= e(day_label($next['start_at'])) ?><?= $next['all_day'] ? '' : ' ' . e(substr($next['start_at'], 11, 5)) ?>:<br><b><?= event_type($next['type'])[1] ?> <?= e($next['title']) ?></b>
+          <?= e(day_label($next['start_at'])) ?><?= $next['all_day'] ? '' : ' ' . e(substr($next['start_at'], 11, 5)) ?>:<br><b><?= event_emoji($next) ?> <?= e($next['title']) ?></b>
         <?php else: ?>
           Niets gepland deze week
         <?php endif; ?>

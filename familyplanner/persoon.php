@@ -129,10 +129,10 @@ page_start($m['name'], ['active' => 'gezin.php']);
       <div class="card">
         <h2>🥂 Mijn sociale leven</h2>
         <?php $last = $pastSocial ? end($pastSocial) : null; ?>
-        <p class="muted small"><?= $last ? 'Laatst: ' . e(event_type($last['type'])[1] . ' ' . $last['title']) . ' (' . e(format_date_short($last['start_at'])) . ')' : 'Nog geen avondjes uit in de agenda.' ?></p>
+        <p class="muted small"><?= $last ? 'Laatst: ' . e(event_emoji($last) . ' ' . $last['title']) . ' (' . e(format_date_short($last['start_at'])) . ')' : 'Nog geen avondjes uit in de agenda.' ?></p>
         <ul class="list compact">
           <?php foreach (array_slice($social, 0, 6) as $ev): ?>
-            <li><span style="font-size:20px"><?= event_type($ev['type'])[1] ?></span><div class="grow"><a class="title" href="event.php?id=<?= (int) $ev['id'] ?>&amp;occ=<?= e($ev['occ']) ?>" style="color:inherit"><?= e($ev['title']) ?></a><span class="meta"><?= e(format_date_short($ev['start_at'])) ?><?= $ev['all_day'] ? '' : ' · ' . e(substr($ev['start_at'], 11, 5)) ?></span></div>
+            <li><span style="font-size:20px"><?= event_emoji($ev) ?></span><div class="grow"><a class="title" href="event.php?id=<?= (int) $ev['id'] ?>&amp;occ=<?= e($ev['occ']) ?>" style="color:inherit"><?= e($ev['title']) ?></a><span class="meta"><?= e(format_date_short($ev['start_at'])) ?><?= $ev['all_day'] ? '' : ' · ' . e(substr($ev['start_at'], 11, 5)) ?></span></div>
               <span class="avatars"><?php foreach (array_slice($ev['contacts'], 0, 3) as $c): ?><?= avatar($c, 26) ?><?php endforeach; ?></span></li>
           <?php endforeach; ?>
         </ul>

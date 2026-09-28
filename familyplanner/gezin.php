@@ -53,7 +53,7 @@ page_header('👨‍👩‍👧‍👦 Ons gezin', 'Klik op iemand voor een eige
               $role = in_array((int) $m['id'], $ev['members'], true) ? '' : ((int) $ev['drop_member_id'] === (int) $m['id'] ? '🚗 brengen: ' : ((int) $ev['pickup_member_id'] === (int) $m['id'] ? '🏠 halen: ' : null));
               if ($role === null) continue; ?>
             <a class="mtag<?= $ev['done'] ? ' done' : '' ?>" style="--ec:<?= e(event_color($ev)) ?>;color:inherit" href="event.php?id=<?= (int) $ev['id'] ?>&amp;occ=<?= e($ev['occ']) ?>" data-edit-event="<?= (int) $ev['id'] ?>" data-occ="<?= e($ev['occ']) ?>">
-              <?= $ev['all_day'] ? '' : e(substr($ev['start_at'], 11, 5)) . ' ' ?><?= e($role) ?><?= event_type($ev['type'])[1] ?> <?= e($ev['title']) ?></a>
+              <?= $ev['all_day'] ? '' : e(substr($ev['start_at'], 11, 5)) . ' ' ?><?= e($role) ?><?= event_emoji($ev) ?> <?= e($ev['title']) ?></a>
           <?php endforeach; ?>
         </div>
       <?php endforeach; ?>

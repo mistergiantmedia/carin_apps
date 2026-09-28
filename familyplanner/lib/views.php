@@ -65,7 +65,7 @@ function kid_week_board(array $kid, string $weekStart, bool $showDone = true, in
             $time = $ev['all_day'] ? '' : substr($ev['start_at'], 11, 5) . ' – ' . substr($ev['end_at'], 11, 5);
             $where = where_text($ev);
             $html .= '<a class="kid-item' . ($ev['done'] ? ' done' : '') . '" style="--ec:' . e(event_color($ev)) . '" href="event.php?id=' . (int) $ev['id'] . '&amp;occ=' . e($ev['occ']) . '">'
-                . '<div class="ki-emoji">' . $t[1] . '</div><div class="ki-title">' . e($ev['title']) . '</div>'
+                . '<div class="ki-emoji">' . event_emoji($ev) . '</div><div class="ki-title">' . e($ev['title']) . '</div>'
                 . ($time ? '<div class="ki-time">' . e($time) . '</div>' : '')
                 . ($friends ? '<div class="ki-friends">' . $friends . '</div>' : '')
                 . ($where ? '<div class="ki-where">' . e($where) . '</div>' : '')
@@ -111,7 +111,7 @@ function month_table(int $year, int $month, array $events, array $birthdays, str
         foreach ($byDay[$d]['events'] ?? [] as $ev) {
             $t = event_type($ev['type']);
             $time = $ev['all_day'] ? '' : substr($ev['start_at'], 11, 5) . ' ';
-            $html .= '<a class="mev" style="--ec:' . e(event_color($ev)) . '" href="event.php?id=' . (int) $ev['id'] . '&amp;occ=' . e($ev['occ']) . '" title="' . e($time . $ev['title']) . '">' . $t[1] . ' ' . e($time . $ev['title']) . '</a>';
+            $html .= '<a class="mev" style="--ec:' . e(event_color($ev)) . '" href="event.php?id=' . (int) $ev['id'] . '&amp;occ=' . e($ev['occ']) . '" title="' . e($time . $ev['title']) . '">' . event_emoji($ev) . ' ' . e($time . $ev['title']) . '</a>';
         }
         $html .= '</td>';
         if ($i % 7 === 6) {
@@ -164,7 +164,7 @@ function year_grid(int $year, array $events, array $birthdays): string
             $tip = implode("\n", array_merge(array_map(function ($b) {
                 return '🎂 ' . $b['name'];
             }, $bds), array_map(function ($ev) {
-                return event_type($ev['type'])[1] . ' ' . $ev['title'];
+                return event_emoji($ev) . ' ' . $ev['title'];
             }, $evs)));
             $color = $evs ? event_color($evs[0]) : '';
             $html .= '<td class="' . implode(' ', array_unique($cls)) . '"><a href="agenda.php?view=day&amp;date=' . $d . '" title="' . e($tip) . '"' . ($color ? ' style="--ec:' . e($color) . '"' : '') . '>' . (int) substr($d, 8) . '</a></td>';

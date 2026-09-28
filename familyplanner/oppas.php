@@ -49,7 +49,7 @@ foreach ($past as $ev) {
     $perMonth[$ym]['hours'] = ($perMonth[$ym]['hours'] ?? 0) + (strtotime($ev['end_at']) - strtotime($ev['start_at'])) / 3600;
     $perMonth[$ym]['n'] = ($perMonth[$ym]['n'] ?? 0) + 1;
 }
-$unpaid = db()->query('SELECT id, title, type, cost, start_at FROM fp_events WHERE cost > 0 AND paid = 0 AND start_at <= NOW() ORDER BY start_at')->fetchAll();
+$unpaid = db()->query('SELECT id, title, type, emoji, cost, start_at FROM fp_events WHERE cost > 0 AND paid = 0 AND start_at <= NOW() ORDER BY start_at')->fetchAll();
 
 page_start('Oppas');
 page_header('🍼 Oppas', 'Wie past er op, wanneer, en wat moet er nog betaald worden.',
@@ -119,7 +119,7 @@ page_header('🍼 Oppas', 'Wie past er op, wanneer, en wat moet er nog betaald w
       <?php if ($unpaid): ?>
         <ul class="list compact">
           <?php foreach ($unpaid as $u): ?>
-            <li><span style="font-size:20px"><?= event_type($u['type'])[1] ?></span><div class="grow"><a class="title" href="event.php?id=<?= (int) $u['id'] ?>" style="color:inherit"><?= e($u['title']) ?></a><span class="meta"><?= e(format_date_short($u['start_at'])) ?></span></div>
+            <li><span style="font-size:20px"><?= event_emoji($u) ?></span><div class="grow"><a class="title" href="event.php?id=<?= (int) $u['id'] ?>" style="color:inherit"><?= e($u['title']) ?></a><span class="meta"><?= e(format_date_short($u['start_at'])) ?></span></div>
               <b><?= e(money((float) $u['cost'])) ?></b>
               <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="paid"><input type="hidden" name="id" value="<?= (int) $u['id'] ?>"><input type="hidden" name="anchor" value="betalen"><button class="btn small ok">✓</button></form></li>
           <?php endforeach; ?>

@@ -103,7 +103,7 @@ foreach ($weekEvents as $ev) {
     $time = $ev['all_day'] ? '' : substr($ev['start_at'], 11, 5) . ' ';
     foreach ($ev['members'] as $mid) {
         if (isset($grid[$mid][$day])) {
-            $grid[$mid][$day][] = ['kind' => 'event', 'text' => $time . $t[1] . ' ' . $ev['title'], 'color' => event_color($ev), 'done' => $ev['done'], 'id' => $ev['id'], 'occ' => $ev['occ']];
+            $grid[$mid][$day][] = ['kind' => 'event', 'text' => $time . event_emoji($ev) . ' ' . $ev['title'], 'color' => event_color($ev), 'done' => $ev['done'], 'id' => $ev['id'], 'occ' => $ev['occ']];
         }
     }
     if ($ev['drop_member_id'] && isset($grid[$ev['drop_member_id']][$day])) {
@@ -142,7 +142,7 @@ if ($dutyEvents): ?>
     <?php foreach (array_merge($undecided, array_slice($decided, 0, 6)) as $ev): $t = event_type($ev['type']); ?>
       <li style="flex-wrap:wrap">
         <div style="min-width:86px"><b><?= e(ucfirst(day_label($ev['start_at']))) ?></b><br><span class="muted small"><?= e(format_date_short($ev['start_at'])) ?> · <?= e(substr($ev['start_at'], 11, 5)) ?></span></div>
-        <div class="grow" style="min-width:140px"><a class="title" href="event.php?id=<?= (int) $ev['id'] ?>&amp;occ=<?= e($ev['occ']) ?>" style="color:inherit"><?= $t[1] ?> <?= e($ev['title']) ?></a>
+        <div class="grow" style="min-width:140px"><a class="title" href="event.php?id=<?= (int) $ev['id'] ?>&amp;occ=<?= e($ev['occ']) ?>" style="color:inherit"><?= event_emoji($ev) ?> <?= e($ev['title']) ?></a>
           <span class="avatars"><?php foreach ($ev['members'] as $mid): if ($m = member($mid)): ?><?= avatar($m, 24) ?><?php endif; endforeach; ?></span></div>
         <?php foreach (['DROP' => ['drop', '🚗 brengt'], 'PICKUP' => ['pickup', '🏠 haalt']] as $role => [$key, $label]): if (empty($ev[$key . '_each'])) continue; ?>
           <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="duty"><input type="hidden" name="id" value="<?= (int) $ev['id'] ?>"><input type="hidden" name="occ" value="<?= e($ev['occ']) ?>"><input type="hidden" name="role" value="<?= $role ?>">

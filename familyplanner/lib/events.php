@@ -9,6 +9,12 @@ function event_type(string $type): array
     return EVENT_TYPES[$type] ?? EVENT_TYPES['OTHER'];
 }
 
+/** The event's own emoji, or the emoji of its type. */
+function event_emoji(array $ev): string
+{
+    return !empty($ev['emoji']) ? $ev['emoji'] : event_type($ev['type'])[1];
+}
+
 function event_color(array $ev): string
 {
     return $ev['color'] ?: event_type($ev['type'])[2];
@@ -342,6 +348,7 @@ function normalise_event(array $in): array
     return [
         'title' => mb_cut($title, 160),
         'type' => $type,
+        'emoji' => trim((string) ($in['emoji'] ?? '')) !== '' ? mb_cut(trim((string) $in['emoji']), 16) : null,
         'start_at' => $startAt,
         'end_at' => $endAt,
         'all_day' => $allDay ? 1 : 0,
@@ -437,7 +444,7 @@ function copy_occurrence(array $ev, string $occ): int
         ? date('Y-m-d 23:59:00', strtotime("$occ +$durationDays day"))
         : date('Y-m-d H:i:s', strtotime($start) + $duration);
     $data = [
-        'title' => $ev['title'], 'type' => $ev['type'], 'start' => $start, 'end' => $end, 'all_day' => $ev['all_day'],
+        'title' => $ev['title'], 'type' => $ev['type'], 'emoji' => $ev['emoji'], 'start' => $start, 'end' => $end, 'all_day' => $ev['all_day'],
         'location' => $ev['location'], 'host' => $ev['host'], 'description' => $ev['description'], 'color' => $ev['color'],
         'drop_member_id' => $ev['drop_each'] ? duty_of((int) $ev['id'], $occ, 'DROP') : $ev['drop_member_id'],
         'pickup_member_id' => $ev['pickup_each'] ? duty_of((int) $ev['id'], $occ, 'PICKUP') : $ev['pickup_member_id'],
@@ -550,7 +557,8 @@ function event_json(array $ev): array
         'occ' => $ev['occ'] ?? substr($ev['start_at'], 0, 10),
         'title' => $ev['title'],
         'type' => $ev['type'],
-        'emoji' => $t[1],
+        'emoji' => event_emoji($ev),
+        'customEmoji' => $ev['emoji'] ?? null,
         'typeLabel' => $t[0],
         'color' => event_color($ev),
         'customColor' => $ev['color'],

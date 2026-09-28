@@ -260,13 +260,13 @@ page_start(contact_name($c), ['active' => 'mensen.php']);
       <?php if ($upcoming): ?>
         <h3 class="muted small" style="margin:6px 0">GEPLAND</h3>
         <?php foreach (array_slice($upcoming, 0, 5) as $ev): $t = event_type($ev['type']); ?>
-          <a class="ev" style="--c:<?= e(event_color($ev)) ?>" href="event.php?id=<?= (int) $ev['id'] ?>&amp;occ=<?= e($ev['occ']) ?>"><div class="ev-emoji"><?= $t[1] ?></div><div class="ev-body"><span class="ev-title"><?= e($ev['title']) ?></span><span class="ev-meta"><?= e(format_date($ev['start_at'])) ?> · <?= e(format_time_range($ev)) ?><?= $ev['host'] ? ' · ' . e(HOSTS[$ev['host']]) : '' ?></span></div></a>
+          <a class="ev" style="--c:<?= e(event_color($ev)) ?>" href="event.php?id=<?= (int) $ev['id'] ?>&amp;occ=<?= e($ev['occ']) ?>"><div class="ev-emoji"><?= event_emoji($ev) ?></div><div class="ev-body"><span class="ev-title"><?= e($ev['title']) ?></span><span class="ev-meta"><?= e(format_date($ev['start_at'])) ?> · <?= e(format_time_range($ev)) ?><?= $ev['host'] ? ' · ' . e(HOSTS[$ev['host']]) : '' ?></span></div></a>
         <?php endforeach; ?>
       <?php endif; ?>
       <?php if ($past): ?>
         <h3 class="muted small" style="margin:10px 0 6px">EERDER (<?= count($past) ?>)</h3>
         <?php foreach (array_slice($past, 0, 8) as $ev): $t = event_type($ev['type']); ?>
-          <a class="ev" style="--c:<?= e(event_color($ev)) ?>" href="event.php?id=<?= (int) $ev['id'] ?>&amp;occ=<?= e($ev['occ']) ?>"><div class="ev-emoji"><?= $t[1] ?></div><div class="ev-body"><span class="ev-title"><?= e($ev['title']) ?></span><span class="ev-meta"><?= e(format_date($ev['start_at'])) ?><?= $ev['host'] ? ' · ' . e(HOSTS[$ev['host']]) : '' ?></span></div></a>
+          <a class="ev" style="--c:<?= e(event_color($ev)) ?>" href="event.php?id=<?= (int) $ev['id'] ?>&amp;occ=<?= e($ev['occ']) ?>"><div class="ev-emoji"><?= event_emoji($ev) ?></div><div class="ev-body"><span class="ev-title"><?= e($ev['title']) ?></span><span class="ev-meta"><?= e(format_date($ev['start_at'])) ?><?= $ev['host'] ? ' · ' . e(HOSTS[$ev['host']]) : '' ?></span></div></a>
         <?php endforeach; ?>
       <?php endif; ?>
       <?php if (!$past && !$upcoming): ?><p class="muted">Nog niets samen in de agenda.</p><?php endif; ?>

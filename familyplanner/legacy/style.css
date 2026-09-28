@@ -227,8 +227,9 @@ details.more[open]>summary::before{content:'－ '}
 .stat span{color:#76737F;font-size:13px}
 
 /* ---------- Kid week board ---------- */
-.kid-hero{display:flex;align-items:center;gap:18px;padding:22px;border-radius:26px;background:linear-gradient(135deg,rgb(223,219,250),#fff);border:1px solid #ECE5DC;margin-bottom:20px;flex-wrap:wrap}
-.kid-hero h1{font-size:34px}
+.kid-hero{display:flex;align-items:center;gap:16px;padding:8px 16px 8px 8px;border-radius:60px 26px 26px 60px;background:linear-gradient(135deg,rgb(223,219,250),#fff);border:1px solid #ECE5DC;margin-bottom:20px;flex-wrap:wrap}
+.kid-hero h1{font-size:30px}
+.kid-hero p{margin:2px 0 0}
 .kid-hero .avatar{box-shadow:0 0 0 5px #fff}
 .kid-week{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:8px}
 .kid-week .kid-day{padding:8px 6px}
@@ -544,6 +545,17 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 [data-theme=dark] .theme-toggle .to-dark{display:none}
 
 
+/* Emoji picker (app.js) */
+.emoji-btn{flex:none;width:52px;min-height:48px;border:1px solid #ECE5DC;border-radius:12px;background:#fff;font-size:26px;cursor:pointer;line-height:1;padding:0}
+.emoji-btn:hover{background:#FBF6EF}
+.emoji-btn.custom{border-color:#6C5CE7}
+.emoji-panel{position:absolute;z-index:30;top:54px;left:0;background:#fff;border:1px solid #ECE5DC;border-radius:16px;box-shadow:0 1px 2px rgba(59,42,20,0.031),0 6px 20px rgba(59,42,20,0.051);padding:10px;width:330px;max-width:calc(100vw - 40px)}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;max-height:210px;overflow:auto}
+.emoji-grid button{border:0;background:none;font-size:22px;padding:4px;border-radius:8px;cursor:pointer;line-height:1.2}
+.emoji-grid button:hover{background:#FBF6EF}
+.emoji-own{display:flex;gap:6px;margin-top:8px;align-items:center}
+.emoji-own input{min-height:36px!important;padding:6px 10px!important}
+
 /* Appended to legacy/style.css by build.js. Only old browsers (no ES modules) load that file.
    Old engines (Chrome 38 on webOS 3.x) have no CSS grid and no flex "gap": flexbox layouts with margins. */
 
@@ -601,6 +613,10 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 
 /* Old browsers have no CSS variables, so no dark mode */
 .theme-toggle{display:none}
+
+/* Emoji picker grid */
+.emoji-grid{display:flex;flex-wrap:wrap}
+.emoji-grid button{width:12.5%}
 
 /* Missing prefixes */
 .cal,.pick span,.crop-frame{-webkit-user-select:none}
