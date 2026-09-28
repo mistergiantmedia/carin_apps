@@ -45,7 +45,7 @@ page_start('Gezin aanmaken', ['narrow' => true, 'bodyClass' => 'login-page']);
     <div class="card" style="text-align:center">
       <div style="font-size:44px">🎉</div>
       <h2>Bedankt voor je aanmelding!</h2>
-      <p class="muted">Je gezin wordt zo snel mogelijk goedgekeurd. Daarna kun je inloggen met je e-mailadres en wachtwoord, en de andere ouder toevoegen via Instellingen.</p>
+      <p class="muted">Je gezin wordt zo snel mogelijk goedgekeurd. Daarna kun je inloggen met je e-mailadres en wachtwoord, en de andere ouder of verzorger toevoegen via Instellingen.</p>
       <a class="btn" href="login.php">Naar inloggen</a>
     </div>
   <?php else: ?>
@@ -65,6 +65,7 @@ page_start('Gezin aanmaken', ['narrow' => true, 'bodyClass' => 'login-page']);
         <div><label for="password">Wachtwoord</label><input id="password" name="password" type="password" minlength="8" autocomplete="new-password" required></div>
         <div><label for="password2">Herhaal wachtwoord</label><input id="password2" name="password2" type="password" minlength="8" autocomplete="new-password" required></div>
       </div>
+      <p class="hint" style="margin:14px 0 0">👫 Vul hier alleen je eigen gegevens in. Een andere ouder of verzorger kun je later toevoegen via <b>Instellingen</b>. Die krijgt dan een eigen e-mailadres en wachtwoord.</p>
       <input name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
       <button class="btn wide" type="submit">Gezin aanmaken</button>
     </form>
