@@ -89,6 +89,9 @@
       select(byId[focus]);
       setFocus(byId[focus]);
     }
+    // Back after changing a photo: select that person again
+    const again = byId[svg.dataset.select];
+    if (again) { select(again); setTimeout(() => center(again), 750); }
     // Just added (quick add): put them in the middle, selected, ready to be dragged onto a group
     const fresh = byId[svg.dataset.new];
     if (fresh) {
@@ -98,7 +101,7 @@
     }
     start(1);
     setTimeout(() => {
-      if (fresh) { view.k = 1; center(fresh); } else if (!userMoved) fit();
+      if (fresh) { view.k = 1; center(fresh); } else if (!userMoved && !again) fit();
     }, 700);
   }).catch((e) => { svg.insertAdjacentHTML('afterend', `<p class="flash error">${esc(e.message)}</p>`); });
 
@@ -471,9 +474,18 @@
     });
     links.forEach((l) => toggleClass(l.el, 'dim', !!near && !(l.s === selected || l.t === selected)));
   }
+  // Photo of the selected person: the hidden field in netwerk.php (photo.js opens its crop dialog, Ctrl+V works too)
+  const photoForm = document.getElementById('net-photo-form');
+  const photoInput = photoForm && photoForm.querySelector('input[type=file]');
   function select(n) {
     selected = n;
     highlight();
+    const editable = !!n && (n.kind === 'contact' || n.kind === 'member');
+    if (photoInput) {
+      photoInput.disabled = !editable; // Ctrl+V only goes here while someone is selected
+      photoInput.dataset.photoLabel = editable ? 'Foto van ' + (n.full || n.label) : 'Foto';
+      photoForm.elements.node.value = editable ? n.id : '';
+    }
     if (!n) { panel.hidden = true; return; }
     const groups = [];
     const people = [];
@@ -486,7 +498,11 @@
     const row = (it) => `<li><a href="#" data-node="${esc(it.o.id)}">${it.o.emoji && !it.o.photo ? esc(it.o.emoji) + ' ' : ''}${esc(it.o.full || it.o.label)}</a>`
       + `${it.role ? ' <span class="muted">· ' + esc(it.role) + '</span>' : ''}${it.kind === 'friend' ? ' <span class="muted">· vriend van</span>' : ''}`
       + `${canConnect(n, it.o) ? ` <button class="link muted small" data-unlink="${esc(it.o.id)}" title="Verbinding weghalen">✕</button>` : ''}</li>`;
-    panel.innerHTML = `<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+    const photo = editable && photoInput ? `<div class="net-photo">
+        ${n.photo ? `<img src="foto.php?f=${encodeURIComponent(n.photo)}" alt="">` : `<span class="net-photo-empty" style="background:${esc(n.color || '#8E6CDF')}">${esc(n.emoji && n.kind === 'member' ? n.emoji : (n.label || '?').charAt(0))}</span>`}
+        <button type="button" class="btn small" data-photo>✏️ ${n.photo ? 'Foto vervangen' : 'Foto toevoegen'}</button>
+        <span class="muted small">of plak met Ctrl+V</span></div>` : '';
+    panel.innerHTML = `${photo}<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
         <div><h3>${n.emoji && n.kind !== 'member' ? esc(n.emoji) + ' ' : ''}${esc(n.full || n.label)}</h3>${n.sub ? `<p class="muted small" style="margin:2px 0 0">${esc(n.sub)}</p>` : ''}</div>
         <button class="x" data-close aria-label="Sluiten">×</button></div>
       ${groups.length ? `<h4>Hoort bij</h4><ul>${groups.map(row).join('')}</ul>` : ''}
@@ -501,6 +517,7 @@
   panel.addEventListener('click', (e) => {
     const a = e.target.closest('[data-node]');
     if (a) { e.preventDefault(); const n = byId[a.dataset.node]; if (n) { select(n); center(n); } return; }
+    if (e.target.closest('[data-photo]') || e.target.closest('.net-photo img, .net-photo-empty')) { photoInput.click(); return; }
     const un = e.target.closest('[data-unlink]');
     if (un) { const o = byId[un.dataset.unlink]; if (o && selected) disconnect(selected, o); return; }
     if (e.target.closest('[data-close]')) select(null);

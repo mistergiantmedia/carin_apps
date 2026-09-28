@@ -5,6 +5,31 @@ require __DIR__ . '/lib/app.php';
 require __DIR__ . '/lib/upload.php';
 require_login();
 
+// New photo for someone in the web (from the popup, also with Ctrl+V)
+if (is_post() && post('action') === 'node_photo') {
+    $node = post('node');
+    $table = $node[0] === 'm' ? 'fp_members' : ($node[0] === 'c' ? 'fp_contacts' : null);
+    $id = (int) substr($node, 1);
+    if ($table && $id) {
+        $stmt = db()->prepare("SELECT photo FROM $table WHERE id = ?");
+        $stmt->execute([$id]);
+        $old = $stmt->fetchColumn();
+        try {
+            $photo = save_photo('photo');
+            if ($photo) {
+                db()->prepare("UPDATE $table SET photo = ? WHERE id = ?")->execute([$photo, $id]);
+                if ($old) {
+                    delete_photo($old);
+                }
+                flash('📷 Foto opgeslagen');
+            }
+        } catch (RuntimeException $e) {
+            flash($e->getMessage(), 'error');
+        }
+    }
+    redirect('netwerk.php?select=' . urlencode($node));
+}
+
 // Quick add: just a name, child or adult, and a photo. Connections are made by dragging afterwards.
 if (is_post() && post('action') === 'quick_person') {
     if (post('first_name') === '') {
@@ -27,6 +52,7 @@ if (is_post() && post('action') === 'quick_person') {
 
 $focus = '';
 $new = get_int('new') ? 'c' . get_int('new') : '';
+$select = preg_match('/^[mc]\d+$/', (string) ($_GET['select'] ?? '')) ? $_GET['select'] : '';
 foreach (['member' => 'm', 'contact' => 'c', 'group' => 'g'] as $param => $prefix) {
     if (get_int($param)) {
         $focus = $prefix . get_int($param);
@@ -45,10 +71,14 @@ page_start('Netwerk', ['wide' => true, 'bodyClass' => 'net-page']);
   <a class="btn small secondary" href="groepen.php?new=1">＋ Groep</a>
 </div>
 <div class="net-wrap">
-  <svg id="net" data-focus="<?= e($focus) ?>" data-new="<?= e($new) ?>" aria-label="Netwerk van relaties"></svg>
+  <svg id="net" data-focus="<?= e($focus) ?>" data-new="<?= e($new) ?>" data-select="<?= e($select) ?>" aria-label="Netwerk van relaties"></svg>
   <aside class="net-panel card" id="net-panel" hidden></aside>
   <div class="net-legend small muted">Klik op iemand voor de verbindingen · sleep iemand op een groep, huishouden of gezinslid om ze te verbinden · dubbelklik om te openen · scroll om te zoomen</div>
 </div>
+<form method="post" enctype="multipart/form-data" id="net-photo-form" hidden>
+  <?= csrf_field() ?><input type="hidden" name="action" value="node_photo"><input type="hidden" name="node" value="">
+  <input type="file" name="photo" accept="image/*" hidden disabled onchange="this.form.submit()">
+</form>
 <dialog class="modal" id="quick-person">
   <form method="post" enctype="multipart/form-data" class="form">
     <?= csrf_field() ?><input type="hidden" name="action" value="quick_person">

@@ -50,7 +50,10 @@
     if (!file) return;
     const t = e.target;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName)) && !isPhotoInput(t)) return;
-    const inputs = Array.from(document.querySelectorAll('input[type=file]')).filter(isPhotoInput);
+    // Skip disabled fields and fields inside a closed dialog
+    let inputs = Array.from(document.querySelectorAll('input[type=file]')).filter((i) => isPhotoInput(i) && !i.disabled && !(i.closest('dialog') && !i.closest('dialog[open]')));
+    const inDialog = inputs.filter((i) => i.closest('dialog[open]'));
+    if (inDialog.length) inputs = inDialog; // an open dialog (e.g. "＋ Persoon") goes first
     if (!inputs.length) return;
     e.preventDefault();
     if (inputs.length === 1 || !window.FP) { openPicker(inputs[0], file); return; }

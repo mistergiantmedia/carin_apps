@@ -77,7 +77,14 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     if (!file) return;
     var t = e.target;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName)) && !isPhotoInput(t)) return;
-    var inputs = Array.from(document.querySelectorAll('input[type=file]')).filter(isPhotoInput);
+    // Skip disabled fields and fields inside a closed dialog
+    var inputs = Array.from(document.querySelectorAll('input[type=file]')).filter(function (i) {
+      return isPhotoInput(i) && !i.disabled && !(i.closest('dialog') && !i.closest('dialog[open]'));
+    });
+    var inDialog = inputs.filter(function (i) {
+      return i.closest('dialog[open]');
+    });
+    if (inDialog.length) inputs = inDialog; // an open dialog (e.g. "＋ Persoon") goes first
     if (!inputs.length) return;
     e.preventDefault();
     if (inputs.length === 1 || !window.FP) {

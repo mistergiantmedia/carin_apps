@@ -622,6 +622,9 @@ kbd{background:var(--card2);border:1px solid var(--line);border-radius:6px;paddi
 .net-node.selected circle{stroke-width:6}
 .net-node.dim,.net-link.dim{opacity:.12}
 .net-emoji{pointer-events:none}
+.net-photo{display:flex;flex-direction:column;align-items:center;gap:6px;margin:-2px 0 10px}
+.net-photo img,.net-photo-empty{width:120px;height:120px;border-radius:50%;object-fit:cover;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+.net-photo-empty{display:flex;align-items:center;justify-content:center;color:#fff;font-size:46px;font-weight:800}
 .net-loose-label{font-size:13px;font-weight:800;fill:var(--muted);pointer-events:none}
 .net-node.loose circle{stroke-dasharray:4 3}
 .net-panel{position:absolute;top:12px;right:12px;width:290px;max-width:calc(100% - 24px);max-height:calc(100% - 24px);overflow:auto;padding:14px}
