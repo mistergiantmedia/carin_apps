@@ -195,6 +195,11 @@ function load_demo(): void
             foreach (array_filter($who) as $w) {
                 $pdo->prepare('INSERT INTO fp_bucket_votes (bucket_id, member_id) VALUES (?, ?)')->execute([$bid, $w]);
             }
+            if ($title === 'Kamperen in de tuin') {
+                foreach ([$noor, $lotte] as $friend) {
+                    $pdo->prepare('INSERT INTO fp_bucket_contacts (bucket_id, contact_id) VALUES (?, ?)')->execute([$bid, $friend]);
+                }
+            }
         }
 
         // Gift idea for Noor

@@ -80,8 +80,8 @@ page_start($m['name'], ['active' => 'gezin.php']);
       <ul class="list compact">
         <?php foreach ($wishes as $w): ?>
           <li><span style="font-size:24px"><?= e($w['emoji'] ?: '🌟') ?></span><div class="grow"><a class="title" href="bucketlist.php#b<?= (int) $w['id'] ?>" style="color:inherit"><?= e($w['title']) ?></a>
-            <span class="meta"><?= $w['event_start'] ? '📅 ' . e(format_date_short($w['event_start'])) : count($w['voters']) . ' ' . (count($w['voters']) === 1 ? 'wil' : 'willen') . ' dit' ?></span></div>
-            <span class="avatars"><?php foreach ($w['voters'] as $vid): if ($vm = member($vid)): ?><?= avatar($vm, 24) ?><?php endif; endforeach; ?></span></li>
+            <span class="meta"><?= $w['friends'] ? '👫 met ' . e(implode(' & ', array_map(function ($fc) { return contact_name($fc, false); }, $w['friends']))) . ' · ' : '' ?><?= $w['event_start'] ? '📅 ' . e(format_date_short($w['event_start'])) : count($w['voters']) . ' ' . (count($w['voters']) === 1 ? 'wil' : 'willen') . ' dit' ?></span></div>
+            <span class="avatars"><?php foreach ($w['voters'] as $vid): if ($vm = member($vid)): ?><?= avatar($vm, 24) ?><?php endif; endforeach; ?><?php foreach ($w['friends'] as $fc): ?><?= avatar($fc, 24) ?><?php endforeach; ?></span></li>
         <?php endforeach; ?>
       </ul>
       <?php if (!$wishes): ?><p class="muted">Nog geen wensen. <a href="bucketlist.php#nieuw">＋ Wens toevoegen</a></p><?php endif; ?>

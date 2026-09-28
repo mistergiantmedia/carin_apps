@@ -576,6 +576,9 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 .bucket-card.done{box-shadow:none;background:#FBF6EF}
 .bucket-card.done .bucket-emoji{font-size:32px}
 .bucket-card.done h3{font-size:15px}
+.bucket-friends{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.friend-tag{display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 2px;border-radius:99px;background:#FBF6EF;border:1px solid #ECE5DC;font-size:13px;font-weight:700;color:#2B2A33}
+.friend-tag:hover{text-decoration:none;border-color:#6C5CE7}
 
 /* Appended to legacy/style.css by build.js. Only old browsers (no ES modules) load that file.
    Old engines (Chrome 38 on webOS 3.x) have no CSS grid and no flex "gap": flexbox layouts with margins. */
@@ -645,6 +648,7 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 .bucket-grid.done>*{width:180px}
 .bucket-card>*+*{margin-top:8px}
 .bucket-votes>div>*{margin:0 6px 6px 0}
+.bucket-friends>*,.friend-tag>*{margin-right:5px}
 
 /* Missing prefixes */
 .cal,.pick span,.crop-frame{-webkit-user-select:none}

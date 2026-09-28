@@ -5,6 +5,7 @@ require __DIR__ . '/lib/app.php';
 require __DIR__ . '/lib/events.php';
 require __DIR__ . '/lib/upload.php';
 require __DIR__ . '/lib/friends.php';
+require __DIR__ . '/lib/bucket.php';
 require_login();
 
 $id = get_int('id');
@@ -288,6 +289,21 @@ page_start(contact_name($c), ['active' => 'mensen.php']);
         <?php if ($s['away'] > $s['home'] && !$s['planned']): ?><p class="flash warn" style="margin-top:12px">Tijd om <?= e(contact_name($c, false)) ?> terug uit te nodigen! 🔁</p><?php endif; ?>
       </div>
     <?php endforeach; endif; ?>
+
+    <?php $wishes = load_bucket(['contact' => $id]); $openWishes = array_values(array_filter($wishes, function ($w) { return !$w['done_on']; })); ?>
+    <div class="card" id="bucket">
+      <div class="section-title" style="margin-top:0"><h2>🌟 Samen op de bucketlist</h2><?php if ($wishes): ?><a href="bucketlist.php?f=c<?= $id ?>">alles</a><?php endif; ?></div>
+      <ul class="list compact">
+        <?php foreach ($openWishes as $w): ?>
+          <li><span style="font-size:24px"><?= e($w['emoji'] ?: '🌟') ?></span><div class="grow"><a class="title" href="bucketlist.php?f=c<?= $id ?>#b<?= (int) $w['id'] ?>" style="color:inherit"><?= e($w['title']) ?></a>
+            <span class="meta"><?= $w['event_start'] ? '📅 ' . e(format_date_short($w['event_start'])) : 'nog niet gepland' ?></span></div>
+            <span class="avatars"><?php foreach ($w['voters'] as $vid): if ($vm = member($vid)): ?><?= avatar($vm, 24) ?><?php endif; endforeach; ?></span></li>
+        <?php endforeach; ?>
+      </ul>
+      <?php $doneCount = count($wishes) - count($openWishes); if ($doneCount): ?><p class="muted small">🎉 Al <?= $doneCount ?> <?= $doneCount === 1 ? 'wens' : 'wensen' ?> samen gedaan</p><?php endif; ?>
+      <?php if (!$openWishes): ?><p class="muted">Wat willen jullie graag samen met <?= e(contact_name($c, false)) ?> doen?</p><?php endif; ?>
+      <a class="btn small soft" href="bucketlist.php?with=<?= $id ?>#nieuw">＋ Wens met <?= e(contact_name($c, false)) ?></a>
+    </div>
 
     <div class="card" id="cadeaus">
       <h2>🎁 Cadeau-ideeën</h2>

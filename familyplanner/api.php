@@ -72,6 +72,7 @@ try {
                 (SELECT CONCAT_WS('-', COUNT(*), COUNT(returned_on)) FROM fp_friendbook),
                 (SELECT CONCAT_WS('-', COUNT(*), SUM(CRC32(CONCAT_WS(',', id, title, emoji, event_id, done_on)))) FROM fp_bucket),
                 (SELECT CONCAT_WS('-', COUNT(*), SUM(bucket_id * 7 + member_id)) FROM fp_bucket_votes),
+                (SELECT CONCAT_WS('-', COUNT(*), SUM(bucket_id * 13 + contact_id)) FROM fp_bucket_contacts),
                 (SELECT COUNT(*) FROM fp_birthday_checks), (SELECT COUNT(*) FROM fp_photos), (SELECT COUNT(*) FROM fp_classes))")->fetchColumn();
             reply(['stamp' => md5((string) $parts), 'today' => today()]);
 

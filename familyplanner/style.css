@@ -582,3 +582,6 @@ kbd{background:var(--card2);border:1px solid var(--line);border-radius:6px;paddi
 .bucket-card.done{box-shadow:none;background:var(--card2)}
 .bucket-card.done .bucket-emoji{font-size:32px}
 .bucket-card.done h3{font-size:15px}
+.bucket-friends{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.friend-tag{display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 2px;border-radius:99px;background:var(--card2);border:1px solid var(--line);font-size:13px;font-weight:700;color:var(--ink)}
+.friend-tag:hover{text-decoration:none;border-color:var(--accent)}
