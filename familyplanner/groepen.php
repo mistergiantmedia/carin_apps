@@ -119,11 +119,26 @@ if (is_post()) {
                     $kidIds[] = (int) $r['member_id'];
                 }
             }
-            foreach (save_photos('photos') as $file) {
-                db()->prepare("INSERT INTO fp_photos (member_id, group_id, kind, school_year, title, file, taken_on) VALUES (?, ?, 'CLASS', ?, ?, ?, ?)")
-                    ->execute([$kidIds[0] ?? null, $gid, $group['type'] === 'SCHOOL' ? ($group['season'] ?: school_year()) : null, $group['type'] === 'SCHOOL' ? 'Klassenfoto' : 'Groepsfoto', $file, today()]);
+            $files = save_photos('photos');
+            if (!$files) {
+                throw new RuntimeException('Kies een of meer foto’s.');
             }
-            flash('Foto toegevoegd');
+            $taken = post('taken_on') && strtotime(post('taken_on')) ? date('Y-m-d', strtotime(post('taken_on'))) : today();
+            $title = post('title') !== '' ? mb_cut(post('title'), 160) : ($group['type'] === 'SCHOOL' ? 'Klassenfoto' : 'Groepsfoto');
+            foreach ($files as $file) {
+                db()->prepare("INSERT INTO fp_photos (member_id, group_id, kind, school_year, title, file, taken_on) VALUES (?, ?, 'CLASS', ?, ?, ?, ?)")
+                    ->execute([$kidIds[0] ?? null, $gid, $group['type'] === 'SCHOOL' ? ($group['season'] ?: school_year($taken)) : null, $title, $file, $taken]);
+            }
+            flash(count($files) === 1 ? 'Foto toegevoegd 📸' : count($files) . ' foto’s toegevoegd 📸');
+        }
+        if ($action === 'group_photo_delete') {
+            $stmt = db()->prepare('SELECT file FROM fp_photos WHERE id = ? AND group_id = ?');
+            $stmt->execute([post_int('photo_id'), $gid]);
+            if ($file = $stmt->fetchColumn()) {
+                db()->prepare('DELETE FROM fp_photos WHERE id = ?')->execute([post_int('photo_id')]);
+                delete_photo($file);
+                flash('Foto verwijderd');
+            }
         }
         redirect('groepen.php?id=' . $gid);
     } catch (RuntimeException $e) {
@@ -240,7 +255,11 @@ elseif ($group):
 
   <?php if ($groupPhotos): ?>
     <div class="timeline" style="margin-bottom:14px">
-      <?php foreach ($groupPhotos as $p): ?><figure class="photo" style="flex-basis:280px;margin:0"><a href="foto.php?f=<?= e($p['file']) ?>" target="_blank"><img src="foto.php?f=<?= e($p['file']) ?>" alt="Groepsfoto" style="aspect-ratio:3/2"></a></figure><?php endforeach; ?>
+      <?php foreach ($groupPhotos as $p): ?><figure class="photo group-photo" style="flex-basis:280px;margin:0">
+        <a href="foto.php?f=<?= e($p['file']) ?>" target="_blank"><img src="foto.php?f=<?= e($p['file']) ?>" alt="<?= e($p['title'] ?: 'Groepsfoto') ?>" style="aspect-ratio:3/2"></a>
+        <figcaption><span><b><?= e($p['title'] ?: 'Groepsfoto') ?></b><?= $p['taken_on'] ? '<span class="muted">' . e(format_date_short($p['taken_on'])) . '</span>' : '' ?></span>
+          <form method="post" class="inline no-print" data-confirm="Deze foto verwijderen?"><?= csrf_field() ?><input type="hidden" name="action" value="group_photo_delete"><input type="hidden" name="group_id" value="<?= (int) $group['id'] ?>"><input type="hidden" name="photo_id" value="<?= (int) $p['id'] ?>"><button class="link muted small" title="Verwijderen">🗑</button></form></figcaption>
+      </figure><?php endforeach; ?>
     </div>
   <?php endif; ?>
 
@@ -286,8 +305,13 @@ elseif ($group):
     </form>
     <form method="post" enctype="multipart/form-data" class="card form">
       <?= csrf_field() ?><input type="hidden" name="action" value="group_photo"><input type="hidden" name="group_id" value="<?= (int) $group['id'] ?>">
-      <h2>📸 <?= $group['type'] === 'SCHOOL' ? 'Klassenfoto' : 'Groepsfoto' ?></h2>
+      <h2>📸 <?= $group['type'] === 'SCHOOL' ? 'Klassenfoto’s' : 'Groepsfoto’s' ?></h2>
+      <p class="hint" style="margin-top:0">Zoveel als je wilt, ook meerdere tegelijk: schoolfotograaf, Sinterklaas, schoolreisje…</p>
       <input type="file" name="photos[]" accept="image/*" multiple required data-photo-label="<?= $group['type'] === 'SCHOOL' ? 'Klassenfoto' : 'Groepsfoto' ?>" data-aspect="orig">
+      <div class="row2" style="margin-top:8px">
+        <div><label>Titel <small>(optioneel)</small></label><input name="title" placeholder="bijv. Schoolfotograaf"></div>
+        <div><label>Datum van de foto</label><input type="date" name="taken_on" value="<?= e(today()) ?>"></div>
+      </div>
       <button class="btn" style="margin-top:10px">Uploaden</button>
     </form>
   </div>
