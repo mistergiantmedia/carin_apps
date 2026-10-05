@@ -89,3 +89,4 @@
 dialog.dlg-poly{display:none}
 dialog.dlg-poly[open]{display:block;position:fixed;top:50%;left:50%;-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%);z-index:100;margin:0;overflow:auto}
 .dlg-backdrop{display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(27,21,44,.6);z-index:99}
+.hero-groups>*{margin:0 0 4px 4px!important}

@@ -249,6 +249,10 @@ details.more[open]>summary::before{content:'－ '}
 /* ---------- Kid week board ---------- */
 .kid-hero{display:flex;align-items:center;gap:12px;padding:6px 12px 6px 6px;border-radius:50px 22px 22px 50px;background:linear-gradient(135deg,rgb(223,219,250),#fff);border:1px solid #ECE5DC;margin-bottom:12px;flex-wrap:wrap}
 .kid-hero h1{font-size:24px}
+.hero-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.hero-side .head-actions{justify-content:flex-end}
+.hero-groups{justify-content:flex-end;gap:4px}
+.hero-groups .group-chip{font-size:11.5px;padding:2px 8px;gap:4px}
 .kid-hero~.section-title{margin:12px 0 8px}
 .kid-hero p{margin:2px 0 0}
 .kid-hero .avatar{box-shadow:0 0 0 5px #fff}
@@ -783,3 +787,4 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 dialog.dlg-poly{display:none}
 dialog.dlg-poly[open]{display:block;position:fixed;top:50%;left:50%;-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%);z-index:100;margin:0;overflow:auto}
 .dlg-backdrop{display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(27,21,44,.6);z-index:99}
+.hero-groups>*{margin:0 0 4px 4px!important}
