@@ -259,23 +259,23 @@ details.more[open]>summary::before{content:'－ '}
 .kid-hero~.section-title{margin:12px 0 8px}
 .kid-hero p{margin:2px 0 0}
 .kid-hero .avatar{box-shadow:0 0 0 5px var(--card)}
-.kid-week{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:6px}
-.kid-week .kid-day{padding:6px 4px}
+.kid-week{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:4px}
+.kid-week .kid-day{padding:4px 3px}
 .kid-week .kid-day-head .dn{font-size:13.5px}
-.kid-day{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:8px;min-height:150px;display:flex;flex-direction:column;gap:6px}
+.kid-day{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px;min-height:140px;display:flex;flex-direction:column;gap:4px}
 .kid-day.today{border:2.5px solid var(--c);box-shadow:0 6px 22px color-mix(in srgb,var(--c) 25%,transparent)}
 .kid-day.weekend{background:var(--card2)}
-.kid-day-head{text-align:center;padding-bottom:4px;border-bottom:1px dashed var(--line)}
+.kid-day-head{text-align:center;padding:2px 0 3px;border-bottom:1px dashed var(--line)}
 .kid-day-head .dn{font-weight:900;font-size:16px;text-transform:capitalize}
 .kid-day-head .dd{color:var(--muted);font-size:11.5px}
-.kid-item{border-radius:12px;padding:6px 4px;text-align:center;background:color-mix(in srgb,var(--ec) 14%,var(--card));border:2px solid color-mix(in srgb,var(--ec) 40%,transparent);color:inherit;display:block}
+.kid-item{border-radius:10px;padding:4px 3px;text-align:center;background:color-mix(in srgb,var(--ec) 14%,var(--card));border:2px solid color-mix(in srgb,var(--ec) 40%,transparent);color:inherit;display:block}
 .kid-item:hover{text-decoration:none}
-.kid-item .ki-emoji{font-size:24px;line-height:1.1}
+.kid-item .ki-emoji{font-size:20px;line-height:1.1}
 .kid-item .ki-title{font-weight:800;font-size:12.5px;line-height:1.2;margin-top:2px;word-break:break-word;hyphens:auto}
 .kid-item .ki-time{font-size:11.5px;color:var(--muted);font-weight:700}
-.kid-item .ki-friends{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;margin-top:5px}
-.kid-item .ki-friend{display:flex;flex-direction:column;align-items:center;font-size:11px;font-weight:700;gap:2px}
-.kid-item .ki-where{font-size:11px;margin-top:3px;font-weight:700}
+.kid-item .ki-friends{display:flex;flex-wrap:wrap;justify-content:center;gap:3px;margin-top:3px}
+.kid-item .ki-friend{display:flex;flex-direction:column;align-items:center;font-size:11px;font-weight:700;gap:1px}
+.kid-item .ki-where{font-size:11px;margin-top:2px;font-weight:700}
 .kid-item.done{opacity:.55}
 .kid-empty{color:var(--muted);text-align:center;font-size:13px;margin:auto 0}
 @media (max-width:900px){.kid-week{grid-template-columns:1fr 1fr}.kid-day{min-height:0}}
