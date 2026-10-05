@@ -3,7 +3,18 @@
 require __DIR__ . '/lib/app.php';
 require __DIR__ . '/lib/events.php';
 require __DIR__ . '/lib/views.php';
-require_login();
+$user = require_login();
+
+// Rename the family right here (also possible in Instellingen → Ons gezin)
+if (is_post() && post('action') === 'rename') {
+    if (post('family_name') === '') {
+        flash('Vul een naam in voor jullie gezin.', 'error');
+    } else {
+        db()->prepare('UPDATE fp_families SET name = ? WHERE id = ?')->execute([mb_cut(post('family_name'), 120), $user['family_id']]);
+        flash('✓ Gezinsnaam aangepast');
+    }
+    redirect('gezin.php');
+}
 
 $weekOffset = (int) ($_GET['week'] ?? 0);
 $weekStart = date('Y-m-d', strtotime(date('Y-m-d', strtotime('monday this week', strtotime(today()))) . ' +' . ($weekOffset * 7) . ' day'));
@@ -12,7 +23,15 @@ $events = with_shared_events(load_events($weekStart, $weekEnd), $weekStart, $wee
 $birthdays = load_birthdays($weekStart, $weekEnd);
 
 page_start('Gezin');
-page_header('👨‍👩‍👧‍👦 Ons gezin');
+page_header('👨‍👩‍👧‍👦 ' . e($user['family_name']) . ' <button type="button" class="link small" onclick="var f=document.getElementById(\'rename\');f.hidden=!f.hidden;if(!f.hidden)f.querySelector(\'input[name=family_name]\').focus()" title="Naam aanpassen">✏️</button>');
+?>
+<form method="post" id="rename" class="card form" hidden style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
+  <?= csrf_field() ?><input type="hidden" name="action" value="rename">
+  <div style="flex:1;min-width:220px"><label for="family_name">Naam van jullie gezin</label><input id="family_name" name="family_name" value="<?= e($user['family_name']) ?>" required maxlength="120"></div>
+  <button class="btn">Opslaan</button>
+  <button type="button" class="btn secondary" onclick="this.form.hidden=true">Annuleren</button>
+</form>
+<?php
 ?>
 <div class="family-strip">
   <?php foreach (members() as $m):

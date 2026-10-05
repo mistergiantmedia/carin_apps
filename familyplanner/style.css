@@ -634,7 +634,7 @@ kbd{background:var(--card2);border:1px solid var(--line);border-radius:6px;paddi
 .group-photo figcaption{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 2px 0;font-size:13px}
 .multi{border:1px solid var(--line);border-radius:14px;padding:10px 14px 14px;margin:14px 0}
 .multi legend{font-weight:700;padding:0 6px}
-.multi-row[hidden]{display:none}
+.multi-row[hidden],form[hidden]{display:none!important}
 .multi-row{padding:6px 0 10px;border-bottom:1px dashed var(--line);margin-bottom:8px}
 .multi .row2.multi-row{align-items:center}
 .gezin-head{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
