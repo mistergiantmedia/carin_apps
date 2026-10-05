@@ -127,7 +127,18 @@ page_header('📇 Adresboek', count($people) . ' ' . (count($people) === 1 ? 'pe
             </td>
             <td><?php foreach ($addrs as $i => $a): ?><div<?= $i ? ' style="margin-top:6px"' : '' ?>><?= $a['label'] ? '<b>' . e($a['label']) . '</b><br>' : '' ?><?= e($a['street']) ?><?= $a['street'] && trim($a['postal_code'] . ' ' . $a['city']) ? '<br>' : '' ?><?= e(trim($a['postal_code'] . ' ' . $a['city'])) ?></div><?php endforeach; ?></td>
             <td class="nowrap"><?php $seen = []; foreach ($phones as $x): if (isset($seen[$x['phone']])) { continue; } $seen[$x['phone']] = true; ?><?= $x['label'] ? '<span class="muted">' . e($x['label']) . ':</span> ' : '' ?><a href="tel:<?= e(preg_replace('/[^0-9+]/', '', $x['phone'])) ?>"><?= e($x['phone']) ?></a><br><?php endforeach; ?></td>
-            <td><?php $em = array_filter(array_merge([$h['email'] ?? null], array_column($list, 'email'))); foreach (array_unique($em) as $x): ?><a href="mailto:<?= e($x) ?>"><?= e($x) ?></a><br><?php endforeach; ?></td>
+            <td><?php
+                // E-mail of the gezin itself, then of each person in it (with their name, so it's clear where it comes from)
+                $em = [];
+                if (!empty($h['email'])) {
+                    $em[$h['email']] = '';
+                }
+                foreach ($list as $p) {
+                    if ($p['email'] && !isset($em[$p['email']])) {
+                        $em[$p['email']] = contact_name($p, false);
+                    }
+                }
+                foreach ($em as $x => $who): ?><?= $who !== '' ? '<span class="muted">' . e($who) . ':</span> ' : '' ?><a href="mailto:<?= e($x) ?>"><?= e($x) ?></a><br><?php endforeach; ?></td>
           </tr>
         <?php endforeach; ?>
       </table>
