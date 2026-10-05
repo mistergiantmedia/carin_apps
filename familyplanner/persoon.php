@@ -38,6 +38,12 @@ page_start($m['name'], ['active' => 'gezin.php']);
     </p>
     <?php if (!empty($m['phone']) || !empty($m['email'])): ?><p style="margin:4px 0 0"><?= !empty($m['phone']) ? '📞 <a href="tel:' . e(preg_replace('/[^0-9+]/', '', $m['phone'])) . '">' . e($m['phone']) . '</a> ' : '' ?><?= !empty($m['email']) ? ' ✉️ <a href="mailto:' . e($m['email']) . '">' . e($m['email']) . '</a>' : '' ?></p><?php endif; ?>
     <?php if (!empty($m['allergies'])): ?><p style="margin:4px 0 0"><b>⚠️ <?= e($m['allergies']) ?></b></p><?php endif; ?>
+    <?php $myGroups = load_groups(['member' => $id]); if ($myGroups): ?>
+      <div class="picker" style="margin-top:6px">
+        <?php foreach ($myGroups as $g): ?><a class="group-chip" href="groepen.php?id=<?= (int) $g['id'] ?>"><?= e(group_emoji($g)) ?> <?= e(group_label($g)) ?><?= $g['members'][$id] ? ' <span class="muted">· ' . e($g['members'][$id]) . '</span>' : '' ?></a><?php endforeach; ?>
+        <a class="group-chip" href="netwerk.php?member=<?= $id ?>">🕸️ Netwerk</a>
+      </div>
+    <?php endif; ?>
   </div>
   <div class="head-actions no-print">
     <button type="button" class="btn" data-new-event='<?= e(json_encode(['members' => [$id]] + ($isKid ? ['type' => 'PLAYDATE', 'host' => 'HOME'] : []))) ?>'>＋ <?= $isKid ? 'Speelafspraak' : 'Afspraak' ?></button>
@@ -47,12 +53,6 @@ page_start($m['name'], ['active' => 'gezin.php']);
   </div>
 </div>
 
-<?php $myGroups = load_groups(['member' => $id]); if ($myGroups): ?>
-  <div class="picker" style="margin:-2px 0 4px">
-    <?php foreach ($myGroups as $g): ?><a class="group-chip" href="groepen.php?id=<?= (int) $g['id'] ?>"><?= e(group_emoji($g)) ?> <?= e(group_label($g)) ?><?= $g['members'][$id] ? ' <span class="muted">· ' . e($g['members'][$id]) . '</span>' : '' ?></a><?php endforeach; ?>
-    <a class="group-chip" href="netwerk.php?member=<?= $id ?>">🕸️ Netwerk</a>
-  </div>
-<?php endif; ?>
 <?php if ($isKid):
     $weekOffset = (int) ($_GET['week'] ?? 0);
     // Saturday to the Sunday after (two weekends): on Saturday the children see the whole coming week
