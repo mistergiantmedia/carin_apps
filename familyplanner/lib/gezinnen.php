@@ -22,6 +22,72 @@ function gezin_avatar(array $h, int $size = 40): string
     return family_avatar(['name' => $h['name'] ?? '', 'photo' => gezin_photo($h)], $size);
 }
 
+/** Addresses of a gezin: [['label', 'street', 'postal_code', 'city', 'country'], …]. Falls back to the gezin's own columns. */
+function gezin_addresses(array $h): array
+{
+    $stmt = db()->prepare('SELECT label, street, postal_code, city, country FROM fp_household_addresses WHERE household_id = ? ORDER BY sort, id');
+    $stmt->execute([$h['id']]);
+    $rows = $stmt->fetchAll();
+    if (!$rows && (($h['street'] ?? '') !== '' || ($h['city'] ?? '') !== '' || ($h['postal_code'] ?? '') !== '')) {
+        $rows = [['label' => null, 'street' => $h['street'], 'postal_code' => $h['postal_code'], 'city' => $h['city'], 'country' => $h['country'] ?? null]];
+    }
+    return $rows;
+}
+
+/** Phone numbers of a gezin: [['label', 'phone'], …]. Falls back to the gezin's own phone column. */
+function gezin_phones(array $h): array
+{
+    $stmt = db()->prepare('SELECT label, phone FROM fp_household_phones WHERE household_id = ? ORDER BY sort, id');
+    $stmt->execute([$h['id']]);
+    $rows = $stmt->fetchAll();
+    if (!$rows && ($h['phone'] ?? '') !== '') {
+        $rows = [['label' => null, 'phone' => $h['phone']]];
+    }
+    return $rows;
+}
+
+/** "Lindelaan 12, 3512 AB Utrecht" (plus country when set). */
+function address_line(array $a): string
+{
+    return trim(implode(', ', array_filter([$a['street'] ?? '', trim(($a['postal_code'] ?? '') . ' ' . ($a['city'] ?? '')), $a['country'] ?? ''])));
+}
+
+/** Save posted addresses and phone numbers of a gezin; the first of each also goes into fp_households. */
+function save_gezin_contact(int $hid, array $post): void
+{
+    $addresses = [];
+    foreach ((array) ($post['addr_street'] ?? []) as $i => $street) {
+        $a = [
+            'label' => mb_cut(trim((string) ($post['addr_label'][$i] ?? '')), 60),
+            'street' => mb_cut(trim((string) $street), 160),
+            'postal_code' => mb_cut(trim((string) ($post['addr_postal'][$i] ?? '')), 12),
+            'city' => mb_cut(trim((string) ($post['addr_city'][$i] ?? '')), 80),
+            'country' => mb_cut(trim((string) ($post['addr_country'][$i] ?? '')), 60),
+        ];
+        if ($a['street'] !== '' || $a['postal_code'] !== '' || $a['city'] !== '') {
+            $addresses[] = $a;
+        }
+    }
+    $phones = [];
+    foreach ((array) ($post['phone_number'] ?? []) as $i => $number) {
+        if (trim((string) $number) !== '') {
+            $phones[] = ['label' => mb_cut(trim((string) ($post['phone_label'][$i] ?? '')), 60), 'phone' => mb_cut(trim((string) $number), 40)];
+        }
+    }
+    db()->prepare('DELETE FROM fp_household_addresses WHERE household_id = ?')->execute([$hid]);
+    foreach ($addresses as $i => $a) {
+        db()->prepare('INSERT INTO fp_household_addresses (household_id, label, street, postal_code, city, country, sort) VALUES (?, ?, ?, ?, ?, ?, ?)')
+            ->execute([$hid, $a['label'] ?: null, $a['street'] ?: null, $a['postal_code'] ?: null, $a['city'] ?: null, $a['country'] ?: null, $i]);
+    }
+    db()->prepare('DELETE FROM fp_household_phones WHERE household_id = ?')->execute([$hid]);
+    foreach ($phones as $i => $p) {
+        db()->prepare('INSERT INTO fp_household_phones (household_id, label, phone, sort) VALUES (?, ?, ?, ?)')->execute([$hid, $p['label'] ?: null, $p['phone'], $i]);
+    }
+    $first = $addresses[0] ?? ['street' => '', 'postal_code' => '', 'city' => '', 'country' => ''];
+    db()->prepare('UPDATE fp_households SET street = ?, postal_code = ?, city = ?, country = ?, phone = ? WHERE id = ?')
+        ->execute([$first['street'] ?: null, $first['postal_code'] ?: null, $first['city'] ?: null, $first['country'] ?: null, $phones[0]['phone'] ?? null, $hid]);
+}
+
 /** The gezin in our address book linked to friend family $fid, or null. */
 function gezin_of_family(int $fid): ?array
 {

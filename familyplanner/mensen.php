@@ -111,16 +111,22 @@ page_header('📇 Adresboek', count($people) . ' ' . (count($people) === 1 ? 'pe
         <?php foreach ($groups as $list):
             $first = $list[0];
             $h = $first['household_id'] ? $hh[$first['household_id']] : null;
-            $street = $h ? $h['street'] : $first['street'];
-            $pc = trim(($h ? $h['postal_code'] . ' ' . $h['city'] : $first['postal_code'] . ' ' . $first['city'])); ?>
+            // A gezin can have several addresses and phone numbers (with a label like "Bij mama")
+            $addrs = $h ? gezin_addresses($h) : array_filter([['label' => null, 'street' => $first['street'], 'postal_code' => $first['postal_code'], 'city' => $first['city']]], 'address_line');
+            $phones = $h ? gezin_phones($h) : [];
+            foreach ($list as $p) {
+                if ($p['phone']) {
+                    $phones[] = ['label' => contact_name($p, false), 'phone' => $p['phone']];
+                }
+            } ?>
           <tr>
             <td>
               <?php if ($h): ?><a href="huishouden.php?id=<?= (int) $h['id'] ?>" style="display:inline-flex;gap:8px;align-items:center"><?= gezin_avatar($h, 40) ?><b><?= e($h['name']) ?></b></a><br><?php endif; ?>
               <span class="avatars"><?php foreach ($list as $p): ?><a href="contact.php?id=<?= (int) $p['id'] ?>"><?= avatar($p, 26) ?></a><?php endforeach; ?></span>
               <span class="muted small"><?= e(implode(', ', array_map(function ($p) { return contact_name($p, false); }, $list))) ?></span>
             </td>
-            <td><?= e($street) ?><?= $street && $pc ? '<br>' : '' ?><?= e($pc) ?></td>
-            <td class="nowrap"><?php $ph = array_filter(array_merge([$h['phone'] ?? null], array_column($list, 'phone'))); foreach (array_unique($ph) as $x): ?><a href="tel:<?= e(preg_replace('/[^0-9+]/', '', $x)) ?>"><?= e($x) ?></a><br><?php endforeach; ?></td>
+            <td><?php foreach ($addrs as $i => $a): ?><div<?= $i ? ' style="margin-top:6px"' : '' ?>><?= $a['label'] ? '<b>' . e($a['label']) . '</b><br>' : '' ?><?= e($a['street']) ?><?= $a['street'] && trim($a['postal_code'] . ' ' . $a['city']) ? '<br>' : '' ?><?= e(trim($a['postal_code'] . ' ' . $a['city'])) ?></div><?php endforeach; ?></td>
+            <td class="nowrap"><?php $seen = []; foreach ($phones as $x): if (isset($seen[$x['phone']])) { continue; } $seen[$x['phone']] = true; ?><?= $x['label'] ? '<span class="muted">' . e($x['label']) . ':</span> ' : '' ?><a href="tel:<?= e(preg_replace('/[^0-9+]/', '', $x['phone'])) ?>"><?= e($x['phone']) ?></a><br><?php endforeach; ?></td>
             <td><?php $em = array_filter(array_merge([$h['email'] ?? null], array_column($list, 'email'))); foreach (array_unique($em) as $x): ?><a href="mailto:<?= e($x) ?>"><?= e($x) ?></a><br><?php endforeach; ?></td>
           </tr>
         <?php endforeach; ?>

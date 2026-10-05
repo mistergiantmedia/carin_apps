@@ -42,13 +42,14 @@ if (is_post()) {
             flash($e->getMessage(), 'error');
         }
         $linked = isset($friends[post_int('linked_family')]) ? post_int('linked_family') : null;
-        $data = [mb_cut(post('name'), 120), post_or_null('street'), post_or_null('postal_code'), post_or_null('city'), post_or_null('country'), post_or_null('phone'), post_or_null('email'), post_or_null('notes'), $photo, $linked];
+        $data = [mb_cut(post('name'), 120), post_or_null('email'), post_or_null('notes'), $photo, $linked];
         if ($h) {
-            db()->prepare('UPDATE fp_households SET name = ?, street = ?, postal_code = ?, city = ?, country = ?, phone = ?, email = ?, notes = ?, photo = ?, linked_family = ? WHERE id = ?')->execute(array_merge($data, [$id]));
+            db()->prepare('UPDATE fp_households SET name = ?, email = ?, notes = ?, photo = ?, linked_family = ? WHERE id = ?')->execute(array_merge($data, [$id]));
         } else {
-            db()->prepare('INSERT INTO fp_households (name, street, postal_code, city, country, phone, email, notes, photo, linked_family) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')->execute($data);
+            db()->prepare('INSERT INTO fp_households (name, email, notes, photo, linked_family) VALUES (?, ?, ?, ?, ?)')->execute($data);
             $id = (int) db()->lastInsertId();
         }
+        save_gezin_contact($id, $_POST); // all addresses and phone numbers
         flash('Opgeslagen');
         redirect('huishouden.php?id=' . $id);
     }
@@ -68,7 +69,18 @@ if ($h) {
     $stmt->execute([$id]);
     $others = $stmt->fetchAll();
 }
-$address = trim(implode(', ', array_filter([$f['street'], trim($f['postal_code'] . ' ' . $f['city'])])));
+$addresses = $h ? gezin_addresses($h) : [];
+$phones = $h ? gezin_phones($h) : [];
+if ($error) {
+    $addresses = [];
+    foreach ((array) ($_POST['addr_street'] ?? []) as $i => $street) {
+        $addresses[] = ['label' => $_POST['addr_label'][$i] ?? '', 'street' => $street, 'postal_code' => $_POST['addr_postal'][$i] ?? '', 'city' => $_POST['addr_city'][$i] ?? '', 'country' => $_POST['addr_country'][$i] ?? ''];
+    }
+    $phones = [];
+    foreach ((array) ($_POST['phone_number'] ?? []) as $i => $number) {
+        $phones[] = ['label' => $_POST['phone_label'][$i] ?? '', 'phone' => $number];
+    }
+}
 $linkedFam = $f['linked_family'] ? ($friends[(int) $f['linked_family']] ?? null) : null;
 $photo = $h ? gezin_photo($h) : null;
 
@@ -82,8 +94,10 @@ page_start($h ? $h['name'] : 'Nieuw gezin', ['active' => 'mensen.php', 'narrow' 
   <?php if ($photo): ?><img class="gezin-photo" src="foto.php?f=<?= e($photo) ?>" alt="Gezinsfoto van <?= e($h['name']) ?>"><?php else: ?><div class="gezin-photo gezin-nophoto">🏠</div><?php endif; ?>
   <div class="grow">
     <h1><?= e($h['name']) ?></h1>
-    <?php if ($address !== ''): ?><p><a href="https://maps.google.com/?q=<?= e(urlencode($address)) ?>" target="_blank" rel="noopener">📍 <?= e($address) ?></a></p><?php endif; ?>
-    <?php if ($h['phone']): ?><p>📞 <a href="tel:<?= e(preg_replace('/[^0-9+]/', '', $h['phone'])) ?>"><?= e($h['phone']) ?></a></p><?php endif; ?>
+    <?php foreach ($addresses as $a): $line = address_line($a); ?>
+      <p><?= $a['label'] ? '<b>' . e($a['label']) . ':</b> ' : '' ?><a href="https://maps.google.com/?q=<?= e(urlencode($line)) ?>" target="_blank" rel="noopener">📍 <?= e($line) ?></a></p>
+    <?php endforeach; ?>
+    <?php if ($phones): ?><p><?php foreach ($phones as $i => $ph): ?><?= $i ? ' · ' : '' ?><span class="nowrap">📞 <?= $ph['label'] ? e($ph['label']) . ': ' : '' ?><a href="tel:<?= e(preg_replace('/[^0-9+]/', '', $ph['phone'])) ?>"><?= e($ph['phone']) ?></a></span><?php endforeach; ?></p><?php endif; ?>
     <?php if ($linkedFam): ?><p><a class="badge ok" href="vriendgezinnen.php">🤝 Doet mee met de Familie Planner als <?= e($linkedFam['name']) ?></a></p><?php endif; ?>
   </div>
 </div>
@@ -117,16 +131,36 @@ page_start($h ? $h['name'] : 'Nieuw gezin', ['active' => 'mensen.php', 'narrow' 
   <label for="name">Naam</label><input id="name" name="name" value="<?= e($f['name']) ?>" placeholder="Familie de Vries" required>
   <?= photo_field($f['photo'] ?? null, 'Gezinsfoto', 'Gezinsfoto') ?>
   <?php if ($linkedFam && !$f['photo']): ?><p class="hint">Nu wordt de gezinsfoto van <?= e($linkedFam['name']) ?> gebruikt.</p><?php endif; ?>
-  <label>Straat en huisnummer</label><input name="street" value="<?= e($f['street']) ?>">
-  <div class="row2">
-    <div><label>Postcode</label><input name="postal_code" value="<?= e($f['postal_code']) ?>"></div>
-    <div><label>Plaats</label><input name="city" value="<?= e($f['city']) ?>"></div>
-  </div>
-  <label>Land <small>(als het niet Nederland is)</small></label><input name="country" value="<?= e($f['country']) ?>">
-  <div class="row2">
-    <div><label>Telefoon (thuis)</label><input name="phone" value="<?= e($f['phone']) ?>"></div>
-    <div><label>E-mail</label><input name="email" type="email" value="<?= e($f['email']) ?>"></div>
-  </div>
+  <fieldset class="multi" data-multi="addr">
+    <legend>📍 Adressen</legend>
+    <p class="hint">Woont het gezin op meer plekken, bijvoorbeeld bij mama en bij papa? Voeg dan een adres toe. Het eerste adres is het hoofdadres.</p>
+    <?php $rows = $addresses ?: [[]]; $rows[] = 'template'; foreach ($rows as $a): $tpl = $a === 'template'; $a = $tpl ? [] : $a; $dis = $tpl ? ' disabled' : ''; ?>
+      <div class="multi-row"<?= $tpl ? ' data-template hidden' : '' ?>>
+        <div class="row2">
+          <div><label>Naam van dit adres <small>(optioneel)</small></label><input name="addr_label[]" value="<?= e($a['label'] ?? '') ?>" placeholder="bijv. Bij mama, Vakantiehuis"<?= $dis ?>></div>
+          <div><label>Straat en huisnummer</label><input name="addr_street[]" value="<?= e($a['street'] ?? '') ?>"<?= $dis ?>></div>
+        </div>
+        <div class="row2">
+          <div><label>Postcode</label><input name="addr_postal[]" value="<?= e($a['postal_code'] ?? '') ?>"<?= $dis ?>></div>
+          <div><label>Plaats</label><input name="addr_city[]" value="<?= e($a['city'] ?? '') ?>"<?= $dis ?>></div>
+        </div>
+        <label>Land <small>(als het niet Nederland is)</small></label><input name="addr_country[]" value="<?= e($a['country'] ?? '') ?>"<?= $dis ?>>
+        <button type="button" class="link muted small" data-remove>✕ Dit adres weghalen</button>
+      </div>
+    <?php endforeach; ?>
+    <button type="button" class="btn small soft" data-add>＋ Nog een adres</button>
+  </fieldset>
+  <fieldset class="multi" data-multi="phone">
+    <legend>📞 Telefoonnummers</legend>
+    <?php $rows = $phones ?: [[]]; $rows[] = 'template'; foreach ($rows as $ph): $tpl = $ph === 'template'; $ph = $tpl ? [] : $ph; $dis = $tpl ? ' disabled' : ''; ?>
+      <div class="multi-row row2"<?= $tpl ? ' data-template hidden' : '' ?>>
+        <div><input name="phone_label[]" value="<?= e($ph['label'] ?? '') ?>" placeholder="Van wie? bijv. Mama, Papa, Thuis"<?= $dis ?>></div>
+        <div style="display:flex;gap:6px;align-items:center"><input name="phone_number[]" type="tel" value="<?= e($ph['phone'] ?? '') ?>" placeholder="06 12345678"<?= $dis ?>><button type="button" class="link muted small" data-remove title="Weghalen">✕</button></div>
+      </div>
+    <?php endforeach; ?>
+    <button type="button" class="btn small soft" data-add>＋ Nog een nummer</button>
+  </fieldset>
+  <label>E-mail</label><input name="email" type="email" value="<?= e($f['email']) ?>">
   <?php if ($friends): ?>
     <label>🤝 Doet dit gezin mee met de Familie Planner?</label>
     <select name="linked_family"><option value="">Nee / weet ik niet</option>
@@ -139,4 +173,32 @@ page_start($h ? $h['name'] : 'Nieuw gezin', ['active' => 'mensen.php', 'narrow' 
 <?php if ($h): ?>
   <form method="post" data-confirm="Het gezin wordt verwijderd. De mensen blijven in het adresboek staan." style="margin-top:14px"><?= csrf_field() ?><input type="hidden" name="action" value="delete"><button class="btn danger">🗑 Gezin verwijderen</button></form>
 <?php endif; ?>
+<script>
+// "＋ Nog een adres / nummer": copy the hidden template row; ✕ removes a row (ES5 for old TVs)
+(function () {
+  var sets = document.querySelectorAll('[data-multi]');
+  for (var i = 0; i < sets.length; i++) {
+    (function (set) {
+      var template = set.querySelector('[data-template]');
+      set.querySelector('[data-add]').onclick = function () {
+        var row = template.cloneNode(true);
+        row.removeAttribute('data-template');
+        row.hidden = false;
+        var inputs = row.querySelectorAll('input');
+        for (var j = 0; j < inputs.length; j++) { inputs[j].disabled = false; inputs[j].value = ''; }
+        set.insertBefore(row, template);
+        if (inputs[0]) inputs[0].focus();
+      };
+      set.addEventListener('click', function (e) {
+        var el = e.target;
+        while (el && el !== set && !(el.hasAttribute && el.hasAttribute('data-remove'))) el = el.parentNode;
+        if (!el || el === set) return;
+        var row = el.parentNode;
+        while (row && row !== set && (' ' + row.className + ' ').indexOf(' multi-row ') < 0) row = row.parentNode;
+        if (row && row !== set) row.parentNode.removeChild(row);
+      });
+    })(sets[i]);
+  }
+})();
+</script>
 <?php page_end();

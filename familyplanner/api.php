@@ -105,6 +105,8 @@ try {
                 'fp_contact_members' => 'contact_id, member_id',
                 'fp_members' => 'id, name, photo, color, emoji, birth_day, birth_month, birth_year, sort',
                 'fp_households' => 'id, name, street, city',
+                'fp_household_addresses' => 'id, household_id, label, street, city',
+                'fp_household_phones' => 'id, household_id, label, phone',
                 'fp_groups' => 'id, type, emoji, name, season',
                 'fp_group_members' => 'group_id, member_id, role',
                 'fp_group_contacts' => 'group_id, contact_id, role',
