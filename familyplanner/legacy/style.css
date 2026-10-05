@@ -270,8 +270,8 @@ details.more[open]>summary::before{content:'－ '}
 .kid-item .ki-emoji{font-size:20px;line-height:1.1}
 .kid-item .ki-title{font-weight:800;font-size:12.5px;line-height:1.2;margin-top:2px;word-break:break-word;hyphens:auto}
 .kid-item .ki-time{font-size:11.5px;color:#76737F;font-weight:700}
-.kid-item .ki-friends{display:flex;flex-wrap:wrap;justify-content:center;gap:3px;margin-top:3px}
-.kid-item .ki-friend{display:flex;flex-direction:column;align-items:center;font-size:11px;font-weight:700;gap:1px}
+.kid-item .ki-friends{display:flex;flex-wrap:wrap;justify-content:center;padding-left:8px;margin-top:4px}
+.kid-item .ki-friends .avatar{margin:0 0 2px -8px;box-shadow:0 0 0 2px #fff}
 .kid-item .ki-where{font-size:11px;margin-top:2px;font-weight:700}
 .kid-item.done{opacity:.55}
 .kid-empty{color:#76737F;text-align:center;font-size:13px;margin:auto 0}
