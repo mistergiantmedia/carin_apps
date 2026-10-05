@@ -19,7 +19,8 @@
 .row2>*,.row3>*{flex:1 1 0;min-width:0}
 .row2>*+*{margin-left:12px}
 .row3>*+*{margin-left:8px}
-.family-strip,.kid-week{display:flex}
+.top-row,.family-strip,.kid-week{display:flex}
+.top-row>*+*{margin-left:12px}
 .family-strip>*,.kid-week>*{flex:1 1 0;min-width:0}
 .family-strip>*+*{margin-left:12px}
 .kid-week>*+*{margin-left:8px}

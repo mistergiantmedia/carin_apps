@@ -31,16 +31,6 @@ foreach (load_feasts($today, date('Y-m-d', strtotime('+8 day'))) as $f) {
     $feastByDay[$f['date']][] = $f;
 }
 
-// Next thing per family member
-$nextFor = [];
-foreach (members() as $m) {
-    foreach ($weekAhead as $ev) {
-        if (in_array((int) $m['id'], $ev['members'], true) && $ev['end_at'] > $now && !$ev['done']) {
-            $nextFor[$m['id']] = $ev;
-            break;
-        }
-    }
-}
 $tasks = load_tasks(['until' => $tomorrow]);
 $suggestions = array_slice(build_suggestions(), 0, 6);
 $books = open_friendbooks();
@@ -102,7 +92,7 @@ page_start('Vandaag');
 ?>
 <div class="hello">
   <div>
-    <h1><?= e($greet) ?>, <?= e($user['name']) ?> 👋</h1>
+    <h1><?= e($greet) ?> 👋</h1>
     <div class="date"><?= e(ucfirst(format_date($today))) ?> · week <?= (int) date('W') ?></div>
   </div>
   <div class="quick">
@@ -113,6 +103,14 @@ page_start('Vandaag');
   </div>
 </div>
 
+<div class="top-row">
+  <div class="family-strip">
+    <?php foreach (members() as $m): $age = age($m); ?>
+      <a class="fam" href="persoon.php?id=<?= (int) $m['id'] ?>" style="--c:<?= e($m['color']) ?>">
+        <div class="fam-head"><?= avatar($m, 44) ?><div><b><?= e($m['name']) ?></b><?php if ($age !== null): ?><div class="muted small"><?= $age ?> jaar</div><?php endif; ?></div></div>
+      </a>
+    <?php endforeach; ?>
+  </div>
 <?php if ($weather):
     [$wEmoji, $wText] = weather_code($weather['current']['weather_code'] ?? $weather['daily']['weather_code'][0]);
     $tips = weather_tips($weather, 0); ?>
@@ -135,7 +133,9 @@ page_start('Vandaag');
     </div>
     <?php if ($tips): ?><div class="w-tips"><?php foreach ($tips as [$te, $tt]): ?><span class="chip small"><?= $te ?> <?= e($tt) ?></span><?php endforeach; ?></div><?php endif; ?>
   </div>
-<?php elseif (trim((string) setting('city', '')) === ''): ?>
+<?php endif; ?>
+</div>
+<?php if (!$weather && trim((string) setting('city', '')) === ''): ?>
   <p class="muted small">🌤️ Wil je hier het weer zien? Vul jullie plaats in bij <a href="instellingen.php#gezin">Instellingen → Ons gezin</a>.</p>
 <?php endif; ?>
 
@@ -166,23 +166,6 @@ if ($incomplete): ?>
     </div>
   </div>
 <?php endif; ?>
-
-<div class="family-strip">
-  <?php foreach (members() as $m):
-      $next = $nextFor[$m['id']] ?? null;
-      $age = age($m); ?>
-    <a class="fam" href="persoon.php?id=<?= (int) $m['id'] ?>" style="--c:<?= e($m['color']) ?>">
-      <div class="fam-head"><?= avatar($m, 44) ?><div><b><?= e($m['name']) ?></b><?php if ($age !== null): ?><div class="muted small"><?= $age ?> jaar</div><?php endif; ?></div></div>
-      <div class="fam-next">
-        <?php if ($next): ?>
-          <?= e(day_label($next['start_at'])) ?><?= $next['all_day'] ? '' : ' ' . e(substr($next['start_at'], 11, 5)) ?>:<br><b><?= event_emoji($next) ?> <?= e($next['title']) ?></b>
-        <?php else: ?>
-          Niets gepland deze week
-        <?php endif; ?>
-      </div>
-    </a>
-  <?php endforeach; ?>
-</div>
 
 <div class="cols">
   <div>

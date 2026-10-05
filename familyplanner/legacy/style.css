@@ -223,13 +223,13 @@ details.more[open]>summary::before{content:'－ '}
 .quick{display:flex;gap:8px;flex-wrap:wrap}
 .quick a{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:12px;background:#fff;border:1px solid #ECE5DC;font-weight:700;font-size:13.5px;color:#2B2A33}
 .quick a:hover{text-decoration:none;border-color:#6C5CE7}
-.family-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
-.fam{background:#fff;border:1px solid #ECE5DC;border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:8px;color:inherit;border-top:5px solid #6C5CE7;box-shadow:0 1px 2px rgba(59,42,20,0.031),0 6px 20px rgba(59,42,20,0.051)}
+.top-row{display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;margin-bottom:22px}
+.top-row>.weather{flex:1 1 400px;margin-bottom:0}
+.family-strip{flex:1 1 480px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.fam{background:#fff;border:1px solid #ECE5DC;border-radius:18px;padding:14px;display:flex;flex-direction:column;justify-content:center;gap:8px;color:inherit;border-top:5px solid #6C5CE7;box-shadow:0 1px 2px rgba(59,42,20,0.031),0 6px 20px rgba(59,42,20,0.051)}
 .fam:hover{text-decoration:none;transform:translateY(-1px)}
 .fam-head{display:flex;align-items:center;gap:10px}
 .fam-head b{font-size:17px}
-.fam-next{font-size:13px;color:#76737F;line-height:1.35}
-.fam-next b{color:#2B2A33;font-weight:600}
 @media (max-width:760px){.family-strip{grid-template-columns:1fr 1fr}}
 .suggest{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid #F3EEE7}
 .suggest:first-child{border-top:0}
@@ -706,7 +706,8 @@ kbd{background:#FBF6EF;border:1px solid #ECE5DC;border-radius:6px;padding:1px 6p
 .row2>*,.row3>*{flex:1 1 0;min-width:0}
 .row2>*+*{margin-left:12px}
 .row3>*+*{margin-left:8px}
-.family-strip,.kid-week{display:flex}
+.top-row,.family-strip,.kid-week{display:flex}
+.top-row>*+*{margin-left:12px}
 .family-strip>*,.kid-week>*{flex:1 1 0;min-width:0}
 .family-strip>*+*{margin-left:12px}
 .kid-week>*+*{margin-left:8px}
