@@ -27,7 +27,7 @@ $mine = function (array $ev) use ($id) {
 page_start($m['name'], ['active' => 'gezin.php']);
 ?>
 <div class="kid-hero no-print-bg" style="--c:<?= e($m['color']) ?>">
-  <?= avatar($m, 96, 'ring') ?>
+  <?= avatar($m, 72, 'ring') ?>
   <div style="flex:1;min-width:200px">
     <h1><?= e($m['emoji']) ?> <?= e($m['name']) ?></h1>
     <p class="muted" style="margin:4px 0 0">
@@ -48,7 +48,7 @@ page_start($m['name'], ['active' => 'gezin.php']);
 </div>
 
 <?php $myGroups = load_groups(['member' => $id]); if ($myGroups): ?>
-  <div class="picker" style="margin:-8px 0 14px">
+  <div class="picker" style="margin:-2px 0 4px">
     <?php foreach ($myGroups as $g): ?><a class="group-chip" href="groepen.php?id=<?= (int) $g['id'] ?>"><?= e(group_emoji($g)) ?> <?= e(group_label($g)) ?><?= $g['members'][$id] ? ' <span class="muted">· ' . e($g['members'][$id]) . '</span>' : '' ?></a><?php endforeach; ?>
     <a class="group-chip" href="netwerk.php?member=<?= $id ?>">🕸️ Netwerk</a>
   </div>

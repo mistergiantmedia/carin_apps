@@ -69,7 +69,7 @@ function kid_week_board(array $kid, string $weekStart, bool $showDone = true, in
             $t = event_type($ev['type']);
             $friends = '';
             foreach ($ev['contacts'] as $c) {
-                $friends .= '<span class="ki-friend">' . avatar($c, 52) . e(contact_name($c, false)) . '</span>';
+                $friends .= '<span class="ki-friend">' . avatar($c, 40) . e(contact_name($c, false)) . '</span>';
             }
             $time = $ev['all_day'] ? '' : substr($ev['start_at'], 11, 5) . ' – ' . substr($ev['end_at'], 11, 5);
             if (!empty($ev['short_day'])) {
