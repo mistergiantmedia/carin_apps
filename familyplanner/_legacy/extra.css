@@ -45,6 +45,8 @@
 .hello>*:last-child,.page-head>*:last-child,.list>li>*:last-child,.ev>*:last-child,.modal-foot>*:last-child,.section-title>*:last-child{margin-right:0}
 .sidebar-family>*{margin:0 6px 6px 0}
 .kid-day>*+*,.stack>*+*,.crop-tools>*+*,.fam>*+*{margin-top:8px}
+.top-row .fam-head>*{margin-right:0}
+.top-row .fam-head>*+*{margin-top:4px}
 .kid-item .ki-friends>*{margin:0 3px 6px}
 .cal-nav>*+*{margin-left:4px}
 
