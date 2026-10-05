@@ -23,7 +23,7 @@
 .top-row>*+*{margin-left:12px}
 .family-strip>*,.kid-week>*{flex:1 1 0;min-width:0}
 .family-strip>*+*{margin-left:12px}
-.kid-week>*+*{margin-left:8px}
+.kid-week>*+*{margin-left:0}
 .matrix{display:block}
 .matrix-row{display:flex;margin-bottom:10px}
 .matrix-row>*{flex:1 1 0;min-width:0}

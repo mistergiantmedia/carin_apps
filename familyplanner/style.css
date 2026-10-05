@@ -259,7 +259,7 @@ details.more[open]>summary::before{content:'－ '}
 .kid-hero~.section-title{margin:12px 0 8px}
 .kid-hero p{margin:2px 0 0}
 .kid-hero .avatar{box-shadow:0 0 0 5px var(--card)}
-.kid-week{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:4px}
+.kid-week{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:0}
 .kid-week .kid-day{padding:4px 3px}
 .kid-week .kid-day-head .dn{font-size:13.5px}
 .kid-day{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px;min-height:140px;display:flex;flex-direction:column;gap:4px}
