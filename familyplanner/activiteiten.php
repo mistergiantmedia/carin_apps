@@ -71,8 +71,8 @@ page_header('🎡 Uitjes & feestjes', 'Alles wat jullie plannen buiten de gewone
           <td class="nowrap"><?= e(substr($ev['start_at'], 11, 5) . '–' . substr($ev['end_at'], 11, 5)) ?></td>
           <td><a href="event.php?id=<?= (int) $ev['id'] ?>&amp;occ=<?= e($ev['occ']) ?>"><?= event_emoji($ev) ?> <?= e($ev['title']) ?></a><?= $ev['location'] ? '<br><span class="muted small">' . e($ev['location']) . '</span>' : '' ?></td>
           <td><?php foreach ($ev['members'] as $mid): if ($m = member($mid)): ?><?= member_chip($m, true) ?> <?php endif; endforeach; ?></td>
-          <td><?= e(member((int) $ev['drop_member_id'])['name'] ?? '—') ?></td>
-          <td><?= e(member((int) $ev['pickup_member_id'])['name'] ?? '—') ?></td>
+          <td><?= e(driver_name($ev, 'drop') ?: '—') ?></td>
+          <td><?= e(driver_name($ev, 'pickup') ?: '—') ?></td>
         </tr>
       <?php endforeach; ?>
     </table></div>

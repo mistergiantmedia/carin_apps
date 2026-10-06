@@ -131,10 +131,10 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     return _api.apply(this, arguments);
   }
   function _api() {
-    _api = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(action, body, params) {
-      var qs, opt, res, data, _t9, _t0;
-      return _regenerator().w(function (_context10) {
-        while (1) switch (_context10.p = _context10.n) {
+    _api = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(action, body, params) {
+      var qs, opt, res, data, _t1, _t10;
+      return _regenerator().w(function (_context12) {
+        while (1) switch (_context12.p = _context12.n) {
           case 0:
             qs = new URLSearchParams(Object.assign({
               a: action
@@ -147,41 +147,41 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               },
               body: JSON.stringify(body)
             };
-            _context10.p = 1;
-            _context10.n = 2;
+            _context12.p = 1;
+            _context12.n = 2;
             return fetch('api.php?' + qs.toString(), Object.assign({
               credentials: 'same-origin'
             }, opt));
           case 2:
-            res = _context10.v;
-            _context10.n = 4;
+            res = _context12.v;
+            _context12.n = 4;
             break;
           case 3:
-            _context10.p = 3;
-            _t9 = _context10.v;
+            _context12.p = 3;
+            _t1 = _context12.v;
             throw new Error('Geen verbinding. Controleer je internet en probeer het opnieuw.');
           case 4:
             data = {};
-            _context10.p = 5;
-            _context10.n = 6;
+            _context12.p = 5;
+            _context12.n = 6;
             return res.json();
           case 6:
-            data = _context10.v;
-            _context10.n = 8;
+            data = _context12.v;
+            _context12.n = 8;
             break;
           case 7:
-            _context10.p = 7;
-            _t0 = _context10.v;
+            _context12.p = 7;
+            _t10 = _context12.v;
           case 8:
             if (!(!res.ok || data.error)) {
-              _context10.n = 9;
+              _context12.n = 9;
               break;
             }
             throw new Error(data.error || 'Er ging iets mis (' + res.status + ').');
           case 9:
-            return _context10.a(2, data);
+            return _context12.a(2, data);
         }
-      }, _callee10, null, [[5, 7], [1, 3]]);
+      }, _callee12, null, [[5, 7], [1, 3]]);
     }));
     return _api.apply(this, arguments);
   }
@@ -452,9 +452,155 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
         return chosen.map(function (c) {
           return c.name;
         });
+      },
+      items: function items() {
+        return chosen;
       }
     };
   }
+
+  // ---------- Who brings / picks up ----------
+  // Values: a member id ("3") or a contact from the address book ("c12"); "OTHER" opens the contact picker.
+  /**
+   * <option>s for a "Wie brengt / haalt op" select. opts: each (true/false = offer "Per keer bepalen"),
+   * guests (grown-ups of the guests' gezin, from api drivers), extra (other contacts to offer), blank (label of '').
+   */
+  function whoOptions(selected, opts) {
+    opts = opts || {};
+    selected = opts.each ? '' : String(selected == null ? '' : selected);
+    var seen = {};
+    var group = function group(label, list) {
+      var html = list.filter(function (o) {
+        return o && o.value && !seen[o.value];
+      }).map(function (o) {
+        seen[o.value] = true;
+        return "<option value=\"".concat(esc(o.value), "\"").concat(o.value === selected ? ' selected' : '', ">").concat(esc(o.label), "</option>");
+      }).join('');
+      return html ? "<optgroup label=\"".concat(esc(label), "\">").concat(html, "</optgroup>") : '';
+    };
+    var html = "<option value=\"\">".concat(esc(opts.blank || '—'), "</option>");
+    if (opts.each !== undefined) html += "<option value=\"EACH\"".concat(opts.each ? ' selected' : '', ">\uD83D\uDD01 Per keer bepalen</option>");
+    html += group('Ons gezin', DATA.members.map(function (m) {
+      return {
+        value: String(m.id),
+        label: m.emoji + ' ' + m.name
+      };
+    }));
+    html += group('Gezin van de gasten', opts.guests || []);
+    html += group('Oppas', DATA.sitters || []);
+    html += group('Anderen', (opts.extra || []).concat(selected && !seen[selected] ? [{
+      value: selected,
+      label: '👤 ' + (opts.name || '?')
+    }] : []));
+    return html + '<option value="OTHER">👤 Iemand anders…</option>';
+  }
+
+  /** Choose anyone from the address book (or add someone new). Resolves {value, name, label} or null. */
+  function pickContact(title) {
+    return new Promise(function (resolve) {
+      var d = document.createElement('dialog');
+      d.className = 'modal';
+      d.style.width = '460px';
+      d.style.maxWidth = 'calc(100vw - 24px)';
+      d.innerHTML = "<div class=\"modal-head\"><h2>".concat(esc(title), "</h2><button type=\"button\" class=\"x\" aria-label=\"Sluiten\">\xD7</button></div>\n        <div class=\"modal-body\"><p class=\"muted small\">Zoek in al jullie contacten, of typ een nieuwe naam.</p><div class=\"people-select\"></div></div>");
+      var settled = false;
+      var done = function done(v) {
+        if (settled) return;
+        settled = true;
+        d.close();
+        d.remove();
+        resolve(v);
+      };
+      var picker = peopleSelect(d.querySelector('.people-select'), [], false, function () {
+        var c = picker.items()[0];
+        if (c) done({
+          value: 'c' + c.id,
+          name: c.name,
+          label: '👤 ' + (c.fullName || c.name)
+        });
+      });
+      d.querySelector('.x').onclick = function () {
+        return done(null);
+      };
+      d.addEventListener('cancel', function (e) {
+        e.preventDefault();
+        done(null);
+      });
+      document.body.appendChild(d);
+      d.showModal();
+      setTimeout(function () {
+        return d.querySelector('.people-select input').focus();
+      }, 50);
+    });
+  }
+
+  // Any <select data-who>: "👤 Iemand anders…" opens the contact picker and adds the choice to the list
+  document.addEventListener('focusin', function (e) {
+    if (e.target.matches && e.target.matches('select[data-who]')) e.target.dataset.prev = e.target.value;
+  });
+  document.addEventListener('change', /*#__PURE__*/function () {
+    var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(e) {
+      var sel, c, grp, o;
+      return _regenerator().w(function (_context3) {
+        while (1) switch (_context3.n) {
+          case 0:
+            sel = e.target;
+            if (!(!sel.matches || !sel.matches('select[data-who]'))) {
+              _context3.n = 1;
+              break;
+            }
+            return _context3.a(2);
+          case 1:
+            if (!(sel.value !== 'OTHER')) {
+              _context3.n = 2;
+              break;
+            }
+            sel.dataset.prev = sel.value;
+            return _context3.a(2);
+          case 2:
+            sel.value = sel.dataset.prev || '';
+            _context3.n = 3;
+            return pickContact('Wie is het?');
+          case 3:
+            c = _context3.v;
+            if (c) {
+              _context3.n = 4;
+              break;
+            }
+            return _context3.a(2);
+          case 4:
+            if (!sel.querySelector("option[value=\"".concat(c.value, "\"]"))) {
+              grp = Array.from(sel.querySelectorAll('optgroup')).find(function (g) {
+                return g.label === 'Anderen';
+              });
+              if (!grp) {
+                grp = document.createElement('optgroup');
+                grp.label = 'Anderen';
+                sel.insertBefore(grp, sel.querySelector('option[value=OTHER]'));
+              }
+              o = document.createElement('option');
+              o.value = c.value;
+              o.textContent = c.label;
+              grp.appendChild(o);
+            }
+            sel.value = c.value;
+            sel.dataset.prev = c.value;
+            sel.dispatchEvent(new CustomEvent('fp:who-picked', {
+              bubbles: true,
+              detail: c
+            }));
+            sel.dispatchEvent(new Event('change', {
+              bubbles: true
+            }));
+          case 5:
+            return _context3.a(2);
+        }
+      }, _callee3);
+    }));
+    return function (_x4) {
+      return _ref4.apply(this, arguments);
+    };
+  }());
 
   // ---------- Event editor ----------
   /**
@@ -487,88 +633,162 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     return new Promise(function (resolve) {
       var d = document.createElement('dialog');
       d.className = 'modal editor';
-      var typeChips = Object.entries(DATA.types).map(function (_ref4) {
-        var _ref5 = _slicedToArray(_ref4, 2),
-          k = _ref5[0],
-          t = _ref5[1];
+      var typeChips = Object.entries(DATA.types).map(function (_ref5) {
+        var _ref6 = _slicedToArray(_ref5, 2),
+          k = _ref6[0],
+          t = _ref6[1];
         return "<label class=\"pick\" style=\"--c:".concat(t.color, "\"><input type=\"radio\" name=\"type\" value=\"").concat(k, "\"").concat(k === ev.type ? ' checked' : '', "><span>").concat(t.emoji, " ").concat(esc(t.label), "</span></label>");
       }).join('');
       var memberChips = DATA.members.map(function (m) {
         return "<label class=\"pick\" style=\"--c:".concat(m.color, "\"><input type=\"checkbox\" name=\"members\" value=\"").concat(m.id, "\"").concat(ev.members.includes(m.id) ? ' checked' : '', "><span>").concat(esc(m.emoji), " ").concat(esc(m.name), "</span></label>");
       }).join('');
-      var memberOpts = function memberOpts(sel, each) {
-        return '<option value="">—</option>' + (each !== undefined ? "<option value=\"EACH\"".concat(each ? ' selected' : '', ">\uD83D\uDD01 Per keer bepalen</option>") : '') + DATA.members.map(function (m) {
-          return "<option value=\"".concat(m.id, "\"").concat(m.id === sel && !each ? ' selected' : '', ">").concat(esc(m.emoji + ' ' + m.name), "</option>");
-        }).join('');
+      // Who brings / picks up: our family, the grown-ups of the guests' gezin, babysitters, or anyone else
+      var guestAdults = [];
+      var extraWho = [];
+      var whoOpts = function whoOpts(sel, each, name, blank) {
+        return whoOptions(sel, {
+          each: each,
+          guests: guestAdults,
+          extra: extraWho,
+          name: name,
+          blank: blank
+        });
       };
       // For one occurrence of a "per keer bepalen" series: choose right here who does it this time
-      var dutyNow = ev.id && (ev.dropEach || ev.pickupEach) ? "<div class=\"duty-now\">\n          <b>Deze keer (".concat(esc(DAYS[s.getDay()]), " ").concat(s.getDate(), " ").concat(esc(MONTHS[s.getMonth()]), "):</b>\n          ").concat(ev.dropEach ? "<label>\uD83D\uDE97 brengt <select data-duty=\"DROP\">".concat(memberOpts(ev.dropMember), "</select></label>") : '', "\n          ").concat(ev.pickupEach ? "<label>\uD83C\uDFE0 haalt <select data-duty=\"PICKUP\">".concat(memberOpts(ev.pickupMember), "</select></label>") : '', "\n        </div>") : '';
+      var dutyNow = ev.id && (ev.dropEach || ev.pickupEach) ? "<div class=\"duty-now\">\n          <b>Deze keer (".concat(esc(DAYS[s.getDay()]), " ").concat(s.getDate(), " ").concat(esc(MONTHS[s.getMonth()]), "):</b>\n          ").concat(ev.dropEach ? "<label>\uD83D\uDE97 brengt <select data-duty=\"DROP\" data-who>".concat(whoOpts(ev.dropWho, undefined, ev.dropName, '❓ nog beslissen'), "</select></label>") : '', "\n          ").concat(ev.pickupEach ? "<label>\uD83C\uDFE0 haalt <select data-duty=\"PICKUP\" data-who>".concat(whoOpts(ev.pickupWho, undefined, ev.pickupName, '❓ nog beslissen'), "</select></label>") : '', "\n        </div>") : '';
       // Friend families that may see this event in their agenda (only those we share single events with)
       var friendFams = DATA.friendFamilies || [];
       var shareChips = friendFams.length ? "<div class=\"label\">\uD83E\uDD1D Delen met vriendgezinnen <small>(zij zien deze afspraak in hun agenda)</small></div>\n            <div class=\"picker\">".concat(friendFams.map(function (fam) {
         return "<label class=\"pick sm\"><input type=\"checkbox\" name=\"shares\" value=\"".concat(fam.id, "\"").concat((ev.shares || []).includes(fam.id) ? ' checked' : '', "><span>\uD83C\uDFE1 ").concat(esc(fam.name), "</span></label>");
       }).join(''), "</div>") : '';
       var opts = function opts(obj, sel) {
-        return Object.entries(obj).map(function (_ref6) {
-          var _ref7 = _slicedToArray(_ref6, 2),
-            k = _ref7[0],
-            v = _ref7[1];
+        return Object.entries(obj).map(function (_ref7) {
+          var _ref8 = _slicedToArray(_ref7, 2),
+            k = _ref8[0],
+            v = _ref8[1];
           return "<option value=\"".concat(k, "\"").concat(k === (sel || '') ? ' selected' : '', ">").concat(esc(v), "</option>");
         }).join('');
       };
-      d.innerHTML = "\n        <form method=\"dialog\" class=\"form\" novalidate>\n          <div class=\"modal-head\"><h2>".concat(isNew ? 'Nieuwe afspraak' : 'Afspraak bewerken', "</h2><button type=\"button\" class=\"x\" data-close aria-label=\"Sluiten\">\xD7</button></div>\n          <div class=\"modal-body\">\n            <div style=\"display:flex;gap:8px;margin-top:10px;position:relative\">\n              <input name=\"emoji\" value=\"").concat(esc(ev.customEmoji || ''), "\" data-emoji-picker data-default=\"").concat(esc((DATA.types[ev.type] || DATA.types.OTHER).emoji), "\" aria-label=\"Eigen emoji\">\n              <input name=\"title\" class=\"title-input\" placeholder=\"Wat gaan jullie doen?\" value=\"").concat(esc(ev.title), "\" style=\"font-size:18px;font-weight:700\" autocomplete=\"off\">\n            </div>\n            <div class=\"label\">Soort</div><div class=\"type-picker\">").concat(typeChips, "</div>\n            <div class=\"label\">Wie <small>(van ons gezin)</small></div><div class=\"picker\">").concat(memberChips, "</div>\n            <label class=\"check\" style=\"margin-top:14px\"><input type=\"checkbox\" name=\"allDay\"").concat(ev.allDay ? ' checked' : '', "> Hele dag</label>\n            <div class=\"row2 when\">\n              <div><label>Begin</label><div class=\"row2\" style=\"gap:6px\"><input type=\"date\" name=\"startDate\" value=\"").concat(ymd(s), "\"><input type=\"time\" name=\"startTime\" step=\"300\" value=\"").concat(hm(s), "\" class=\"t\"></div></div>\n              <div><label>Eind</label><div class=\"row2\" style=\"gap:6px\"><input type=\"date\" name=\"endDate\" value=\"").concat(ymd(e), "\"><input type=\"time\" name=\"endTime\" step=\"300\" value=\"").concat(ev.allDay ? '' : hm(e), "\" class=\"t\"></div></div>\n            </div>\n            <div class=\"label\">\uD83D\uDD01 Herhalen</div>\n            <div class=\"picker repeat-picker\">").concat(Object.entries(DATA.recurrences).map(function (_ref8) {
-        var _ref9 = _slicedToArray(_ref8, 2),
-          k = _ref9[0],
-          v = _ref9[1];
+      d.innerHTML = "\n        <form method=\"dialog\" class=\"form\" novalidate>\n          <div class=\"modal-head\"><h2>".concat(isNew ? 'Nieuwe afspraak' : 'Afspraak bewerken', "</h2><button type=\"button\" class=\"x\" data-close aria-label=\"Sluiten\">\xD7</button></div>\n          <div class=\"modal-body\">\n            <div style=\"display:flex;gap:8px;margin-top:10px;position:relative\">\n              <input name=\"emoji\" value=\"").concat(esc(ev.customEmoji || ''), "\" data-emoji-picker data-default=\"").concat(esc((DATA.types[ev.type] || DATA.types.OTHER).emoji), "\" aria-label=\"Eigen emoji\">\n              <input name=\"title\" class=\"title-input\" placeholder=\"Wat gaan jullie doen?\" value=\"").concat(esc(ev.title), "\" style=\"font-size:18px;font-weight:700\" autocomplete=\"off\">\n            </div>\n            <div class=\"label\">Soort</div><div class=\"type-picker\">").concat(typeChips, "</div>\n            <div class=\"label\">Wie <small>(van ons gezin)</small></div><div class=\"picker\">").concat(memberChips, "</div>\n            <label class=\"check\" style=\"margin-top:14px\"><input type=\"checkbox\" name=\"allDay\"").concat(ev.allDay ? ' checked' : '', "> Hele dag</label>\n            <div class=\"row2 when\">\n              <div><label>Begin</label><div class=\"row2\" style=\"gap:6px\"><input type=\"date\" name=\"startDate\" value=\"").concat(ymd(s), "\"><input type=\"time\" name=\"startTime\" step=\"300\" value=\"").concat(hm(s), "\" class=\"t\"></div></div>\n              <div><label>Eind</label><div class=\"row2\" style=\"gap:6px\"><input type=\"date\" name=\"endDate\" value=\"").concat(ymd(e), "\"><input type=\"time\" name=\"endTime\" step=\"300\" value=\"").concat(ev.allDay ? '' : hm(e), "\" class=\"t\"></div></div>\n            </div>\n            <div class=\"label\">\uD83D\uDD01 Herhalen</div>\n            <div class=\"picker repeat-picker\">").concat(Object.entries(DATA.recurrences).map(function (_ref9) {
+        var _ref0 = _slicedToArray(_ref9, 2),
+          k = _ref0[0],
+          v = _ref0[1];
         return "<label class=\"pick sm\"><input type=\"radio\" name=\"recurrence\" value=\"".concat(k, "\"").concat(k === (ev.recurrence || '') ? ' checked' : '', "><span>").concat(esc(k ? v : 'Eenmalig'), "</span></label>");
-      }).join(''), "</div>\n            <div class=\"repeat-until\" style=\"display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap\">\n              <span class=\"repeat-text small muted\"></span>\n              <label class=\"small\" style=\"margin:0;font-weight:600\">tot en met</label><input type=\"date\" name=\"recurUntil\" value=\"").concat(esc(ev.recurUntil || ''), "\" style=\"width:auto;min-height:36px;padding:5px 10px\" title=\"Leeg laten = blijft altijd herhalen\"><span class=\"small muted\">(leeg = altijd door)</span>\n            </div>\n            <div class=\"label\">Met wie <small>(vriendjes, familie, gasten)</small></div>\n            <div class=\"people-select\" data-members=\"").concat(ev.members.join(','), "\"></div>\n            <div class=\"avail\"></div>\n            <div class=\"row2\">\n              <div><label>Waar</label><input name=\"location\" value=\"").concat(esc(ev.location || ''), "\" placeholder=\"Adres of plek\"></div>\n              <div><label>Bij wie</label><select name=\"host\">").concat(opts(DATA.hosts, ev.host), "</select></div>\n            </div>\n            ").concat(shareChips, "\n            <details class=\"more\"").concat(ev.dropMember || ev.pickupMember || ev.dropEach || ev.pickupEach || ev.cost || ev.description ? ' open' : '', ">\n              <summary>Meer opties</summary>\n              <div class=\"row2\">\n                <div><label>\uD83D\uDE97 Wie brengt</label><select name=\"dropMember\">").concat(memberOpts(ev.dropMember, !!ev.dropEach), "</select></div>\n                <div><label>\uD83C\uDFE0 Wie haalt op</label><select name=\"pickupMember\">").concat(memberOpts(ev.pickupMember, !!ev.pickupEach), "</select></div>\n              </div>\n              <p class=\"hint each-hint\">\uD83D\uDD01 <b>Per keer bepalen</b> (bij herhalende afspraken): bij elke keer staat dan \u2753 tot iemand gekozen is. Kiezen kan in de agenda of bij Wie doet wat.</p>\n              ").concat(dutyNow, "\n              <div class=\"row2\">\n                <div><label>Kosten (\u20AC)</label><input name=\"cost\" inputmode=\"decimal\" value=\"").concat(ev.cost != null ? String(ev.cost).replace('.', ',') : '', "\" placeholder=\"bijv. 25,00\"></div>\n                <div><label>Eigen kleur</label><div style=\"display:flex;gap:10px;align-items:center\"><input type=\"color\" name=\"color\" value=\"").concat(esc(ev.customColor || ev.color || '#6C5CE7'), "\"><label class=\"check\"><input type=\"checkbox\" name=\"useColor\"").concat(ev.customColor ? ' checked' : '', "> gebruiken</label></div></div>\n              </div>\n              <label class=\"check\"><input type=\"checkbox\" name=\"paid\"").concat(ev.paid ? ' checked' : '', "> Betaald</label>\n              <label>Notities</label><textarea name=\"description\" rows=\"3\" placeholder=\"Wat meenemen, telefoonnummer, allergie\xEBn\u2026\">").concat(esc(ev.description || ''), "</textarea>\n            </details>\n            <p class=\"error-msg flash error\" hidden></p>\n          </div>\n          <div class=\"modal-foot\">\n            ").concat(isNew ? '' : '<button type="button" class="btn danger small" data-delete>🗑 Verwijderen</button><a class="btn secondary small" href="event.php?id=' + ev.id + '&occ=' + ev.occ + '">Details & lijstje</a>', "\n            <span class=\"spacer\"></span>\n            <button type=\"button\" class=\"btn secondary\" data-close>Annuleren</button>\n            <button type=\"submit\" class=\"btn\">Opslaan</button>\n          </div>\n        </form>");
+      }).join(''), "</div>\n            <div class=\"repeat-until\" style=\"display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap\">\n              <span class=\"repeat-text small muted\"></span>\n              <label class=\"small\" style=\"margin:0;font-weight:600\">tot en met</label><input type=\"date\" name=\"recurUntil\" value=\"").concat(esc(ev.recurUntil || ''), "\" style=\"width:auto;min-height:36px;padding:5px 10px\" title=\"Leeg laten = blijft altijd herhalen\"><span class=\"small muted\">(leeg = altijd door)</span>\n            </div>\n            <div class=\"label\">Met wie <small>(vriendjes, familie, gasten)</small></div>\n            <div class=\"people-select\" data-members=\"").concat(ev.members.join(','), "\"></div>\n            <div class=\"avail\"></div>\n            <div class=\"row2\">\n              <div><label>Waar</label><input name=\"location\" value=\"").concat(esc(ev.location || ''), "\" placeholder=\"Adres of plek\"></div>\n              <div><label>Bij wie</label><select name=\"host\">").concat(opts(DATA.hosts, ev.host), "</select></div>\n            </div>\n            ").concat(shareChips, "\n            <details class=\"more\"").concat(ev.dropWho || ev.pickupWho || ev.dropEach || ev.pickupEach || ev.cost || ev.description ? ' open' : '', ">\n              <summary>Meer opties</summary>\n              <div class=\"row2\">\n                <div><label>\uD83D\uDE97 Wie brengt</label><select name=\"dropMember\" data-who>").concat(whoOpts(ev.dropWho, !!ev.dropEach, ev.dropName), "</select></div>\n                <div><label>\uD83C\uDFE0 Wie haalt op</label><select name=\"pickupMember\" data-who>").concat(whoOpts(ev.pickupWho, !!ev.pickupEach, ev.pickupName), "</select></div>\n              </div>\n              <p class=\"hint each-hint\">\uD83D\uDD01 <b>Per keer bepalen</b> (bij herhalende afspraken): bij elke keer staat dan \u2753 tot iemand gekozen is. Kiezen kan in de agenda of bij Wie doet wat.</p>\n              ").concat(dutyNow, "\n              <div class=\"row2\">\n                <div><label>Kosten (\u20AC)</label><input name=\"cost\" inputmode=\"decimal\" value=\"").concat(ev.cost != null ? String(ev.cost).replace('.', ',') : '', "\" placeholder=\"bijv. 25,00\"></div>\n                <div><label>Eigen kleur</label><div style=\"display:flex;gap:10px;align-items:center\"><input type=\"color\" name=\"color\" value=\"").concat(esc(ev.customColor || ev.color || '#6C5CE7'), "\"><label class=\"check\"><input type=\"checkbox\" name=\"useColor\"").concat(ev.customColor ? ' checked' : '', "> gebruiken</label></div></div>\n              </div>\n              <label class=\"check\"><input type=\"checkbox\" name=\"paid\"").concat(ev.paid ? ' checked' : '', "> Betaald</label>\n              <label>Notities</label><textarea name=\"description\" rows=\"3\" placeholder=\"Wat meenemen, telefoonnummer, allergie\xEBn\u2026\">").concat(esc(ev.description || ''), "</textarea>\n            </details>\n            <p class=\"error-msg flash error\" hidden></p>\n          </div>\n          <div class=\"modal-foot\">\n            ").concat(isNew ? '' : '<button type="button" class="btn danger small" data-delete>🗑 Verwijderen</button><a class="btn secondary small" href="event.php?id=' + ev.id + '&occ=' + ev.occ + '">Details & lijstje</a>', "\n            <span class=\"spacer\"></span>\n            <button type=\"button\" class=\"btn secondary\" data-close>Annuleren</button>\n            <button type=\"submit\" class=\"btn\">Opslaan</button>\n          </div>\n        </form>");
       document.body.appendChild(d);
       var f = d.querySelector('form');
       // Warn when a chosen friend has a club / BSO that day or usually can't play then
       var availTimer;
       var checkAvail = function checkAvail() {
         clearTimeout(availTimer);
-        availTimer = setTimeout(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
+        availTimer = setTimeout(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
           var box, ids, r, _t3;
-          return _regenerator().w(function (_context3) {
-            while (1) switch (_context3.p = _context3.n) {
+          return _regenerator().w(function (_context4) {
+            while (1) switch (_context4.p = _context4.n) {
               case 0:
                 box = d.querySelector('.avail');
                 ids = people.value().map(function (c) {
                   return c.id;
                 });
                 if (!(!ids.length || !f.elements.startDate.value)) {
-                  _context3.n = 1;
+                  _context4.n = 1;
                   break;
                 }
                 box.innerHTML = '';
-                return _context3.a(2);
+                return _context4.a(2);
               case 1:
-                _context3.p = 1;
-                _context3.n = 2;
+                _context4.p = 1;
+                _context4.n = 2;
                 return api('availability', undefined, {
                   contacts: ids.join(','),
                   date: f.elements.startDate.value
                 });
               case 2:
-                r = _context3.v;
+                r = _context4.v;
                 box.innerHTML = r.notes.map(function (n) {
                   return "<div class=\"".concat(n.level, "\">").concat(esc(n.text), "</div>");
                 }).join('');
-                _context3.n = 4;
+                _context4.n = 4;
                 break;
               case 3:
-                _context3.p = 3;
-                _t3 = _context3.v;
+                _context4.p = 3;
+                _t3 = _context4.v;
                 box.innerHTML = '';
               case 4:
-                return _context3.a(2);
+                return _context4.a(2);
             }
-          }, _callee3, null, [[1, 3]]);
+          }, _callee4, null, [[1, 3]]);
         })), 200);
       };
-      var people = peopleSelect(d.querySelector('.people-select'), ev.contacts, true, checkAvail);
+      // Rebuild the "Wie brengt / haalt op" lists (keeping the choice) when the guests change
+      var whoSelects = function whoSelects() {
+        return [[f.elements.dropMember, true], [f.elements.pickupMember, true]].concat(Array.from(d.querySelectorAll('select[data-duty]')).map(function (x) {
+          return [x, false];
+        }));
+      };
+      var renderWho = function renderWho() {
+        whoSelects().forEach(function (_ref10) {
+          var _ref11 = _slicedToArray(_ref10, 2),
+            sel = _ref11[0],
+            main = _ref11[1];
+          var v = sel.value;
+          var name = (sel.selectedOptions[0] || {}).textContent || '';
+          sel.innerHTML = main ? whoOpts(v === 'EACH' ? '' : v, v === 'EACH', name.replace(/^\S+ /, '')) : whoOpts(v, undefined, name.replace(/^\S+ /, ''), '❓ nog beslissen');
+        });
+      };
+      var driverTimer;
+      var loadDrivers = function loadDrivers() {
+        clearTimeout(driverTimer);
+        driverTimer = setTimeout(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
+          var ids, _t4, _t5;
+          return _regenerator().w(function (_context5) {
+            while (1) switch (_context5.p = _context5.n) {
+              case 0:
+                ids = people.value().map(function (c) {
+                  return c.id;
+                });
+                _context5.p = 1;
+                if (!ids.length) {
+                  _context5.n = 3;
+                  break;
+                }
+                _context5.n = 2;
+                return api('drivers', undefined, {
+                  contacts: ids.join(',')
+                });
+              case 2:
+                _t4 = _context5.v.adults;
+                _context5.n = 4;
+                break;
+              case 3:
+                _t4 = [];
+              case 4:
+                guestAdults = _t4;
+                _context5.n = 6;
+                break;
+              case 5:
+                _context5.p = 5;
+                _t5 = _context5.v;
+                guestAdults = [];
+              case 6:
+                renderWho();
+              case 7:
+                return _context5.a(2);
+            }
+          }, _callee5, null, [[1, 5]]);
+        })), 200);
+      };
+      var people = peopleSelect(d.querySelector('.people-select'), ev.contacts, true, function () {
+        checkAvail();
+        loadDrivers();
+      });
       checkAvail();
+      loadDrivers();
+      d.addEventListener('fp:who-picked', function (x) {
+        if (!extraWho.some(function (o) {
+          return o.value === x.detail.value;
+        })) extraWho.push(x.detail);
+      });
       f.elements.startDate.addEventListener('change', checkAvail);
       var title = f.elements.title;
       var titleTouched = !isNew && ev.title !== '';
@@ -666,57 +886,63 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
         close(null);
       });
       d.querySelectorAll('[data-duty]').forEach(function (sel) {
-        return sel.addEventListener('change', /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
-          var _t4;
-          return _regenerator().w(function (_context4) {
-            while (1) switch (_context4.p = _context4.n) {
+        return sel.addEventListener('change', /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
+          var _t6;
+          return _regenerator().w(function (_context6) {
+            while (1) switch (_context6.p = _context6.n) {
               case 0:
-                _context4.p = 0;
-                _context4.n = 1;
+                if (!(sel.value === 'OTHER')) {
+                  _context6.n = 1;
+                  break;
+                }
+                return _context6.a(2);
+              case 1:
+                _context6.p = 1;
+                _context6.n = 2;
                 return api('duty', {
                   id: ev.id,
                   occ: ev.occ,
                   role: sel.dataset.duty,
-                  member: sel.value ? Number(sel.value) : null
+                  who: sel.value
                 });
-              case 1:
+              case 2:
                 toast(sel.value ? 'Geregeld voor deze keer ✓' : 'Weer open gezet');
                 document.dispatchEvent(new CustomEvent('fp:changed'));
-                _context4.n = 3;
+                _context6.n = 4;
                 break;
-              case 2:
-                _context4.p = 2;
-                _t4 = _context4.v;
-                toast(_t4.message);
               case 3:
-                return _context4.a(2);
+                _context6.p = 3;
+                _t6 = _context6.v;
+                toast(_t6.message);
+              case 4:
+                return _context6.a(2);
             }
-          }, _callee4, null, [[0, 2]]);
+          }, _callee6, null, [[1, 3]]);
         })));
       });
       var del = d.querySelector('[data-delete]');
-      if (del) del.onclick = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
+      if (del) del.onclick = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
         var ok;
-        return _regenerator().w(function (_context5) {
-          while (1) switch (_context5.n) {
+        return _regenerator().w(function (_context7) {
+          while (1) switch (_context7.n) {
             case 0:
-              _context5.n = 1;
+              _context7.n = 1;
               return deleteEvent(ev);
             case 1:
-              ok = _context5.v;
+              ok = _context7.v;
               if (ok) close({
                 deleted: true
               });
             case 2:
-              return _context5.a(2);
+              return _context7.a(2);
           }
-        }, _callee5);
+        }, _callee7);
       }));
       f.addEventListener('submit', /*#__PURE__*/function () {
-        var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(x) {
-          var err, allDay, body, scope, btn, r, _t5;
-          return _regenerator().w(function (_context6) {
-            while (1) switch (_context6.p = _context6.n) {
+        var _ref15 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(x) {
+          var err, allDay, body, scope, btn, r, _t7;
+          return _regenerator().w(function (_context8) {
+            while (1) switch (_context8.p = _context8.n) {
               case 0:
                 x.preventDefault();
                 err = d.querySelector('.error-msg');
@@ -750,55 +976,55 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
                   return Number(c.value);
                 });
                 if (f.elements.startDate.value) {
-                  _context6.n = 1;
+                  _context8.n = 1;
                   break;
                 }
                 err.textContent = 'Kies een datum.';
                 err.hidden = false;
-                return _context6.a(2);
+                return _context8.a(2);
               case 1:
                 if (!(ev.id && ev.recurring)) {
-                  _context6.n = 4;
+                  _context8.n = 4;
                   break;
                 }
-                _context6.n = 2;
+                _context8.n = 2;
                 return askScope('edit');
               case 2:
-                scope = _context6.v;
+                scope = _context8.v;
                 if (scope) {
-                  _context6.n = 3;
+                  _context8.n = 3;
                   break;
                 }
-                return _context6.a(2);
+                return _context8.a(2);
               case 3:
                 body.scope = scope;
               case 4:
                 btn = f.querySelector('[type=submit]');
                 btn.disabled = true;
-                _context6.p = 5;
-                _context6.n = 6;
+                _context8.p = 5;
+                _context8.n = 6;
                 return api('save', body);
               case 6:
-                r = _context6.v;
+                r = _context8.v;
                 toast(isNew ? 'Afspraak toegevoegd' : 'Opgeslagen');
                 close(r.event || {
                   id: r.id
                 });
-                _context6.n = 8;
+                _context8.n = 8;
                 break;
               case 7:
-                _context6.p = 7;
-                _t5 = _context6.v;
-                err.textContent = _t5.message;
+                _context8.p = 7;
+                _t7 = _context8.v;
+                err.textContent = _t7.message;
                 err.hidden = false;
                 btn.disabled = false;
               case 8:
-                return _context6.a(2);
+                return _context8.a(2);
             }
-          }, _callee6, null, [[5, 7]]);
+          }, _callee8, null, [[5, 7]]);
         }));
-        return function (_x4) {
-          return _ref11.apply(this, arguments);
+        return function (_x5) {
+          return _ref15.apply(this, arguments);
         };
       }());
       d.showModal();
@@ -809,35 +1035,35 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
   }
 
   /** Delete with the right scope question and an undo for single events. Resolves true when deleted. */
-  function deleteEvent(_x5) {
+  function deleteEvent(_x6) {
     return _deleteEvent.apply(this, arguments);
   } // ---------- Emoji picker ----------
   // <input data-emoji-picker data-default="🏫">: empty value = the default (the event type's emoji).
   function _deleteEvent() {
-    _deleteEvent = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(ev) {
-      var scope, ok, _t1;
-      return _regenerator().w(function (_context12) {
-        while (1) switch (_context12.p = _context12.n) {
+    _deleteEvent = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(ev) {
+      var scope, ok, _t11;
+      return _regenerator().w(function (_context14) {
+        while (1) switch (_context14.p = _context14.n) {
           case 0:
             scope = 'all';
             if (!ev.recurring) {
-              _context12.n = 3;
+              _context14.n = 3;
               break;
             }
-            _context12.n = 1;
+            _context14.n = 1;
             return askScope('delete');
           case 1:
-            scope = _context12.v;
+            scope = _context14.v;
             if (scope) {
-              _context12.n = 2;
+              _context14.n = 2;
               break;
             }
-            return _context12.a(2, false);
+            return _context14.a(2, false);
           case 2:
-            _context12.n = 5;
+            _context14.n = 5;
             break;
           case 3:
-            _context12.n = 4;
+            _context14.n = 4;
             return choose('Verwijderen?', '“' + ev.title + '” wordt uit de agenda gehaald.', [{
               value: 'yes',
               label: 'Ja, verwijderen',
@@ -847,35 +1073,35 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               label: 'Nee, laten staan'
             }]);
           case 4:
-            ok = _context12.v;
+            ok = _context14.v;
             if (ok) {
-              _context12.n = 5;
+              _context14.n = 5;
               break;
             }
-            return _context12.a(2, false);
+            return _context14.a(2, false);
           case 5:
-            _context12.p = 5;
-            _context12.n = 6;
+            _context14.p = 5;
+            _context14.n = 6;
             return api('delete', {
               id: ev.id,
               occ: ev.occ,
               scope: scope
             });
           case 6:
-            _context12.n = 8;
+            _context14.n = 8;
             break;
           case 7:
-            _context12.p = 7;
-            _t1 = _context12.v;
-            toast(_t1.message);
-            return _context12.a(2, false);
+            _context14.p = 7;
+            _t11 = _context14.v;
+            toast(_t11.message);
+            return _context14.a(2, false);
           case 8:
             if (!ev.recurring) {
-              toast('Verwijderd', 'Ongedaan maken', /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
-                return _regenerator().w(function (_context11) {
-                  while (1) switch (_context11.n) {
+              toast('Verwijderd', 'Ongedaan maken', /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
+                return _regenerator().w(function (_context13) {
+                  while (1) switch (_context13.n) {
                     case 0:
-                      _context11.n = 1;
+                      _context13.n = 1;
                       return api('restore', {
                         title: ev.title,
                         type: ev.type,
@@ -887,8 +1113,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
                         host: ev.host,
                         description: ev.description,
                         color: ev.customColor || '',
-                        drop_member_id: ev.dropMember,
-                        pickup_member_id: ev.pickupMember,
+                        drop_member_id: ev.dropWho,
+                        pickup_member_id: ev.pickupWho,
                         cost: ev.cost,
                         paid: ev.paid,
                         members: ev.members,
@@ -904,17 +1130,17 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
                       document.dispatchEvent(new CustomEvent('fp:changed'));
                       if (!window.FP_CAL) location.reload();
                     case 2:
-                      return _context11.a(2);
+                      return _context13.a(2);
                   }
-                }, _callee11);
+                }, _callee13);
               })));
             } else {
               toast('Verwijderd');
             }
             document.dispatchEvent(new CustomEvent('fp:changed'));
-            return _context12.a(2, true);
+            return _context14.a(2, true);
         }
-      }, _callee12, null, [[5, 7]]);
+      }, _callee14, null, [[5, 7]]);
     }));
     return _deleteEvent.apply(this, arguments);
   }
@@ -996,25 +1222,25 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 
   // ---------- Progressive enhancements ----------
   document.addEventListener('change', /*#__PURE__*/function () {
-    var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(e) {
-      var box, li, _t6;
-      return _regenerator().w(function (_context7) {
-        while (1) switch (_context7.p = _context7.n) {
+    var _ref16 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(e) {
+      var box, li, _t8;
+      return _regenerator().w(function (_context9) {
+        while (1) switch (_context9.p = _context9.n) {
           case 0:
             box = e.target.closest('input.js-task');
             if (box) {
-              _context7.n = 1;
+              _context9.n = 1;
               break;
             }
-            return _context7.a(2);
+            return _context9.a(2);
           case 1:
             li = box.closest('[data-task]');
             e.stopImmediatePropagation();
             box.form.onsubmit = function (x) {
               return x.preventDefault();
             };
-            _context7.p = 2;
-            _context7.n = 3;
+            _context9.p = 2;
+            _context9.n = 3;
             return api('task.toggle', {
               id: Number(li.dataset.task),
               done: box.checked
@@ -1022,39 +1248,39 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
           case 3:
             li.classList.toggle('is-done', box.checked);
             if (box.checked) toast('Afgevinkt ✓');
-            _context7.n = 5;
+            _context9.n = 5;
             break;
           case 4:
-            _context7.p = 4;
-            _t6 = _context7.v;
+            _context9.p = 4;
+            _t8 = _context9.v;
             box.checked = !box.checked;
-            toast(_t6.message);
+            toast(_t8.message);
           case 5:
-            return _context7.a(2);
+            return _context9.a(2);
         }
-      }, _callee7, null, [[2, 4]]);
+      }, _callee9, null, [[2, 4]]);
     }));
-    return function (_x6) {
-      return _ref12.apply(this, arguments);
+    return function (_x7) {
+      return _ref16.apply(this, arguments);
     };
   }(), true);
 
   // Birthday checklist toggles
   document.addEventListener('change', /*#__PURE__*/function () {
-    var _ref13 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(e) {
-      var box, _t7;
-      return _regenerator().w(function (_context8) {
-        while (1) switch (_context8.p = _context8.n) {
+    var _ref17 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(e) {
+      var box, _t9;
+      return _regenerator().w(function (_context0) {
+        while (1) switch (_context0.p = _context0.n) {
           case 0:
             box = e.target.closest('input.js-bday');
             if (box) {
-              _context8.n = 1;
+              _context0.n = 1;
               break;
             }
-            return _context8.a(2);
+            return _context0.a(2);
           case 1:
-            _context8.p = 1;
-            _context8.n = 2;
+            _context0.p = 1;
+            _context0.n = 2;
             return api('birthday.check', {
               subject: box.dataset.subject,
               item: box.dataset.item,
@@ -1062,119 +1288,119 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               done: box.checked
             });
           case 2:
-            _context8.n = 4;
+            _context0.n = 4;
             break;
           case 3:
-            _context8.p = 3;
-            _t7 = _context8.v;
+            _context0.p = 3;
+            _t9 = _context0.v;
             box.checked = !box.checked;
-            toast(_t7.message);
+            toast(_t9.message);
           case 4:
-            return _context8.a(2);
+            return _context0.a(2);
         }
-      }, _callee8, null, [[1, 3]]);
+      }, _callee0, null, [[1, 3]]);
     }));
-    return function (_x7) {
-      return _ref13.apply(this, arguments);
+    return function (_x8) {
+      return _ref17.apply(this, arguments);
     };
   }());
 
   // Buttons that open the editor: <button data-new-event='{"type":"PLAYDATE","members":[3]}'>
   document.addEventListener('click', /*#__PURE__*/function () {
-    var _ref14 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(e) {
+    var _ref18 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(e) {
       var b, preset, saved;
-      return _regenerator().w(function (_context9) {
-        while (1) switch (_context9.n) {
-          case 0:
-            b = e.target.closest('[data-new-event]');
-            if (b) {
-              _context9.n = 1;
-              break;
-            }
-            return _context9.a(2);
-          case 1:
-            e.preventDefault();
-            preset = {};
-            try {
-              preset = JSON.parse(b.dataset.newEvent || '{}');
-            } catch (x) {/* ignore */}
-            _context9.n = 2;
-            return openEditor(preset);
-          case 2:
-            saved = _context9.v;
-            if (saved) {
-              if (window.FP_CAL) document.dispatchEvent(new CustomEvent('fp:changed'));else location.reload();
-            }
-          case 3:
-            return _context9.a(2);
-        }
-      }, _callee9);
-    }));
-    return function (_x8) {
-      return _ref14.apply(this, arguments);
-    };
-  }());
-
-  // Open an existing event in the editor: <a data-edit-event="12" data-occ="2026-10-01">
-  document.addEventListener('click', /*#__PURE__*/function () {
-    var _ref15 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(e) {
-      var a, r, saved, _t8;
-      return _regenerator().w(function (_context0) {
-        while (1) switch (_context0.p = _context0.n) {
-          case 0:
-            a = e.target.closest('[data-edit-event]');
-            if (!(!a || e.metaKey || e.ctrlKey)) {
-              _context0.n = 1;
-              break;
-            }
-            return _context0.a(2);
-          case 1:
-            e.preventDefault();
-            _context0.p = 2;
-            _context0.n = 3;
-            return api('event', undefined, {
-              id: a.dataset.editEvent,
-              occ: a.dataset.occ || ''
-            });
-          case 3:
-            r = _context0.v;
-            _context0.n = 4;
-            return openEditor(r.event);
-          case 4:
-            saved = _context0.v;
-            if (saved) location.reload();
-            _context0.n = 6;
-            break;
-          case 5:
-            _context0.p = 5;
-            _t8 = _context0.v;
-            toast(_t8.message);
-          case 6:
-            return _context0.a(2);
-        }
-      }, _callee0, null, [[2, 5]]);
-    }));
-    return function (_x9) {
-      return _ref15.apply(this, arguments);
-    };
-  }());
-
-  // Confirm dangerous form submits: <form data-confirm="Zeker weten?">
-  document.addEventListener('submit', /*#__PURE__*/function () {
-    var _ref16 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(e) {
-      var f, ok;
       return _regenerator().w(function (_context1) {
         while (1) switch (_context1.n) {
           case 0:
-            f = e.target;
-            if (!(!f.dataset || !f.dataset.confirm || f.dataset.confirmed)) {
+            b = e.target.closest('[data-new-event]');
+            if (b) {
               _context1.n = 1;
               break;
             }
             return _context1.a(2);
           case 1:
             e.preventDefault();
+            preset = {};
+            try {
+              preset = JSON.parse(b.dataset.newEvent || '{}');
+            } catch (x) {/* ignore */}
             _context1.n = 2;
+            return openEditor(preset);
+          case 2:
+            saved = _context1.v;
+            if (saved) {
+              if (window.FP_CAL) document.dispatchEvent(new CustomEvent('fp:changed'));else location.reload();
+            }
+          case 3:
+            return _context1.a(2);
+        }
+      }, _callee1);
+    }));
+    return function (_x9) {
+      return _ref18.apply(this, arguments);
+    };
+  }());
+
+  // Open an existing event in the editor: <a data-edit-event="12" data-occ="2026-10-01">
+  document.addEventListener('click', /*#__PURE__*/function () {
+    var _ref19 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(e) {
+      var a, r, saved, _t0;
+      return _regenerator().w(function (_context10) {
+        while (1) switch (_context10.p = _context10.n) {
+          case 0:
+            a = e.target.closest('[data-edit-event]');
+            if (!(!a || e.metaKey || e.ctrlKey)) {
+              _context10.n = 1;
+              break;
+            }
+            return _context10.a(2);
+          case 1:
+            e.preventDefault();
+            _context10.p = 2;
+            _context10.n = 3;
+            return api('event', undefined, {
+              id: a.dataset.editEvent,
+              occ: a.dataset.occ || ''
+            });
+          case 3:
+            r = _context10.v;
+            _context10.n = 4;
+            return openEditor(r.event);
+          case 4:
+            saved = _context10.v;
+            if (saved) location.reload();
+            _context10.n = 6;
+            break;
+          case 5:
+            _context10.p = 5;
+            _t0 = _context10.v;
+            toast(_t0.message);
+          case 6:
+            return _context10.a(2);
+        }
+      }, _callee10, null, [[2, 5]]);
+    }));
+    return function (_x0) {
+      return _ref19.apply(this, arguments);
+    };
+  }());
+
+  // Confirm dangerous form submits: <form data-confirm="Zeker weten?">
+  document.addEventListener('submit', /*#__PURE__*/function () {
+    var _ref20 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(e) {
+      var f, ok;
+      return _regenerator().w(function (_context11) {
+        while (1) switch (_context11.n) {
+          case 0:
+            f = e.target;
+            if (!(!f.dataset || !f.dataset.confirm || f.dataset.confirmed)) {
+              _context11.n = 1;
+              break;
+            }
+            return _context11.a(2);
+          case 1:
+            e.preventDefault();
+            _context11.n = 2;
             return choose('Zeker weten?', f.dataset.confirm, [{
               value: 'yes',
               label: 'Ja',
@@ -1184,18 +1410,18 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               label: 'Nee'
             }]);
           case 2:
-            ok = _context1.v;
+            ok = _context11.v;
             if (ok) {
               f.dataset.confirmed = '1';
               f.requestSubmit ? f.requestSubmit(e.submitter) : f.submit();
             }
           case 3:
-            return _context1.a(2);
+            return _context11.a(2);
         }
-      }, _callee1);
+      }, _callee11);
     }));
-    return function (_x0) {
-      return _ref16.apply(this, arguments);
+    return function (_x1) {
+      return _ref20.apply(this, arguments);
     };
   }());
 
@@ -1217,50 +1443,50 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     return _checkForChanges.apply(this, arguments);
   }
   function _checkForChanges() {
-    _checkForChanges = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
-      var r, changed, newDay, _t10;
-      return _regenerator().w(function (_context13) {
-        while (1) switch (_context13.p = _context13.n) {
+    _checkForChanges = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15() {
+      var r, changed, newDay, _t12;
+      return _regenerator().w(function (_context15) {
+        while (1) switch (_context15.p = _context15.n) {
           case 0:
             if (!(document.hidden || !DATA.today)) {
-              _context13.n = 1;
+              _context15.n = 1;
               break;
             }
-            return _context13.a(2);
+            return _context15.a(2);
           case 1:
-            _context13.p = 1;
-            _context13.n = 2;
+            _context15.p = 1;
+            _context15.n = 2;
             return api('stamp');
           case 2:
-            r = _context13.v;
-            _context13.n = 4;
+            r = _context15.v;
+            _context15.n = 4;
             break;
           case 3:
-            _context13.p = 3;
-            _t10 = _context13.v;
-            return _context13.a(2);
+            _context15.p = 3;
+            _t12 = _context15.v;
+            return _context15.a(2);
           case 4:
             changed = lastStamp !== null && r.stamp !== lastStamp;
             newDay = r.today !== DATA.today;
             if (!(!changed && !newDay)) {
-              _context13.n = 5;
+              _context15.n = 5;
               break;
             }
-            return _context13.a(2);
+            return _context15.a(2);
           case 5:
             if (!busy()) {
-              _context13.n = 6;
+              _context15.n = 6;
               break;
             }
-            return _context13.a(2);
+            return _context15.a(2);
           case 6:
             // try again next round; lastStamp stays old so the change isn't forgotten
             lastStamp = r.stamp;
             if (window.FP_CAL && !newDay) document.dispatchEvent(new CustomEvent('fp:changed'));else location.reload();
           case 7:
-            return _context13.a(2);
+            return _context15.a(2);
         }
-      }, _callee13, null, [[1, 3]]);
+      }, _callee15, null, [[1, 3]]);
     }));
     return _checkForChanges.apply(this, arguments);
   }
@@ -1281,6 +1507,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     openEditor: openEditor,
     deleteEvent: deleteEvent,
     peopleSelect: peopleSelect,
+    whoOptions: whoOptions,
+    pickContact: pickContact,
     avatarHtml: avatarHtml,
     esc: esc,
     pad: pad,

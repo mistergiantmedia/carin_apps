@@ -74,11 +74,11 @@ function day_events_html(array $events, array $bdays, array $feasts = []): strin
         if (!empty($ev['pickup_open'])) {
             $meta[] = '🏠 ❓ wie haalt?';
         }
-        if ($ev['drop_member_id'] && member((int) $ev['drop_member_id'])) {
-            $meta[] = '🚗 ' . member((int) $ev['drop_member_id'])['name'];
+        if (driver_name($ev, 'drop') !== '') {
+            $meta[] = '🚗 ' . driver_name($ev, 'drop');
         }
-        if ($ev['pickup_member_id'] && member((int) $ev['pickup_member_id'])) {
-            $meta[] = '🏠 ' . member((int) $ev['pickup_member_id'])['name'];
+        if (driver_name($ev, 'pickup') !== '') {
+            $meta[] = '🏠 ' . driver_name($ev, 'pickup');
         }
         $html .= '<a class="ev' . ($ev['done'] ? ' done' : '') . '" style="--c:' . e(event_color($ev)) . '" href="' . e(event_link($ev)) . '"' . (empty($ev['shared']) ? ' data-edit-event="' . (int) $ev['id'] . '" data-occ="' . e($ev['occ']) . '"' : '') . '>'
             . '<div class="ev-time">' . e($ev['all_day'] ? 'hele dag' : substr($ev['start_at'], 11, 5)) . '</div>'

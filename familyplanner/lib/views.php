@@ -81,7 +81,7 @@ function kid_week_board(array $kid, string $weekStart, bool $showDone = true, in
                 . ($time ? '<div class="ki-time">' . e($time) . '</div>' : '')
                 . ($friends ? '<div class="ki-friends">' . $friends . '</div>' : '')
                 . ($where ? '<div class="ki-where">' . e($where) . '</div>' : '')
-                . ($ev['pickup_member_id'] && member((int) $ev['pickup_member_id']) ? '<div class="ki-where">' . e(member((int) $ev['pickup_member_id'])['emoji'] . ' ' . member((int) $ev['pickup_member_id'])['name']) . ' haalt je op</div>' : '')
+                . (($pick = driver_person($ev, 'pickup')) ? '<div class="ki-where">' . e($pick['emoji'] . ' ' . $pick['name']) . ' haalt je op</div>' : '')
                 . '</a>';
         }
         if (!$items) {

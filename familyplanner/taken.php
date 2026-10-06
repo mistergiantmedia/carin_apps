@@ -9,7 +9,7 @@ require_login();
 if (is_post()) {
     $action = post('action');
     if ($action === 'duty') {
-        set_duty((int) post_int('id'), post('occ'), post('role'), post_int('member'));
+        set_duty((int) post_int('id'), post('occ'), post('role'), post('member'));
         flash(post_int('member') ? 'Geregeld ✓' : 'Weer open gezet');
         redirect('taken.php#beslissen');
     }
@@ -147,7 +147,7 @@ if ($dutyEvents): ?>
         <?php foreach (['DROP' => ['drop', '🚗 brengt'], 'PICKUP' => ['pickup', '🏠 haalt']] as $role => [$key, $label]): if (empty($ev[$key . '_each'])) continue; ?>
           <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="duty"><input type="hidden" name="id" value="<?= (int) $ev['id'] ?>"><input type="hidden" name="occ" value="<?= e($ev['occ']) ?>"><input type="hidden" name="role" value="<?= $role ?>">
             <label class="small" style="display:flex;gap:6px;align-items:center;margin:0;font-weight:600"><?= $label ?>
-              <select name="member" onchange="this.form.submit()" style="width:auto;min-height:34px;padding:4px 8px<?= $ev[$key . '_open'] ? ';border-color:var(--warn)' : '' ?>"><option value="">❓ nog beslissen</option><?= options(member_options(), $ev[$key . '_member_id']) ?></select></label></form>
+              <select name="member" data-who onchange="if (this.value !== 'OTHER') this.form.submit()" style="width:auto;min-height:34px;padding:4px 8px<?= $ev[$key . '_open'] ? ';border-color:var(--warn)' : '' ?>"><?= driver_options_html(driver_value($ev[$key . '_member_id'], $ev[$key . '_contact_id'] ?? null), array_column($ev['contacts'], 'id'), null, '❓ nog beslissen') ?></select></label></form>
         <?php endforeach; ?>
       </li>
     <?php endforeach; ?>

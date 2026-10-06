@@ -94,12 +94,12 @@ try {
             // Fingerprint of everything shown in the app; pages poll it and refresh when it changes.
             // Per table: row count + checksum of the columns that matter (add new tables here).
             $watch = [
-                'fp_events' => 'id, title, type, emoji, start_at, end_at, done, updated_at, drop_member_id, pickup_member_id',
+                'fp_events' => 'id, title, type, emoji, start_at, end_at, done, updated_at, drop_member_id, pickup_member_id, drop_contact_id, pickup_contact_id',
                 'fp_event_members' => 'event_id, member_id',
                 'fp_event_contacts' => 'event_id, contact_id, rsvp',
                 'fp_event_done' => 'event_id, occurs_on',
                 'fp_event_exceptions' => 'event_id, occurs_on',
-                'fp_event_duties' => 'event_id, occurs_on, role, member_id',
+                'fp_event_duties' => 'event_id, occurs_on, role, member_id, contact_id',
                 'fp_tasks' => 'id, title, due_date, member_id, recurrence, done_at',
                 'fp_contacts' => 'id, first_name, last_name, nickname, photo, birth_day, birth_month, birth_year, household_id, relation, is_favorite',
                 'fp_contact_members' => 'contact_id, member_id',
@@ -308,7 +308,8 @@ try {
             if (!valid_date($occ)) {
                 reply(['error' => 'Ongeldige datum.'], 400);
             }
-            set_duty((int) ($in['id'] ?? 0), $occ, in_str($in, 'role'), !empty($in['member']) ? (int) $in['member'] : null);
+            // who: member id or "c<contact id>" ('' = undecided again); member: older clients
+            set_duty((int) ($in['id'] ?? 0), $occ, in_str($in, 'role'), isset($in['who']) ? (string) $in['who'] : (string) ($in['member'] ?? ''));
             reply(['ok' => true, 'event' => occurrence_json((int) ($in['id'] ?? 0), $occ)]);
 
         case 'done':
@@ -355,6 +356,10 @@ try {
                 ];
             }
             reply(['contacts' => $out]);
+
+        case 'drivers':
+            // Grown-ups in the gezin of the chosen guests, for "Wie brengt / haalt op" in the event editor
+            reply(['adults' => guest_adult_options(array_map('intval', explode(',', (string) ($_GET['contacts'] ?? ''))))]);
 
         case 'contact.quick':
             // Add someone new straight from the event editor

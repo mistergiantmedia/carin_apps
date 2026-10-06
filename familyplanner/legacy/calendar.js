@@ -25,6 +25,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     openEditor = _window$FP.openEditor,
     deleteEvent = _window$FP.deleteEvent,
     askScope = _window$FP.askScope,
+    whoOptions = _window$FP.whoOptions,
     avatarHtml = _window$FP.avatarHtml,
     esc = _window$FP.esc,
     pad = _window$FP.pad,
@@ -718,10 +719,11 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
   }
 
   /** Select for "per keer bepalen": who does it this time (empty = ❓ nog beslissen). */
-  function dutySelect(role, current) {
-    return "<select data-duty=\"".concat(role, "\" style=\"width:auto;min-height:32px;padding:3px 8px").concat(current ? '' : ';border-color:var(--warn)', "\">") + "<option value=\"\">\u2753 nog beslissen</option>" + DATA.members.map(function (m) {
-      return "<option value=\"".concat(m.id, "\"").concat(m.id === current ? ' selected' : '', ">").concat(esc(m.emoji + ' ' + m.name), "</option>");
-    }).join('') + '</select>';
+  function dutySelect(role, current, name) {
+    return "<select data-duty=\"".concat(role, "\" data-who style=\"width:auto;min-height:32px;padding:3px 8px").concat(current ? '' : ';border-color:var(--warn)', "\">") + whoOptions(current, {
+      name: name,
+      blank: '❓ nog beslissen'
+    }) + '</select>';
   }
   function showPopover(ev, anchor) {
     closePopover();
@@ -743,10 +745,14 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       var guests = (ev.contacts || []).map(function (c) {
         return "<span class=\"person-tag\">".concat(avatarHtml(c, 22), " ").concat(esc(c.name)).concat(c.rsvp ? ' <small class="muted">· ' + esc(DATA.rsvps[c.rsvp]) + '</small>' : '', "</span>");
       }).join(' ');
-      var drop = memberById(ev.dropMember);
-      var pick = memberById(ev.pickupMember);
+      var drop = ev.dropName ? {
+        name: ev.dropName
+      } : null;
+      var pick = ev.pickupName ? {
+        name: ev.pickupName
+      } : null;
       var when = ev.allDay ? sameDay(ev.s, ev.e) ? dayLong(ev.s) + ' · hele dag' : dayLong(ev.s) + ' t/m ' + dayLong(ev.e) : dayLong(ev.s) + ' · ' + fmtTime(ev.s) + '–' + fmtTime(ev.e) + (sameDay(ev.s, ev.e) ? '' : ' (' + dayLong(ev.e) + ')');
-      pop.innerHTML = "<div class=\"pop-head\"><span class=\"pop-color\" style=\"background:".concat(colorOf(ev), "\"></span><h3>").concat(esc(ev.emoji), " ").concat(esc(ev.title), "</h3><button class=\"x\" data-pop=\"close\" aria-label=\"Sluiten\">\xD7</button></div>\n        <p class=\"pop-meta\">").concat(esc(when)).concat(ev.recurring ? '<br>🔁 ' + esc(DATA.recurrences[ev.recurrence] || '') : '', "</p>\n        ").concat(members ? "<div class=\"pop-row\">".concat(members, "</div>") : '', "\n        ").concat(guests ? "<div class=\"pop-row\">".concat(guests, "</div>") : '', "\n        ").concat(ev.location ? "<div class=\"pop-row\">\uD83D\uDCCD <a href=\"https://maps.google.com/?q=".concat(encodeURIComponent(ev.location), "\" target=\"_blank\" rel=\"noopener\">").concat(esc(ev.location), "</a></div>") : '', "\n        ").concat(ev.host ? "<div class=\"pop-row\">".concat(esc(DATA.hosts[ev.host]), "</div>") : '', "\n        ").concat(drop && !ev.dropEach || pick && !ev.pickupEach ? "<div class=\"pop-row\">".concat(drop && !ev.dropEach ? '🚗 brengen: <b>' + esc(drop.name) + '</b>' : '', " ").concat(pick && !ev.pickupEach ? '🏠 halen: <b>' + esc(pick.name) + '</b>' : '', "</div>") : '', "\n        ").concat(ev.dropEach || ev.pickupEach ? "<div class=\"pop-row duty-now\">\n          ".concat(ev.dropEach ? "<label>\uD83D\uDE97 brengt ".concat(dutySelect('DROP', ev.dropMember), "</label>") : '', "\n          ").concat(ev.pickupEach ? "<label>\uD83C\uDFE0 haalt ".concat(dutySelect('PICKUP', ev.pickupMember), "</label>") : '', "\n        </div>") : '', "\n        ").concat(ev.cost != null ? "<div class=\"pop-row\">\uD83D\uDCB6 \u20AC ".concat(ev.cost.toFixed(2).replace('.', ','), " ").concat(ev.paid ? '<span class="badge ok">betaald</span>' : '<span class="badge warn">nog betalen</span>', "</div>") : '', "\n        ").concat(ev.description ? "<div class=\"pop-row\" style=\"white-space:pre-line\">".concat(esc(ev.description), "</div>") : '', "\n        ").concat(ev.readOnly ? "<div class=\"pop-row shared-note\"><span>\uD83E\uDD1D Van <b>".concat(esc(ev.ownerFamily), "</b>. Alleen zij kunnen deze afspraak aanpassen.</span></div>") : "<div class=\"pop-actions\">\n          <button class=\"btn small ".concat(ev.done ? 'secondary' : 'ok', "\" data-pop=\"done\">").concat(ev.done ? '↺ Niet gedaan' : '✓ Afvinken', "</button>\n          <button class=\"btn small soft\" data-pop=\"edit\">\u270F\uFE0F Bewerken</button>\n          <a class=\"btn small secondary\" href=\"event.php?id=").concat(ev.id, "&occ=").concat(ev.occ, "\">\uD83D\uDCCB Details</a>\n          <button class=\"btn small secondary\" data-pop=\"copy\" title=\"Dupliceren\">\u29C9</button>\n          <button class=\"btn small danger\" data-pop=\"delete\" title=\"Verwijderen\">\uD83D\uDDD1</button>\n        </div>"));
+      pop.innerHTML = "<div class=\"pop-head\"><span class=\"pop-color\" style=\"background:".concat(colorOf(ev), "\"></span><h3>").concat(esc(ev.emoji), " ").concat(esc(ev.title), "</h3><button class=\"x\" data-pop=\"close\" aria-label=\"Sluiten\">\xD7</button></div>\n        <p class=\"pop-meta\">").concat(esc(when)).concat(ev.recurring ? '<br>🔁 ' + esc(DATA.recurrences[ev.recurrence] || '') : '', "</p>\n        ").concat(members ? "<div class=\"pop-row\">".concat(members, "</div>") : '', "\n        ").concat(guests ? "<div class=\"pop-row\">".concat(guests, "</div>") : '', "\n        ").concat(ev.location ? "<div class=\"pop-row\">\uD83D\uDCCD <a href=\"https://maps.google.com/?q=".concat(encodeURIComponent(ev.location), "\" target=\"_blank\" rel=\"noopener\">").concat(esc(ev.location), "</a></div>") : '', "\n        ").concat(ev.host ? "<div class=\"pop-row\">".concat(esc(DATA.hosts[ev.host]), "</div>") : '', "\n        ").concat(drop && !ev.dropEach || pick && !ev.pickupEach ? "<div class=\"pop-row\">".concat(drop && !ev.dropEach ? '🚗 brengen: <b>' + esc(drop.name) + '</b>' : '', " ").concat(pick && !ev.pickupEach ? '🏠 halen: <b>' + esc(pick.name) + '</b>' : '', "</div>") : '', "\n        ").concat(ev.dropEach || ev.pickupEach ? "<div class=\"pop-row duty-now\">\n          ".concat(ev.dropEach ? "<label>\uD83D\uDE97 brengt ".concat(dutySelect('DROP', ev.dropWho, ev.dropName), "</label>") : '', "\n          ").concat(ev.pickupEach ? "<label>\uD83C\uDFE0 haalt ".concat(dutySelect('PICKUP', ev.pickupWho, ev.pickupName), "</label>") : '', "\n        </div>") : '', "\n        ").concat(ev.cost != null ? "<div class=\"pop-row\">\uD83D\uDCB6 \u20AC ".concat(ev.cost.toFixed(2).replace('.', ','), " ").concat(ev.paid ? '<span class="badge ok">betaald</span>' : '<span class="badge warn">nog betalen</span>', "</div>") : '', "\n        ").concat(ev.description ? "<div class=\"pop-row\" style=\"white-space:pre-line\">".concat(esc(ev.description), "</div>") : '', "\n        ").concat(ev.readOnly ? "<div class=\"pop-row shared-note\"><span>\uD83E\uDD1D Van <b>".concat(esc(ev.ownerFamily), "</b>. Alleen zij kunnen deze afspraak aanpassen.</span></div>") : "<div class=\"pop-actions\">\n          <button class=\"btn small ".concat(ev.done ? 'secondary' : 'ok', "\" data-pop=\"done\">").concat(ev.done ? '↺ Niet gedaan' : '✓ Afvinken', "</button>\n          <button class=\"btn small soft\" data-pop=\"edit\">\u270F\uFE0F Bewerken</button>\n          <a class=\"btn small secondary\" href=\"event.php?id=").concat(ev.id, "&occ=").concat(ev.occ, "\">\uD83D\uDCCB Details</a>\n          <button class=\"btn small secondary\" data-pop=\"copy\" title=\"Dupliceren\">\u29C9</button>\n          <button class=\"btn small danger\" data-pop=\"delete\" title=\"Verwijderen\">\uD83D\uDDD1</button>\n        </div>"));
     }
     document.body.appendChild(pop);
     var r = anchor.getBoundingClientRect();
@@ -776,7 +782,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
           while (1) switch (_context.p = _context.n) {
             case 0:
               sel = e.target.closest('[data-duty]');
-              if (sel) {
+              if (!(!sel || sel.value === 'OTHER')) {
                 _context.n = 1;
                 break;
               }
@@ -788,7 +794,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
                 id: ev.id,
                 occ: ev.occ,
                 role: sel.dataset.duty,
-                member: sel.value ? Number(sel.value) : null
+                who: sel.value
               });
             case 2:
               toast(sel.value ? 'Geregeld voor deze keer ✓' : 'Weer open gezet');

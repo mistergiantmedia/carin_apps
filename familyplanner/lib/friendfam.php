@@ -390,7 +390,7 @@ function shared_events(string $from, string $to): array
                 'contacts' => $guests,
                 'host' => $isPlaydate ? $host : $ev['host'],
                 'description' => $ev['description'],
-                'drop_member_id' => null, 'pickup_member_id' => null, 'drop_each' => 0, 'pickup_each' => 0, 'drop_open' => false, 'pickup_open' => false,
+                'drop_member_id' => null, 'pickup_member_id' => null, 'drop_contact_id' => null, 'pickup_contact_id' => null, 'drop_each' => 0, 'pickup_each' => 0, 'drop_open' => false, 'pickup_open' => false,
                 'cost' => null, 'paid' => 0, 'recurring' => false, 'recurrence' => '', 'recur_until' => null,
                 'shared' => true, 'owner_family' => $fam['name'], 'owner_family_id' => $fid,
             ]);

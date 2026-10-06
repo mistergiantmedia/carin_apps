@@ -569,6 +569,26 @@ function page_end(array $scripts = []): void
     echo "</body>\n</html>\n";
 }
 
+/** A contact as an option for "Wie brengt / haalt op". */
+function driver_option(array $c, string $note = ''): array
+{
+    return [
+        'value' => 'c' . (int) $c['id'],
+        'name' => contact_name($c, false),
+        'label' => (RELATIONS[$c['relation']][1] ?? '👤') . ' ' . contact_name($c) . ($note !== '' ? ' (' . $note . ')' : ''),
+    ];
+}
+
+/** Babysitters in the address book (relation Oppas). */
+function sitter_options(): array
+{
+    $out = [];
+    foreach (db()->query("SELECT * FROM fp_contacts WHERE relation = 'BABYSITTER' ORDER BY is_favorite DESC, first_name") as $c) {
+        $out[] = driver_option($c);
+    }
+    return $out;
+}
+
 /** Members and fixed lists for app.js / calendar.js. */
 function front_end_data(): array
 {
@@ -588,6 +608,8 @@ function front_end_data(): array
         'recurrences' => RECURRENCES,
         'hosts' => HOSTS,
         'rsvps' => RSVPS,
+        // Babysitters, always offered for "Wie brengt / haalt op"
+        'sitters' => sitter_options(),
         'today' => today(),
         // Friend families we share single events with (chips in the event editor)
         'friendFamilies' => array_values(array_map(function ($f) {

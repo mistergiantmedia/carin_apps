@@ -61,8 +61,8 @@ foreach (load_events($from, $to, $filter) as $ev) {
     $desc = trim(implode("\n", array_filter([
         $who ? 'Wie: ' . implode(', ', $who) : '',
         $guests ? 'Met: ' . implode(', ', $guests) : '',
-        $ev['drop_member_id'] ? 'Brengen: ' . (member((int) $ev['drop_member_id'])['name'] ?? '') : '',
-        $ev['pickup_member_id'] ? 'Halen: ' . (member((int) $ev['pickup_member_id'])['name'] ?? '') : '',
+        driver_name($ev, 'drop') !== '' ? 'Brengen: ' . driver_name($ev, 'drop') : '',
+        driver_name($ev, 'pickup') !== '' ? 'Halen: ' . driver_name($ev, 'pickup') : '',
         (string) $ev['description'],
         $base . 'event.php?id=' . $ev['id'] . '&occ=' . $ev['occ'],
     ])));

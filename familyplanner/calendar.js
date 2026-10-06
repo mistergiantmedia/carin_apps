@@ -7,7 +7,7 @@
    On touch screens: hold an event (or empty spot) briefly, then drag. */
 (function () {
   'use strict';
-  const { api, toast, openEditor, deleteEvent, askScope, avatarHtml, esc, pad, ymd, hm, parse, local, DAYS, MONTHS, DATA, memberById } = window.FP;
+  const { api, toast, openEditor, deleteEvent, askScope, whoOptions, avatarHtml, esc, pad, ymd, hm, parse, local, DAYS, MONTHS, DATA, memberById } = window.FP;
   window.FP_CAL = true;
   const root = document.getElementById('calendar');
   if (!root) return;
@@ -459,10 +459,9 @@
   function findEvent(key) { return visibleEvents().find((ev) => ev.key === key); }
 
   /** Select for "per keer bepalen": who does it this time (empty = ❓ nog beslissen). */
-  function dutySelect(role, current) {
-    return `<select data-duty="${role}" style="width:auto;min-height:32px;padding:3px 8px${current ? '' : ';border-color:var(--warn)'}">` +
-      `<option value="">❓ nog beslissen</option>` +
-      DATA.members.map((m) => `<option value="${m.id}"${m.id === current ? ' selected' : ''}>${esc(m.emoji + ' ' + m.name)}</option>`).join('') + '</select>';
+  function dutySelect(role, current, name) {
+    return `<select data-duty="${role}" data-who style="width:auto;min-height:32px;padding:3px 8px${current ? '' : ';border-color:var(--warn)'}">` +
+      whoOptions(current, { name, blank: '❓ nog beslissen' }) + '</select>';
   }
 
   function showPopover(ev, anchor) {
@@ -481,8 +480,8 @@
     } else {
       const members = ev.members.map(memberById).filter(Boolean).map((m) => `<span class="chip small" style="--c:${m.color}">${esc(m.emoji)} ${esc(m.name)}</span>`).join(' ');
       const guests = (ev.contacts || []).map((c) => `<span class="person-tag">${avatarHtml(c, 22)} ${esc(c.name)}${c.rsvp ? ' <small class="muted">· ' + esc(DATA.rsvps[c.rsvp]) + '</small>' : ''}</span>`).join(' ');
-      const drop = memberById(ev.dropMember);
-      const pick = memberById(ev.pickupMember);
+      const drop = ev.dropName ? { name: ev.dropName } : null;
+      const pick = ev.pickupName ? { name: ev.pickupName } : null;
       const when = ev.allDay
         ? (sameDay(ev.s, ev.e) ? dayLong(ev.s) + ' · hele dag' : dayLong(ev.s) + ' t/m ' + dayLong(ev.e))
         : dayLong(ev.s) + ' · ' + fmtTime(ev.s) + '–' + fmtTime(ev.e) + (sameDay(ev.s, ev.e) ? '' : ' (' + dayLong(ev.e) + ')');
@@ -494,8 +493,8 @@
         ${ev.host ? `<div class="pop-row">${esc(DATA.hosts[ev.host])}</div>` : ''}
         ${(drop && !ev.dropEach) || (pick && !ev.pickupEach) ? `<div class="pop-row">${drop && !ev.dropEach ? '🚗 brengen: <b>' + esc(drop.name) + '</b>' : ''} ${pick && !ev.pickupEach ? '🏠 halen: <b>' + esc(pick.name) + '</b>' : ''}</div>` : ''}
         ${ev.dropEach || ev.pickupEach ? `<div class="pop-row duty-now">
-          ${ev.dropEach ? `<label>🚗 brengt ${dutySelect('DROP', ev.dropMember)}</label>` : ''}
-          ${ev.pickupEach ? `<label>🏠 haalt ${dutySelect('PICKUP', ev.pickupMember)}</label>` : ''}
+          ${ev.dropEach ? `<label>🚗 brengt ${dutySelect('DROP', ev.dropWho, ev.dropName)}</label>` : ''}
+          ${ev.pickupEach ? `<label>🏠 haalt ${dutySelect('PICKUP', ev.pickupWho, ev.pickupName)}</label>` : ''}
         </div>` : ''}
         ${ev.cost != null ? `<div class="pop-row">💶 € ${ev.cost.toFixed(2).replace('.', ',')} ${ev.paid ? '<span class="badge ok">betaald</span>' : '<span class="badge warn">nog betalen</span>'}</div>` : ''}
         ${ev.description ? `<div class="pop-row" style="white-space:pre-line">${esc(ev.description)}</div>` : ''}
@@ -526,9 +525,9 @@
 
     pop.addEventListener('change', async (e) => {
       const sel = e.target.closest('[data-duty]');
-      if (!sel) return;
+      if (!sel || sel.value === 'OTHER') return; // "Iemand anders…": the contact picker opens first
       try {
-        await api('duty', { id: ev.id, occ: ev.occ, role: sel.dataset.duty, member: sel.value ? Number(sel.value) : null });
+        await api('duty', { id: ev.id, occ: ev.occ, role: sel.dataset.duty, who: sel.value });
         toast(sel.value ? 'Geregeld voor deze keer ✓' : 'Weer open gezet');
         closePopover();
         refresh(true);

@@ -232,8 +232,86 @@
       }
     });
     render();
-    return { value: () => chosen.map((c) => ({ id: c.id, rsvp: c.rsvp || '' })), names: () => chosen.map((c) => c.name) };
+    return { value: () => chosen.map((c) => ({ id: c.id, rsvp: c.rsvp || '' })), names: () => chosen.map((c) => c.name), items: () => chosen };
   }
+
+  // ---------- Who brings / picks up ----------
+  // Values: a member id ("3") or a contact from the address book ("c12"); "OTHER" opens the contact picker.
+  /**
+   * <option>s for a "Wie brengt / haalt op" select. opts: each (true/false = offer "Per keer bepalen"),
+   * guests (grown-ups of the guests' gezin, from api drivers), extra (other contacts to offer), blank (label of '').
+   */
+  function whoOptions(selected, opts) {
+    opts = opts || {};
+    selected = opts.each ? '' : String(selected == null ? '' : selected);
+    const seen = {};
+    const group = (label, list) => {
+      const html = list.filter((o) => o && o.value && !seen[o.value]).map((o) => {
+        seen[o.value] = true;
+        return `<option value="${esc(o.value)}"${o.value === selected ? ' selected' : ''}>${esc(o.label)}</option>`;
+      }).join('');
+      return html ? `<optgroup label="${esc(label)}">${html}</optgroup>` : '';
+    };
+    let html = `<option value="">${esc(opts.blank || '—')}</option>`;
+    if (opts.each !== undefined) html += `<option value="EACH"${opts.each ? ' selected' : ''}>🔁 Per keer bepalen</option>`;
+    html += group('Ons gezin', DATA.members.map((m) => ({ value: String(m.id), label: m.emoji + ' ' + m.name })));
+    html += group('Gezin van de gasten', opts.guests || []);
+    html += group('Oppas', DATA.sitters || []);
+    html += group('Anderen', (opts.extra || []).concat(selected && !seen[selected] ? [{ value: selected, label: '👤 ' + (opts.name || '?') }] : []));
+    return html + '<option value="OTHER">👤 Iemand anders…</option>';
+  }
+
+  /** Choose anyone from the address book (or add someone new). Resolves {value, name, label} or null. */
+  function pickContact(title) {
+    return new Promise((resolve) => {
+      const d = document.createElement('dialog');
+      d.className = 'modal';
+      d.style.width = '460px';
+      d.style.maxWidth = 'calc(100vw - 24px)';
+      d.innerHTML = `<div class="modal-head"><h2>${esc(title)}</h2><button type="button" class="x" aria-label="Sluiten">×</button></div>
+        <div class="modal-body"><p class="muted small">Zoek in al jullie contacten, of typ een nieuwe naam.</p><div class="people-select"></div></div>`;
+      let settled = false;
+      const done = (v) => { if (settled) return; settled = true; d.close(); d.remove(); resolve(v); };
+      const picker = peopleSelect(d.querySelector('.people-select'), [], false, () => {
+        const c = picker.items()[0];
+        if (c) done({ value: 'c' + c.id, name: c.name, label: '👤 ' + (c.fullName || c.name) });
+      });
+      d.querySelector('.x').onclick = () => done(null);
+      d.addEventListener('cancel', (e) => { e.preventDefault(); done(null); });
+      document.body.appendChild(d);
+      d.showModal();
+      setTimeout(() => d.querySelector('.people-select input').focus(), 50);
+    });
+  }
+
+  // Any <select data-who>: "👤 Iemand anders…" opens the contact picker and adds the choice to the list
+  document.addEventListener('focusin', (e) => {
+    if (e.target.matches && e.target.matches('select[data-who]')) e.target.dataset.prev = e.target.value;
+  });
+  document.addEventListener('change', async (e) => {
+    const sel = e.target;
+    if (!sel.matches || !sel.matches('select[data-who]')) return;
+    if (sel.value !== 'OTHER') { sel.dataset.prev = sel.value; return; }
+    sel.value = sel.dataset.prev || '';
+    const c = await pickContact('Wie is het?');
+    if (!c) return;
+    if (!sel.querySelector(`option[value="${c.value}"]`)) {
+      let grp = Array.from(sel.querySelectorAll('optgroup')).find((g) => g.label === 'Anderen');
+      if (!grp) {
+        grp = document.createElement('optgroup');
+        grp.label = 'Anderen';
+        sel.insertBefore(grp, sel.querySelector('option[value=OTHER]'));
+      }
+      const o = document.createElement('option');
+      o.value = c.value;
+      o.textContent = c.label;
+      grp.appendChild(o);
+    }
+    sel.value = c.value;
+    sel.dataset.prev = c.value;
+    sel.dispatchEvent(new CustomEvent('fp:who-picked', { bubbles: true, detail: c }));
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  });
 
   // ---------- Event editor ----------
   /**
@@ -262,14 +340,15 @@
         `<label class="pick" style="--c:${t.color}"><input type="radio" name="type" value="${k}"${k === ev.type ? ' checked' : ''}><span>${t.emoji} ${esc(t.label)}</span></label>`).join('');
       const memberChips = DATA.members.map((m) =>
         `<label class="pick" style="--c:${m.color}"><input type="checkbox" name="members" value="${m.id}"${ev.members.includes(m.id) ? ' checked' : ''}><span>${esc(m.emoji)} ${esc(m.name)}</span></label>`).join('');
-      const memberOpts = (sel, each) => '<option value="">—</option>'
-        + (each !== undefined ? `<option value="EACH"${each ? ' selected' : ''}>🔁 Per keer bepalen</option>` : '')
-        + DATA.members.map((m) => `<option value="${m.id}"${m.id === sel && !each ? ' selected' : ''}>${esc(m.emoji + ' ' + m.name)}</option>`).join('');
+      // Who brings / picks up: our family, the grown-ups of the guests' gezin, babysitters, or anyone else
+      let guestAdults = [];
+      const extraWho = [];
+      const whoOpts = (sel, each, name, blank) => whoOptions(sel, { each, guests: guestAdults, extra: extraWho, name, blank });
       // For one occurrence of a "per keer bepalen" series: choose right here who does it this time
       const dutyNow = ev.id && (ev.dropEach || ev.pickupEach) ? `<div class="duty-now">
           <b>Deze keer (${esc(DAYS[s.getDay()])} ${s.getDate()} ${esc(MONTHS[s.getMonth()])}):</b>
-          ${ev.dropEach ? `<label>🚗 brengt <select data-duty="DROP">${memberOpts(ev.dropMember)}</select></label>` : ''}
-          ${ev.pickupEach ? `<label>🏠 haalt <select data-duty="PICKUP">${memberOpts(ev.pickupMember)}</select></label>` : ''}
+          ${ev.dropEach ? `<label>🚗 brengt <select data-duty="DROP" data-who>${whoOpts(ev.dropWho, undefined, ev.dropName, '❓ nog beslissen')}</select></label>` : ''}
+          ${ev.pickupEach ? `<label>🏠 haalt <select data-duty="PICKUP" data-who>${whoOpts(ev.pickupWho, undefined, ev.pickupName, '❓ nog beslissen')}</select></label>` : ''}
         </div>` : '';
       // Friend families that may see this event in their agenda (only those we share single events with)
       const friendFams = DATA.friendFamilies || [];
@@ -306,11 +385,11 @@
               <div><label>Bij wie</label><select name="host">${opts(DATA.hosts, ev.host)}</select></div>
             </div>
             ${shareChips}
-            <details class="more"${ev.dropMember || ev.pickupMember || ev.dropEach || ev.pickupEach || ev.cost || ev.description ? ' open' : ''}>
+            <details class="more"${ev.dropWho || ev.pickupWho || ev.dropEach || ev.pickupEach || ev.cost || ev.description ? ' open' : ''}>
               <summary>Meer opties</summary>
               <div class="row2">
-                <div><label>🚗 Wie brengt</label><select name="dropMember">${memberOpts(ev.dropMember, !!ev.dropEach)}</select></div>
-                <div><label>🏠 Wie haalt op</label><select name="pickupMember">${memberOpts(ev.pickupMember, !!ev.pickupEach)}</select></div>
+                <div><label>🚗 Wie brengt</label><select name="dropMember" data-who>${whoOpts(ev.dropWho, !!ev.dropEach, ev.dropName)}</select></div>
+                <div><label>🏠 Wie haalt op</label><select name="pickupMember" data-who>${whoOpts(ev.pickupWho, !!ev.pickupEach, ev.pickupName)}</select></div>
               </div>
               <p class="hint each-hint">🔁 <b>Per keer bepalen</b> (bij herhalende afspraken): bij elke keer staat dan ❓ tot iemand gekozen is. Kiezen kan in de agenda of bij Wie doet wat.</p>
               ${dutyNow}
@@ -346,8 +425,31 @@
           } catch (e) { box.innerHTML = ''; }
         }, 200);
       };
-      const people = peopleSelect(d.querySelector('.people-select'), ev.contacts, true, checkAvail);
+      // Rebuild the "Wie brengt / haalt op" lists (keeping the choice) when the guests change
+      const whoSelects = () => [[f.elements.dropMember, true], [f.elements.pickupMember, true]]
+        .concat(Array.from(d.querySelectorAll('select[data-duty]')).map((x) => [x, false]));
+      const renderWho = () => {
+        whoSelects().forEach(([sel, main]) => {
+          const v = sel.value;
+          const name = (sel.selectedOptions[0] || {}).textContent || '';
+          sel.innerHTML = main ? whoOpts(v === 'EACH' ? '' : v, v === 'EACH', name.replace(/^\S+ /, '')) : whoOpts(v, undefined, name.replace(/^\S+ /, ''), '❓ nog beslissen');
+        });
+      };
+      let driverTimer;
+      const loadDrivers = () => {
+        clearTimeout(driverTimer);
+        driverTimer = setTimeout(async () => {
+          const ids = people.value().map((c) => c.id);
+          try {
+            guestAdults = ids.length ? (await api('drivers', undefined, { contacts: ids.join(',') })).adults : [];
+          } catch (x) { guestAdults = []; }
+          renderWho();
+        }, 200);
+      };
+      const people = peopleSelect(d.querySelector('.people-select'), ev.contacts, true, () => { checkAvail(); loadDrivers(); });
       checkAvail();
+      loadDrivers();
+      d.addEventListener('fp:who-picked', (x) => { if (!extraWho.some((o) => o.value === x.detail.value)) extraWho.push(x.detail); });
       f.elements.startDate.addEventListener('change', checkAvail);
       const title = f.elements.title;
       let titleTouched = !isNew && ev.title !== '';
@@ -412,8 +514,9 @@
       d.addEventListener('cancel', (x) => { x.preventDefault(); close(null); });
 
       d.querySelectorAll('[data-duty]').forEach((sel) => sel.addEventListener('change', async () => {
+        if (sel.value === 'OTHER') return; // the contact picker opens first
         try {
-          await api('duty', { id: ev.id, occ: ev.occ, role: sel.dataset.duty, member: sel.value ? Number(sel.value) : null });
+          await api('duty', { id: ev.id, occ: ev.occ, role: sel.dataset.duty, who: sel.value });
           toast(sel.value ? 'Geregeld voor deze keer ✓' : 'Weer open gezet');
           document.dispatchEvent(new CustomEvent('fp:changed'));
         } catch (e2) { toast(e2.message); }
@@ -493,7 +596,7 @@
       toast('Verwijderd', 'Ongedaan maken', async () => {
         await api('restore', {
           title: ev.title, type: ev.type, emoji: ev.customEmoji || '', start: ev.start, end: ev.end, all_day: ev.allDay, location: ev.location, host: ev.host,
-          description: ev.description, color: ev.customColor || '', drop_member_id: ev.dropMember, pickup_member_id: ev.pickupMember,
+          description: ev.description, color: ev.customColor || '', drop_member_id: ev.dropWho, pickup_member_id: ev.pickupWho,
           cost: ev.cost, paid: ev.paid, members: ev.members, shares: ev.shares || [], contacts: (ev.contacts || []).map((c) => ({ id: c.id, rsvp: c.rsvp })),
         });
         document.dispatchEvent(new CustomEvent('fp:changed'));
@@ -638,5 +741,5 @@
     document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForChanges(); });
   }
 
-  window.FP = { api, toast, choose, askScope, openEditor, deleteEvent, peopleSelect, avatarHtml, esc, pad, ymd, hm, parse, local, DAYS, MONTHS, DATA, memberById };
+  window.FP = { api, toast, choose, askScope, openEditor, deleteEvent, peopleSelect, whoOptions, pickContact, avatarHtml, esc, pad, ymd, hm, parse, local, DAYS, MONTHS, DATA, memberById };
 })();

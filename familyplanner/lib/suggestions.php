@@ -148,7 +148,7 @@ function build_suggestions(): array
             continue;
         }
         $kids = array_intersect(array_map('intval', array_keys(children())), $ev['members']);
-        if (!$kids || $ev['drop_member_id'] || $ev['pickup_member_id'] || $ev['host'] === 'HOME' || !in_array($ev['type'], ['PLAYDATE', 'PARTY', 'SPORT', 'ACTIVITY'], true)) {
+        if (!$kids || $ev['drop_member_id'] || $ev['pickup_member_id'] || !empty($ev['drop_contact_id']) || !empty($ev['pickup_contact_id']) || $ev['host'] === 'HOME' || !in_array($ev['type'], ['PLAYDATE', 'PARTY', 'SPORT', 'ACTIVITY'], true)) {
             continue;
         }
         $names = implode(' & ', array_map(function ($id) {

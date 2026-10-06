@@ -134,8 +134,8 @@ function load_events(string $from, string $to, array $filter = []): array
         }
     }
     if ($eachIds) {
-        foreach (db()->query('SELECT event_id, occurs_on, role, member_id FROM fp_event_duties WHERE event_id IN (' . implode(',', $eachIds) . ')') as $r) {
-            $duties[$r['event_id']][$r['occurs_on']][$r['role']] = $r['member_id'] ? (int) $r['member_id'] : null;
+        foreach (db()->query('SELECT event_id, occurs_on, role, member_id, contact_id FROM fp_event_duties WHERE event_id IN (' . implode(',', $eachIds) . ')') as $r) {
+            $duties[$r['event_id']][$r['occurs_on']][$r['role']] = [$r['member_id'] ? (int) $r['member_id'] : null, $r['contact_id'] ? (int) $r['contact_id'] : null];
         }
     }
 
@@ -272,25 +272,28 @@ function apply_duties(array $o, array $duties): array
         if (empty($o[$key . '_each'])) {
             continue;
         }
-        $member = $duties[$o['id']][$o['occ']][$role] ?? null;
+        [$member, $contact] = $duties[$o['id']][$o['occ']][$role] ?? [null, null];
         $o[$key . '_member_id'] = $member;
-        $o[$key . '_open'] = $member === null;
+        $o[$key . '_contact_id'] = $contact;
+        $o[$key . '_open'] = $member === null && $contact === null;
     }
     return $o;
 }
 
-/** Decide who brings (DROP) or picks up (PICKUP) for one occurrence; null = undecided again. */
-function set_duty(int $id, string $occ, string $role, ?int $member): void
+/**
+ * Decide who brings (DROP) or picks up (PICKUP) for one occurrence; '' = undecided again.
+ * $who: a member id ("3") or a contact ("c12"), see parse_driver().
+ */
+function set_duty(int $id, string $occ, string $role, string $who): void
 {
     if (!in_array($role, ['DROP', 'PICKUP'], true)) {
         throw new InvalidArgumentException('Ongeldige taak.');
     }
-    if ($member && !member($member)) {
-        $member = null;
-    }
-    if ($member) {
-        db()->prepare('INSERT INTO fp_event_duties (event_id, occurs_on, role, member_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE member_id = VALUES(member_id)')
-            ->execute([$id, $occ, $role, $member]);
+    [$member, $contact] = parse_driver($who);
+    if ($member || $contact) {
+        db()->prepare('INSERT INTO fp_event_duties (event_id, occurs_on, role, member_id, contact_id) VALUES (?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE member_id = VALUES(member_id), contact_id = VALUES(contact_id)')
+            ->execute([$id, $occ, $role, $member, $contact]);
     } else {
         db()->prepare('DELETE FROM fp_event_duties WHERE event_id = ? AND occurs_on = ? AND role = ?')->execute([$id, $occ, $role]);
     }
@@ -373,7 +376,8 @@ function find_event(int $id): ?array
 /**
  * Validate and normalise event input (from the API or a form).
  * Input keys: title, type, start (Y-m-d or Y-m-d H:i), end, all_day, location, host, description, color,
- * recurrence, recur_until, drop_member_id, pickup_member_id, cost, paid, members (ids), contacts (ids or id=>rsvp).
+ * recurrence, recur_until, drop_member_id, pickup_member_id (member id, "c<contact id>" or EACH), cost, paid,
+ * members (ids), contacts (ids or id=>rsvp).
  */
 function normalise_event(array $in): array
 {
@@ -417,9 +421,11 @@ function normalise_event(array $in): array
             $contacts[$cid] = isset(RSVPS[$rsvp]) ? $rsvp : '';
         }
     }
-    $memberOrNull = function ($v) {
-        return $v && member((int) $v) ? (int) $v : null;
+    $each = function (string $key) use ($in, $recurrence): bool {
+        return ($in[$key . '_member_id'] ?? '') === 'EACH' && $recurrence !== '';
     };
+    [$dropMember, $dropContact] = $each('drop') ? [null, null] : parse_driver($in['drop_member_id'] ?? '');
+    [$pickupMember, $pickupContact] = $each('pickup') ? [null, null] : parse_driver($in['pickup_member_id'] ?? '');
     $cost = isset($in['cost']) && $in['cost'] !== '' && $in['cost'] !== null ? round((float) str_replace(',', '.', (string) $in['cost']), 2) : null;
     return [
         'title' => mb_cut($title, 160),
@@ -434,11 +440,13 @@ function normalise_event(array $in): array
         'color' => $color,
         'recurrence' => $recurrence,
         'recur_until' => $recurrence ? $until : null,
-        // 'EACH' = decide per occurrence (only for repeating events)
-        'drop_member_id' => ($in['drop_member_id'] ?? '') === 'EACH' ? null : $memberOrNull($in['drop_member_id'] ?? null),
-        'pickup_member_id' => ($in['pickup_member_id'] ?? '') === 'EACH' ? null : $memberOrNull($in['pickup_member_id'] ?? null),
-        'drop_each' => ($in['drop_member_id'] ?? '') === 'EACH' && $recurrence !== '' ? 1 : 0,
-        'pickup_each' => ($in['pickup_member_id'] ?? '') === 'EACH' && $recurrence !== '' ? 1 : 0,
+        // A member id, a contact ("c12") or 'EACH' = decide per occurrence (only for repeating events)
+        'drop_member_id' => $dropMember,
+        'pickup_member_id' => $pickupMember,
+        'drop_contact_id' => $dropContact,
+        'pickup_contact_id' => $pickupContact,
+        'drop_each' => $each('drop') ? 1 : 0,
+        'pickup_each' => $each('pickup') ? 1 : 0,
         'cost' => $cost,
         'paid' => !empty($in['paid']) ? 1 : 0,
         '_members' => $memberIds,
@@ -521,12 +529,114 @@ function detach_occurrence(array $ev, string $occ): int
     return copy_occurrence($ev, $occ);
 }
 
-function duty_of(int $id, string $occ, string $role): ?int
+/** Who does $role for one occurrence, as a driver value ('' = undecided). */
+function duty_of(int $id, string $occ, string $role): string
 {
-    $stmt = db()->prepare('SELECT member_id FROM fp_event_duties WHERE event_id = ? AND occurs_on = ? AND role = ?');
+    $stmt = db()->prepare('SELECT member_id, contact_id FROM fp_event_duties WHERE event_id = ? AND occurs_on = ? AND role = ?');
     $stmt->execute([$id, $occ, $role]);
-    $m = $stmt->fetchColumn();
-    return $m ? (int) $m : null;
+    $r = $stmt->fetch();
+    return $r ? driver_value($r['member_id'], $r['contact_id']) : '';
+}
+
+/**
+ * Who brings / picks up: one of us (member id) or someone from the address book ("c" + contact id).
+ * parse_driver() returns [member id, contact id] (both null = nobody), driver_value() the other way round.
+ */
+function parse_driver($value): array
+{
+    $value = (string) $value;
+    if (preg_match('/^c(\d+)$/', $value, $m)) {
+        return [null, find_contact_row((int) $m[1]) ? (int) $m[1] : null];
+    }
+    return [$value !== '' && member((int) $value) ? (int) $value : null, null];
+}
+
+function driver_value($memberId, $contactId): string
+{
+    return $contactId ? 'c' . (int) $contactId : ($memberId ? (string) (int) $memberId : '');
+}
+
+/** Name of who brings ($key 'drop') or picks up ('pickup'), '' when nobody. */
+function driver_name(array $ev, string $key): string
+{
+    $p = driver_person($ev, $key);
+    return $p ? $p['name'] : '';
+}
+
+/** ['name', 'emoji', 'value'] of who brings / picks up, or null. */
+function driver_person(array $ev, string $key): ?array
+{
+    static $contacts = [];
+    if (!empty($ev[$key . '_contact_id'])) {
+        $cid = (int) $ev[$key . '_contact_id'];
+        if (!array_key_exists($cid, $contacts)) {
+            $contacts[$cid] = find_contact_row($cid);
+        }
+        $c = $contacts[$cid];
+        return $c ? ['name' => contact_name($c, false), 'emoji' => RELATIONS[$c['relation']][1] ?? '👤', 'value' => 'c' . $cid] : null;
+    }
+    $m = !empty($ev[$key . '_member_id']) ? member((int) $ev[$key . '_member_id']) : null;
+    return $m ? ['name' => $m['name'], 'emoji' => $m['emoji'], 'value' => (string) (int) $m['id']] : null;
+}
+
+/**
+ * Grown-ups who can bring / pick up for these guests: the adults in their gezin (a friend's parents)
+ * and adult guests themselves. Children are left out.
+ */
+function guest_adult_options(array $contactIds): array
+{
+    $ids = array_filter(array_map('intval', $contactIds));
+    if (!$ids) {
+        return [];
+    }
+    $in = implode(',', $ids);
+    $rows = db()->query("SELECT c.*, h.name AS household_name FROM fp_contacts c LEFT JOIN fp_households h ON h.id = c.household_id
+        WHERE c.is_child = 0 AND (c.id IN ($in) OR c.household_id IN (SELECT household_id FROM fp_contacts WHERE id IN ($in) AND household_id IS NOT NULL))
+        ORDER BY h.name, c.first_name")->fetchAll();
+    $kids = [];
+    foreach (db()->query("SELECT first_name, nickname, household_id FROM fp_contacts WHERE id IN ($in) AND is_child = 1 AND household_id IS NOT NULL") as $k) {
+        $kids[$k['household_id']][] = $k['nickname'] ?: $k['first_name'];
+    }
+    $out = [];
+    foreach ($rows as $c) {
+        $note = isset($kids[$c['household_id']]) ? 'van ' . implode(' & ', $kids[$c['household_id']]) : (string) $c['household_name'];
+        $out[] = driver_option($c, in_array((int) $c['id'], $ids, true) ? '' : $note);
+    }
+    return $out;
+}
+
+/** <option>s for "Wie brengt / haalt op" (server-rendered forms); app.js adds "Iemand anders…". */
+function driver_options_html(string $selected, array $guestIds, ?bool $each = null, string $blank = '—'): string
+{
+    $html = '<option value="">' . e($blank) . '</option>';
+    if ($each !== null) {
+        $html .= '<option value="EACH"' . ($each ? ' selected' : '') . '>🔁 Per keer bepalen</option>';
+    }
+    $sel = $each ? '' : $selected;
+    $seen = [];
+    $group = function (string $label, array $opts) use ($sel, &$seen): string {
+        $h = '';
+        foreach ($opts as $o) {
+            if (isset($seen[$o['value']])) {
+                continue;
+            }
+            $seen[$o['value']] = true;
+            $h .= '<option value="' . e($o['value']) . '"' . ($o['value'] === $sel ? ' selected' : '') . '>' . e($o['label']) . '</option>';
+        }
+        return $h !== '' ? '<optgroup label="' . e($label) . '">' . $h . '</optgroup>' : '';
+    };
+    $mine = [];
+    foreach (members() as $m) {
+        $mine[] = ['value' => (string) (int) $m['id'], 'label' => $m['emoji'] . ' ' . $m['name']];
+    }
+    $html .= $group('Ons gezin', $mine);
+    $html .= $group('Gezin van de gasten', guest_adult_options($guestIds));
+    $html .= $group('Oppas', sitter_options());
+    if (strpos($sel, 'c') === 0 && !isset($seen[$sel])) {
+        $c = find_contact_row((int) substr($sel, 1));
+        $html .= $c ? $group('Anderen', [driver_option($c)]) : '';
+    }
+    return $html . '<option value="OTHER">👤 Iemand anders…</option>';
 }
 
 /** A new single event with everything of $ev (guests, checklist) on the date of occurrence $occ. */
@@ -543,8 +653,8 @@ function copy_occurrence(array $ev, string $occ): int
     $data = [
         'title' => $ev['title'], 'type' => $ev['type'], 'emoji' => $ev['emoji'], 'start' => $start, 'end' => $end, 'all_day' => $ev['all_day'],
         'location' => $ev['location'], 'host' => $ev['host'], 'description' => $ev['description'], 'color' => $ev['color'],
-        'drop_member_id' => $ev['drop_each'] ? duty_of((int) $ev['id'], $occ, 'DROP') : $ev['drop_member_id'],
-        'pickup_member_id' => $ev['pickup_each'] ? duty_of((int) $ev['id'], $occ, 'PICKUP') : $ev['pickup_member_id'],
+        'drop_member_id' => $ev['drop_each'] ? duty_of((int) $ev['id'], $occ, 'DROP') : driver_value($ev['drop_member_id'], $ev['drop_contact_id'] ?? null),
+        'pickup_member_id' => $ev['pickup_each'] ? duty_of((int) $ev['id'], $occ, 'PICKUP') : driver_value($ev['pickup_member_id'], $ev['pickup_contact_id'] ?? null),
         'cost' => $ev['cost'], 'paid' => $ev['paid'], 'members' => $ev['members'],
         'contacts' => array_map(function ($c) {
             return ['id' => $c['id'], 'rsvp' => $c['rsvp']];
@@ -679,6 +789,11 @@ function event_json(array $ev): array
         'members' => array_map('intval', $ev['members']),
         'dropMember' => $ev['drop_member_id'] ? (int) $ev['drop_member_id'] : null,
         'pickupMember' => $ev['pickup_member_id'] ? (int) $ev['pickup_member_id'] : null,
+        // Driver values: member id as string or "c<contact id>"; names for display
+        'dropWho' => driver_value($ev['drop_member_id'], $ev['drop_contact_id'] ?? null),
+        'pickupWho' => driver_value($ev['pickup_member_id'], $ev['pickup_contact_id'] ?? null),
+        'dropName' => driver_name($ev, 'drop'),
+        'pickupName' => driver_name($ev, 'pickup'),
         'dropEach' => !empty($ev['drop_each']),
         'pickupEach' => !empty($ev['pickup_each']),
         'dropOpen' => !empty($ev['drop_open']),
