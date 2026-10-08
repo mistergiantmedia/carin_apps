@@ -274,7 +274,7 @@ page_header('⚙️ Instellingen');
       <h2>📆 Google Agenda</h2>
       <?php if ($gcal['google_refresh_token']): ?>
         <p>✓ Gekoppeld<?= $gcal['google_email'] ? ' met <b>' . e($gcal['google_email']) . '</b>' : '' ?>. In je Google Agenda staat de agenda <b>“<?= e(gcal_calendar_title($gcal)) ?>”</b>, die de planner zelf bijhoudt.</p>
-        <p class="muted small">Verschuif of verwijder je daar een afspraak, dan gebeurt dat hier ook. Al het andere (titel, wie er meegaat, brengen en halen) pas je hier in de planner aan.</p>
+        <p class="muted small">Maak je daar een afspraak, of verander of verwijder je er een (tijd, naam, plek, notities), dan gebeurt dat hier ook. Verander je één keer van een herhalende afspraak, dan geldt het alleen voor die keer. Wie er meegaat en wie brengt en haalt, regel je hier in de planner.</p>
         <?php if ($gcal['google_error']): ?><div class="flash error small"><?= e($gcal['google_error']) ?></div><?php endif; ?>
         <p class="small muted"><?= $gcal['google_synced_at'] ? 'Bijgewerkt: ' . e(format_date_short($gcal['google_synced_at']) . ' ' . substr($gcal['google_synced_at'], 11, 5)) : 'Wordt voor het eerst gevuld…' ?><?= $gcal['google_pending'] ? ' · nog ' . (int) $gcal['google_pending'] . ' afspraken te doen' : '' ?></p>
         <form method="post" class="form"><?= csrf_field() ?><input type="hidden" name="action" value="gcal_member">
@@ -289,7 +289,7 @@ page_header('⚙️ Instellingen');
           <form method="post" class="inline" data-confirm="Ontkoppelen? De agenda “Familie Planner” wordt dan uit je Google Agenda gehaald. In de planner blijft alles staan."><?= csrf_field() ?><input type="hidden" name="action" value="gcal_disconnect"><button class="btn small danger">Ontkoppelen</button></form>
         </div>
       <?php else: ?>
-        <p class="muted small">Zet alle afspraken en verjaardagen in je eigen Google Agenda, in een aparte agenda “Familie Planner”. Wijzigingen staan er binnen een paar minuten in. En verschuif of verwijder je daar een afspraak, dan gebeurt dat hier ook.</p>
+        <p class="muted small">Zet alle afspraken en verjaardagen in je eigen Google Agenda, in een aparte agenda “Familie Planner”. Wijzigingen staan er binnen een paar minuten in. En wat je daar in die agenda maakt of verandert, komt ook hier in de planner.</p>
         <?php if ($gcal['google_error']): ?><div class="flash error small"><?= e($gcal['google_error']) ?></div><?php endif; ?>
         <a class="btn" href="google-auth.php">Koppelen met Google Agenda</a>
         <p class="hint">Google vraagt alleen toegang tot agenda’s die de planner zelf maakt. Je andere agenda’s blijven privé.</p>

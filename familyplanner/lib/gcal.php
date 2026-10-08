@@ -6,8 +6,9 @@
 // Push: like the ics.php feed, repeating events go in as separate occurrences, so study days, exceptions and
 // "per keer" drivers come out right. What should be there (occurrences + birthdays in the window) is compared
 // with fp_gcal_events (what we sent before, per account) and only the differences go to Google.
-// Pull: changes in the Google calendar since the last sync token. A planner event moved or deleted in Google
-// is moved / deleted here too (just that occurrence); text edits made in Google are not taken over.
+// Pull: changes in the Google calendar since the last sync token. A planner event moved, renamed or deleted in Google
+// is changed here too (just that occurrence); an event made in Google becomes a planner event (a Google series becomes
+// a repeating planner event, and the series in Google is replaced by the planner's occurrences).
 // Runs after the response has been sent (gcal_schedule(), needs PHP-FPM's fastcgi_finish_request): after every
 // POST, otherwise at most every GCAL_THROTTLE seconds. What doesn't fit in GCAL_BUDGET is done next time.
 // The OAuth client is app-wide (fp_app_settings, set in beheer.php). Keep this PHP 7.4 compatible.
@@ -307,6 +308,7 @@ function gcal_wanted(array $u, string $from, string $to): array
             'description' => $description,
             'location' => (string) $ev['location'],
             'colorId' => gcal_color(event_color($ev)),
+            'extendedProperties' => ['private' => ['fp' => '1']], // made by the planner (not to be imported)
         ]);
     }
     foreach (load_birthdays($from, $to, $filter) as $b) {
@@ -315,6 +317,7 @@ function gcal_wanted(array $u, string $from, string $to): array
             'description' => $base . ($b['kind'] === 'member' ? 'persoon.php?id=' : 'contact.php?id=') . (int) $b['person']['id'],
             'location' => '',
             'colorId' => gcal_color('#E0568A'),
+            'extendedProperties' => ['private' => ['fp' => '1']],
         ]);
     }
     return $out;
@@ -331,8 +334,10 @@ function gcal_push(array $u, string $token, string $cal, float $deadline): int
     $stmt->execute([$u['id']]);
     $sent = array_column($stmt->fetchAll(), null, 'item');
     $forget = db()->prepare('DELETE FROM fp_gcal_events WHERE user_id = ? AND item = ?');
-    $save = db()->prepare('INSERT INTO fp_gcal_events (user_id, item, google_id, hash, start_at, end_at, all_day) VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE google_id = VALUES(google_id), hash = VALUES(hash), start_at = VALUES(start_at), end_at = VALUES(end_at), all_day = VALUES(all_day)');
+    $save = db()->prepare('INSERT INTO fp_gcal_events (user_id, item, google_id, hash, start_at, end_at, all_day, sent_summary, sent_location, sent_description)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE google_id = VALUES(google_id), hash = VALUES(hash), start_at = VALUES(start_at), end_at = VALUES(end_at), all_day = VALUES(all_day),
+            sent_summary = VALUES(sent_summary), sent_location = VALUES(sent_location), sent_description = VALUES(sent_description)');
 
     $ops = [];
     foreach ($sent as $key => $row) {
@@ -348,7 +353,7 @@ function gcal_push(array $u, string $token, string $cal, float $deadline): int
     foreach ($wanted as $key => $it) {
         if (!isset($sent[$key])) {
             $ops[] = ['insert', $key, $it['start_at']];
-        } elseif ($sent[$key]['hash'] !== $it['hash']) {
+        } elseif ($sent[$key]['hash'] !== $it['hash'] || $sent[$key]['sent_summary'] === null) {
             $ops[] = ['update', $key, $it['start_at']];
         }
     }
@@ -382,7 +387,8 @@ function gcal_push(array $u, string $token, string $cal, float $deadline): int
                 [$code, $body] = gcal_http('POST', $url, $token, $it['payload']);
             }
             if ($code === 200 && !empty($body['id'])) {
-                $save->execute([$u['id'], $key, $body['id'], $it['hash'], $it['start_at'], $it['end_at'], $it['all_day']]);
+                $p = $it['payload'];
+                $save->execute([$u['id'], $key, $body['id'], $it['hash'], $it['start_at'], $it['end_at'], $it['all_day'], mb_cut($p['summary'], 255), mb_cut($p['location'], 255), $p['description']]);
                 continue;
             }
         }
@@ -420,22 +426,27 @@ function gcal_event_times(array $event): ?array
 }
 
 /**
- * One changed Google event. Our own changes come back here too: they have the times we stored, so nothing happens.
- * A planner event moved in Google is moved here (only that occurrence), one deleted in Google is deleted here.
+ * One changed Google event. Our own changes come back here too: they have the times and text we stored, so nothing happens.
+ * A planner event moved, renamed or deleted in Google is changed here too (an occurrence of a repeating event becomes
+ * its own single event, as in Google). An event made in Google becomes a planner event (gcal_import()).
  * Birthdays are changed in the address book: moved or deleted in Google, they are put back.
  */
-function gcal_take_over(array $u, array $event): void
+function gcal_take_over(array $u, array $event, string $token, string $url): void
 {
     $stmt = db()->prepare('SELECT * FROM fp_gcal_events WHERE user_id = ? AND google_id = ?');
     $stmt->execute([$u['id'], (string) ($event['id'] ?? '')]);
     $row = $stmt->fetch();
-    if (!$row) {
-        return; // made in Google itself, or already handled
-    }
     $cancelled = ($event['status'] ?? '') === 'cancelled';
+    if (!$row) {
+        if (!$cancelled) {
+            gcal_import($u, $event, $token, $url);
+        }
+        return;
+    }
     $times = $cancelled ? null : gcal_event_times($event);
     $moved = $times && ($times[0] !== $row['start_at'] || $times[1] !== $row['end_at'] || $times[2] !== (int) $row['all_day']);
-    if (!$cancelled && !$moved) {
+    $text = $cancelled || $row['sent_summary'] === null ? [] : gcal_text_changes($row, $event);
+    if (!$cancelled && !$moved && !$text) {
         return;
     }
     $forget = function () use ($u, $row) {
@@ -456,10 +467,217 @@ function gcal_take_over(array $u, array $event): void
         $forget();
         return;
     }
-    // An occurrence of a repeating event becomes its own single event; the Google event stays and now stands for that one
-    $id = move_event((int) $ev['id'], $occ, $times[0], $times[1], (bool) $times[2], 'one');
+    if ($moved) {
+        $id = move_event((int) $ev['id'], $occ, $times[0], $times[1], (bool) $times[2], 'one');
+    } else {
+        $times = [$row['start_at'], $row['end_at'], (int) $row['all_day']];
+        $id = $ev['recurring'] ? detach_occurrence($ev, $occ) : (int) $ev['id'];
+    }
+    gcal_apply_text($id, $text);
+    // The Google event stays and now stands for this (possibly detached) single event; sent again in the planner's words
     db()->prepare("UPDATE fp_gcal_events SET item = ?, hash = '', start_at = ?, end_at = ?, all_day = ? WHERE user_id = ? AND item = ?")
         ->execute(['e' . $id, $times[0], $times[1], $times[2], $u['id'], $row['item']]);
+}
+
+/** Plain text of a Google description: edited in Google's website it becomes HTML. */
+function gcal_plain(string $text): string
+{
+    if (preg_match('~<(br|p|div|a|b|i|u|span|ul|ol|li)\b~i', $text)) {
+        $text = (string) preg_replace('~<br\s*/?>|</(p|div|li)>~i', "\n", $text);
+        $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+    return trim(str_replace("\r\n", "\n", $text));
+}
+
+/** The notes in a description: without the lines the planner writes itself (Wie, Met, Brengen, Halen, the link). */
+function gcal_notes(string $text): ?string
+{
+    $keep = [];
+    foreach (explode("\n", $text) as $line) {
+        if (preg_match('/^\s*(Wie|Met|Brengen|Halen): /u', $line) || strpos($line, 'event.php?id=') !== false) {
+            continue;
+        }
+        $keep[] = rtrim($line);
+    }
+    $notes = trim(implode("\n", $keep));
+    return $notes !== '' ? $notes : null;
+}
+
+/** Title, place and description that differ from what we sent: changed in Google. */
+function gcal_text_changes(array $row, array $event): array
+{
+    $now = ['summary' => (string) ($event['summary'] ?? ''), 'location' => (string) ($event['location'] ?? ''), 'description' => gcal_plain((string) ($event['description'] ?? ''))];
+    $sent = ['summary' => (string) $row['sent_summary'], 'location' => (string) $row['sent_location'], 'description' => gcal_plain((string) $row['sent_description'])];
+    $out = [];
+    foreach ($now as $k => $v) {
+        if (trim($v) !== trim($sent[$k])) {
+            $out[$k] = $v;
+        }
+    }
+    return $out;
+}
+
+/** [emoji or null, title] of a Google title: a leading emoji is the event's emoji, the "done" ✓ at the end goes. */
+function gcal_split_title(string $summary): array
+{
+    $s = trim((string) preg_replace('/\s*✓$/u', '', trim($summary)));
+    if (preg_match('/^([^\p{L}\p{N}\s]{1,12})\s+(\S.*)$/us', $s, $m) && preg_match('/\p{So}/u', $m[1])) {
+        return [$m[1], trim($m[2])];
+    }
+    return [null, $s];
+}
+
+/** Put title / place / notes changed in Google into planner event $id. */
+function gcal_apply_text(int $id, array $changes): void
+{
+    $ev = $changes ? find_event($id) : null;
+    if (!$ev) {
+        return;
+    }
+    $set = [];
+    if (isset($changes['summary'])) {
+        [$emoji, $title] = gcal_split_title($changes['summary']);
+        if ($title !== '') {
+            $set['title'] = mb_cut($title, 160);
+        }
+        if ($emoji !== null && $emoji !== event_emoji($ev)) {
+            $set['emoji'] = mb_cut($emoji, 16);
+        }
+    }
+    if (isset($changes['location'])) {
+        $set['location'] = trim($changes['location']) !== '' ? mb_cut(trim($changes['location']), 190) : null;
+    }
+    if (isset($changes['description'])) {
+        $set['description'] = gcal_notes($changes['description']);
+    }
+    if ($set) {
+        $sql = implode(', ', array_map(function ($k) {
+            return "$k = :$k";
+        }, array_keys($set)));
+        db()->prepare("UPDATE fp_events SET $sql WHERE id = :id")->execute($set + ['id' => $id]);
+    }
+}
+
+/**
+ * How a Google series repeats, as planner events: list of [start, end, recurrence, recur_until], or null when the
+ * planner can't repeat like that (every 3 weeks, the 2nd Tuesday of the month…). Weekly on several days
+ * ("Mon and Wed") becomes one weekly event per day. Not repeating: one item with recurrence ''.
+ */
+function gcal_rules(array $event, array $times): ?array
+{
+    [$start, $end] = $times;
+    $rrule = null;
+    foreach ($event['recurrence'] ?? [] as $line) {
+        if (stripos((string) $line, 'RRULE:') === 0) {
+            $rrule = substr($line, 6);
+        }
+    }
+    if ($rrule === null) {
+        return [[$start, $end, '', null]];
+    }
+    $p = [];
+    foreach (explode(';', strtoupper($rrule)) as $part) {
+        [$k, $v] = array_pad(explode('=', $part, 2), 2, '');
+        $p[$k] = $v;
+    }
+    $freq = $p['FREQ'] ?? '';
+    $interval = max(1, (int) ($p['INTERVAL'] ?? 1));
+    $days = ($p['BYDAY'] ?? '') !== '' ? explode(',', $p['BYDAY']) : [];
+    $codes = ['MO' => 1, 'TU' => 2, 'WE' => 3, 'TH' => 4, 'FR' => 5, 'SA' => 6, 'SU' => 7];
+    $workdays = count($days) === 5 && !array_diff(['MO', 'TU', 'WE', 'TH', 'FR'], $days);
+    $rules = [];
+    if ($interval === 1 && $workdays && in_array($freq, ['DAILY', 'WEEKLY'], true)) {
+        $rules[] = ['WEEKDAYS', $start];
+    } elseif ($freq === 'DAILY' && $interval === 1 && !$days) {
+        $rules[] = ['DAILY', $start];
+    } elseif ($freq === 'WEEKLY' && $interval <= 2) {
+        $startDay = (int) date('N', strtotime($start));
+        foreach ($days ?: [array_search($startDay, $codes, true)] as $d) {
+            if (!isset($codes[$d])) {
+                return null;
+            }
+            $shift = ($codes[$d] - $startDay + 7) % 7;
+            $rules[] = [$interval === 1 ? 'WEEKLY' : 'BIWEEKLY', date('Y-m-d H:i:s', strtotime("$start +$shift day"))];
+        }
+    } elseif (in_array($freq, ['MONTHLY', 'YEARLY'], true) && $interval === 1 && !$days && !isset($p['BYSETPOS'])) {
+        $rules[] = [$freq, $start];
+    } else {
+        return null;
+    }
+
+    $until = null;
+    if (!empty($p['UNTIL'])) {
+        $u = $p['UNTIL'];
+        $until = strpos($u, 'T') !== false
+            ? (new DateTime(substr($u, 0, 15), new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Europe/Amsterdam'))->format('Y-m-d')
+            : substr($u, 0, 4) . '-' . substr($u, 4, 2) . '-' . substr($u, 6, 2);
+    } elseif (!empty($p['COUNT'])) {
+        // The day of the last time, over all days together
+        $count = max(1, (int) $p['COUNT']);
+        $dates = [];
+        foreach ($rules as [$rule, $s]) {
+            $base = new DateTime($s);
+            for ($n = 0, $found = 0; $found < $count && $n < 3 * $count + 10; $n++) {
+                $d = occurrence_start($base, $rule, $n);
+                if ($d && !($rule === 'WEEKDAYS' && (int) $d->format('N') >= 6)) {
+                    $dates[] = $d->format('Y-m-d');
+                    $found++;
+                }
+            }
+        }
+        sort($dates);
+        $until = $dates[min($count, count($dates)) - 1] ?? null;
+    }
+    $length = strtotime($end) - strtotime($start);
+    return array_map(function ($r) use ($length, $until) {
+        return [$r[1], date('Y-m-d H:i:s', strtotime($r[1]) + $length), $r[0], $until];
+    }, $rules);
+}
+
+/**
+ * An event made in Google (in the Familie Planner calendar) becomes a planner event, for the account's member when the
+ * account follows one person. A single event keeps its Google event; a Google series is deleted in Google, because
+ * the planner puts in its own occurrences.
+ */
+function gcal_import(array $u, array $event, string $token, string $url): void
+{
+    if (!empty($event['recurringEventId']) || !empty($event['extendedProperties']['private']['fp']) || empty($event['id'])) {
+        return; // one time of a Google series (comes with the series), or made by the planner
+    }
+    $times = gcal_event_times($event);
+    if (!$times) {
+        return;
+    }
+    [$emoji, $title] = gcal_split_title((string) ($event['summary'] ?? ''));
+    $rules = gcal_rules($event, $times);
+    if ($rules === null) {
+        gcal_error($u, 0, null, '“' . $title . '” herhaalt op een manier die de planner niet kent (bijv. om de 3 weken), en staat daarom alleen in Google');
+        return;
+    }
+    $members = member($u['google_member_id'] ? (int) $u['google_member_id'] : null) ? [(int) $u['google_member_id']] : [];
+    $ids = [];
+    foreach ($rules as [$start, $end, $recurrence, $until]) {
+        $ids[] = save_event(normalise_event([
+            'title' => $title,
+            'emoji' => $emoji,
+            'type' => 'OTHER',
+            'start' => $start,
+            'end' => $end,
+            'all_day' => $times[2],
+            'location' => (string) ($event['location'] ?? ''),
+            'description' => (string) gcal_notes(gcal_plain((string) ($event['description'] ?? ''))),
+            'recurrence' => $recurrence,
+            'recur_until' => $until,
+            'members' => $members,
+        ]));
+    }
+    if ($rules[0][2] === '') {
+        // The Google event stays and stands for the new planner event; the next push writes it in the planner's words
+        db()->prepare("INSERT INTO fp_gcal_events (user_id, item, google_id, hash, start_at, end_at, all_day) VALUES (?, ?, ?, '', ?, ?, ?)")
+            ->execute([$u['id'], 'e' . $ids[0], $event['id'], $times[0], $times[1], $times[2]]);
+    } else {
+        gcal_http('DELETE', $url . '/' . rawurlencode($event['id']), $token);
+    }
 }
 
 /**
@@ -493,7 +711,7 @@ function gcal_pull(array &$u, string $token, string $cal): bool
         }
         if ($syncToken) {
             foreach ($body['items'] ?? [] as $event) {
-                gcal_take_over($u, $event);
+                gcal_take_over($u, $event, $token, $url);
             }
         }
         $next = $body['nextSyncToken'] ?? $next;

@@ -54,9 +54,16 @@ Changes go through a new numbered file in `migrations/` (never edit one that has
   `event_feed_text()`) + birthdays, keyed e12 / e12-2026-10-08 / bm3-2026-05-01; `fp_gcal_events` (per family,
   per user) holds what was sent (google_id, payload hash, times). Only differences go to Google, soonest first,
   max GCAL_BUDGET seconds per run; the rest next run (fp_users.google_pending). No save path needs a hook.
-- Pull = Google sync token: a planner event moved/deleted in Google → `move_event()` / `delete_event()` with
-  scope 'one' (the row is re-keyed to the detached event). Text edits in Google are ignored; birthdays are put back.
-  Our own pushes come back in the pull too and are recognised by unchanged times.
+- Pull = Google sync token (`gcal_take_over()`): a planner event moved/deleted in Google → `move_event()` /
+  `delete_event()` with scope 'one'; title/place/notes changed in Google (compared with sent_summary/
+  sent_location/sent_description, migration 024) → `gcal_apply_text()` (a leading emoji becomes the event emoji;
+  an occurrence of a repeating event is detached first). The row is re-keyed to the (detached) event. Birthdays are
+  put back. Our own pushes come back in the pull too and are recognised by unchanged times and text.
+- Events made in Google (no row, no `extendedProperties.private.fp` which we put on everything we push) are
+  imported by `gcal_import()`: type OTHER, member = the account's google_member_id. A Google series is mapped by
+  `gcal_rules()` (DAILY, WEEKDAYS, WEEKLY/BIWEEKLY incl. several BYDAYs = one event per day, MONTHLY, YEARLY,
+  UNTIL/COUNT) and then deleted in Google (the planner pushes its own occurrences); unsupported rules stay in
+  Google only (error shown in Instellingen).
 - `gcal_schedule()` (require_login + api.php) syncs after the response (`fastcgi_finish_request`): always after a
   POST, otherwise when an account is due (GCAL_THROTTLE). MySQL GET_LOCK per account. Calendar deleted in Google
   = disconnected. fp_gcal_events is deliberately not in the api stamp `$watch` list.
