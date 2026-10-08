@@ -1,10 +1,19 @@
 <?php
-// Beheer (Carin and René only): approve or reject new families, and see who uses the planner.
+// Beheer (Carin and René only): approve or reject new families, see who uses the planner,
+// and the Google OAuth client for the Google Agenda koppeling.
 require __DIR__ . '/lib/app.php';
 require __DIR__ . '/lib/families.php';
 $me = require_login();
 if (!is_site_admin()) {
     redirect('./');
+}
+
+if (is_post() && post('action') === 'google_oauth') {
+    // The Google OAuth client used by every family's Google Agenda koppeling (lib/gcal.php)
+    $secret = post('client_secret') !== '' ? post('client_secret') : gcal_credentials()['client_secret'];
+    gcal_save_credentials(post('client_id'), post('client_id') !== '' ? $secret : '');
+    flash(post('client_id') !== '' ? 'Google-gegevens opgeslagen. Iedereen kan nu bij Instellingen Google Agenda koppelen.' : 'Google-koppeling uitgezet.');
+    redirect('beheer.php#google');
 }
 
 if (is_post()) {
@@ -74,5 +83,16 @@ page_header('🛡️ Beheer', 'Gezinnen die de Familie Planner gebruiken. Nieuwe
     </div>
   <?php endforeach; ?>
 </div>
+<?php $creds = gcal_credentials(); ?>
+<form method="post" class="card form" id="google" style="margin-top:18px;max-width:640px">
+  <?= csrf_field() ?><input type="hidden" name="action" value="google_oauth">
+  <h2>📆 Google Agenda-koppeling</h2>
+  <p class="muted small">Hiermee kan iedereen bij Instellingen de planner koppelen aan de eigen Google Agenda. Maak in de Google Cloud Console een OAuth-client (type “Webapplicatie”), zet de Google Calendar API aan en voeg deze doorverwijs-URI toe:</p>
+  <input readonly value="<?= e(gcal_redirect_uri()) ?>" onclick="this.select()">
+  <label for="client_id">Client-ID</label><input id="client_id" name="client_id" value="<?= e($creds['client_id']) ?>" autocomplete="off">
+  <label for="client_secret">Clientgeheim</label><input id="client_secret" name="client_secret" type="password" autocomplete="new-password" placeholder="<?= $creds['client_secret'] !== '' ? '•••••••• (bewaard, leeg laten om te houden)' : '' ?>">
+  <p class="hint">Zet het OAuth-toestemmingsscherm op “In productie”: in de testmodus verloopt een koppeling na 7 dagen. Client-ID leegmaken zet de koppeling voor iedereen uit.</p>
+  <div class="form-actions"><button class="btn">Opslaan</button></div>
+</form>
 <p class="muted small" style="margin-top:14px"><a href="dbtest.php">🛠 Databasestatus</a></p>
 <?php page_end();

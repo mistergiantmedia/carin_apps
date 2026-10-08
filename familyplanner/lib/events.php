@@ -756,6 +756,29 @@ function set_event_done(int $id, string $occ, bool $done): void
     }
 }
 
+/**
+ * Title and description of an occurrence for other calendars (ics.php feed, Google Calendar):
+ * who, guests, who brings / picks up, the notes and a link back to the event page ($base = app URL ending in /).
+ */
+function event_feed_text(array $ev, string $base): array
+{
+    $who = array_map(function ($id) {
+        return member($id)['name'] ?? '';
+    }, $ev['members']);
+    $guests = array_map(function ($c) {
+        return contact_name($c, false);
+    }, $ev['contacts']);
+    $description = trim(implode("\n", array_filter([
+        $who ? 'Wie: ' . implode(', ', $who) : '',
+        $guests ? 'Met: ' . implode(', ', $guests) : '',
+        driver_name($ev, 'drop') !== '' ? 'Brengen: ' . driver_name($ev, 'drop') : '',
+        driver_name($ev, 'pickup') !== '' ? 'Halen: ' . driver_name($ev, 'pickup') : '',
+        (string) $ev['description'],
+        $base . 'event.php?id=' . $ev['id'] . '&occ=' . $ev['occ'],
+    ])));
+    return [event_emoji($ev) . ' ' . $ev['title'] . ($ev['done'] ? ' ✓' : ''), $description];
+}
+
 /** Link to an event's page; a friend family's shared event opens the agenda (it can't be edited here). */
 function event_link(array $ev): string
 {

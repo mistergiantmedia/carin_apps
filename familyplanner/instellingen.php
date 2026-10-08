@@ -1,6 +1,6 @@
 <?php
 // Settings: family members (name, photo, colour, birthday), login accounts and passwords,
-// the calendar link for phones, and the example data.
+// Google Agenda (lib/gcal.php), the calendar link for phones, and the example data.
 require __DIR__ . '/lib/app.php';
 require __DIR__ . '/lib/upload.php';
 require __DIR__ . '/lib/demo.php';
@@ -84,6 +84,10 @@ if (is_post()) {
             if (post_int('id') === (int) $user['id']) {
                 throw new RuntimeException('Je kunt je eigen account niet verwijderen.');
             }
+            $gone = gcal_user((int) post_int('id'));
+            if ($gone && (int) $gone['family_id'] === (int) $user['family_id'] && $gone['google_refresh_token']) {
+                gcal_disconnect($gone); // their Familie Planner calendar in Google goes too
+            }
             db()->prepare('DELETE FROM fp_users WHERE id = ? AND family_id = ?')->execute([post_int('id'), $user['family_id']]);
             flash('Account verwijderd');
             redirect('instellingen.php#accounts');
@@ -106,6 +110,20 @@ if (is_post()) {
             db()->prepare('UPDATE fp_users SET ics_token = ? WHERE id = ?')->execute([post('reset') === 'off' ? null : bin2hex(random_bytes(16)), $user['id']]);
             flash(post('reset') === 'off' ? 'Agendalink uitgezet' : 'Nieuwe agendalink gemaakt');
             redirect('instellingen.php#telefoon');
+        }
+        if ($action === 'gcal_member') {
+            gcal_set_member(gcal_user((int) $user['id']), post_int('member_id'));
+            flash('Opgeslagen. Je Google Agenda wordt over een paar minuten bijgewerkt.');
+            redirect('instellingen.php#google');
+        }
+        if ($action === 'gcal_sync') {
+            flash('Je Google Agenda wordt nu bijgewerkt.'); // the POST itself makes gcal_schedule() sync after this response
+            redirect('instellingen.php#google');
+        }
+        if ($action === 'gcal_disconnect') {
+            gcal_disconnect(gcal_user((int) $user['id']));
+            flash('Google Agenda is ontkoppeld en de agenda “Familie Planner” is uit je Google Agenda gehaald.');
+            redirect('instellingen.php#google');
         }
         if ($action === 'demo_load') {
             load_demo();
@@ -132,6 +150,7 @@ foreach ($users as $u) {
         $me = $u;
     }
 }
+$gcal = gcal_configured() ? gcal_user((int) $user['id']) : null;
 $host = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? '');
 $icsBase = $host . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/'), '/') . '/ics.php?t=' . ($me['ics_token'] ?? '');
 
@@ -249,6 +268,34 @@ page_header('⚙️ Instellingen');
       <label>Nieuw wachtwoord</label><input name="new" type="password" minlength="8" required autocomplete="new-password">
       <button class="btn" style="margin-top:12px">Wijzigen</button>
     </form>
+
+    <?php if ($gcal): ?>
+    <div class="card" id="google">
+      <h2>📆 Google Agenda</h2>
+      <?php if ($gcal['google_refresh_token']): ?>
+        <p>✓ Gekoppeld<?= $gcal['google_email'] ? ' met <b>' . e($gcal['google_email']) . '</b>' : '' ?>. In je Google Agenda staat de agenda <b>“<?= e(gcal_calendar_title($gcal)) ?>”</b>, die de planner zelf bijhoudt.</p>
+        <p class="muted small">Verschuif of verwijder je daar een afspraak, dan gebeurt dat hier ook. Al het andere (titel, wie er meegaat, brengen en halen) pas je hier in de planner aan.</p>
+        <?php if ($gcal['google_error']): ?><div class="flash error small"><?= e($gcal['google_error']) ?></div><?php endif; ?>
+        <p class="small muted"><?= $gcal['google_synced_at'] ? 'Bijgewerkt: ' . e(format_date_short($gcal['google_synced_at']) . ' ' . substr($gcal['google_synced_at'], 11, 5)) : 'Wordt voor het eerst gevuld…' ?><?= $gcal['google_pending'] ? ' · nog ' . (int) $gcal['google_pending'] . ' afspraken te doen' : '' ?></p>
+        <form method="post" class="form"><?= csrf_field() ?><input type="hidden" name="action" value="gcal_member">
+          <label for="gcal_member">Welke afspraken?</label>
+          <select id="gcal_member" name="member_id" onchange="this.form.submit()"><?= options(['' => 'Van het hele gezin'] + array_map(function ($label) {
+              return 'Alleen ' . $label;
+          }, member_options()), $gcal['google_member_id']) ?></select>
+          <p class="hint">Bij één persoon komen ook de afspraken zonder iemand erbij en de verjaardagen van hun vriendjes en familie erin.</p>
+        </form>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="gcal_sync"><button class="btn small secondary">🔄 Nu bijwerken</button></form>
+          <form method="post" class="inline" data-confirm="Ontkoppelen? De agenda “Familie Planner” wordt dan uit je Google Agenda gehaald. In de planner blijft alles staan."><?= csrf_field() ?><input type="hidden" name="action" value="gcal_disconnect"><button class="btn small danger">Ontkoppelen</button></form>
+        </div>
+      <?php else: ?>
+        <p class="muted small">Zet alle afspraken en verjaardagen in je eigen Google Agenda, in een aparte agenda “Familie Planner”. Wijzigingen staan er binnen een paar minuten in. En verschuif of verwijder je daar een afspraak, dan gebeurt dat hier ook.</p>
+        <?php if ($gcal['google_error']): ?><div class="flash error small"><?= e($gcal['google_error']) ?></div><?php endif; ?>
+        <a class="btn" href="google-auth.php">Koppelen met Google Agenda</a>
+        <p class="hint">Google vraagt alleen toegang tot agenda’s die de planner zelf maakt. Je andere agenda’s blijven privé.</p>
+      <?php endif; ?>
+    </div>
+    <?php endif; ?>
 
     <div class="card" id="telefoon">
       <h2>📱 Agenda op je telefoon</h2>

@@ -52,20 +52,7 @@ $out .= "BEGIN:VTIMEZONE\r\nTZID:Europe/Amsterdam\r\nBEGIN:DAYLIGHT\r\nTZOFFSETF
 
 foreach (load_events($from, $to, $filter) as $ev) {
     $t = event_type($ev['type']);
-    $who = array_map(function ($id) {
-        return member($id)['name'] ?? '';
-    }, $ev['members']);
-    $guests = array_map(function ($c) {
-        return contact_name($c, false);
-    }, $ev['contacts']);
-    $desc = trim(implode("\n", array_filter([
-        $who ? 'Wie: ' . implode(', ', $who) : '',
-        $guests ? 'Met: ' . implode(', ', $guests) : '',
-        driver_name($ev, 'drop') !== '' ? 'Brengen: ' . driver_name($ev, 'drop') : '',
-        driver_name($ev, 'pickup') !== '' ? 'Halen: ' . driver_name($ev, 'pickup') : '',
-        (string) $ev['description'],
-        $base . 'event.php?id=' . $ev['id'] . '&occ=' . $ev['occ'],
-    ])));
+    [$summary, $desc] = event_feed_text($ev, $base);
     $out .= "BEGIN:VEVENT\r\n";
     $out .= 'UID:fp-' . $ev['id'] . '-' . $ev['occ'] . '@familieplanner' . "\r\n";
     $out .= 'DTSTAMP:' . $stamp . "\r\n";
@@ -76,7 +63,7 @@ foreach (load_events($from, $to, $filter) as $ev) {
         $out .= 'DTSTART;TZID=Europe/Amsterdam:' . date('Ymd\THis', strtotime($ev['start_at'])) . "\r\n";
         $out .= 'DTEND;TZID=Europe/Amsterdam:' . date('Ymd\THis', strtotime($ev['end_at'])) . "\r\n";
     }
-    $out .= ics_line('SUMMARY:' . ics_escape(event_emoji($ev) . ' ' . $ev['title'] . ($ev['done'] ? ' ✓' : '')));
+    $out .= ics_line('SUMMARY:' . ics_escape($summary));
     if ($ev['location']) {
         $out .= ics_line('LOCATION:' . ics_escape($ev['location']));
     }

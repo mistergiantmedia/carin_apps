@@ -19,6 +19,7 @@ function reply(array $data, int $status = 200): void
 if (!current_user()) {
     reply(['error' => 'Je bent uitgelogd. Vernieuw de pagina en log opnieuw in.'], 401);
 }
+gcal_schedule(); // connected Google calendars follow changes made here (after the response)
 
 $action = (string) ($_GET['a'] ?? '');
 $in = [];

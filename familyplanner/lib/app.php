@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . '/db.php';
 require_once __DIR__ . '/constants.php';
 require_once __DIR__ . '/friendfam.php';
 require_once __DIR__ . '/gezinnen.php';
+require_once __DIR__ . '/gcal.php';
 
 date_default_timezone_set('Europe/Amsterdam');
 
@@ -192,6 +193,7 @@ function require_login(): array
     }
     merge_family_groups(); // once: "familie"-groups that are really one family become gezinnen
     sync_links(); // linked friends: photo, birthday and clubs from their own family (every 15 min)
+    gcal_schedule(); // connected Google calendars: synced after the response (after a POST, or every few minutes)
     return $user;
 }
 

@@ -41,7 +41,25 @@ Changes go through a new numbered file in `migrations/` (never edit one that has
   `data-new-event` buttons). `calendar.js` the Google-Calendar-like agenda (drag/resize/create, touch = long-press).
 - Pages: index (Vandaag), agenda, event (details/checklist/guests), gezin, persoon (kid week board / parent month-year),
   vriendjes, taken, verjaardagen, mensen + contact + huishouden (address book), smoelenboek, activiteiten, ideeen,
-  oppas, fotos, instellingen, dbtest, ics (calendar subscription by secret token).
+  oppas, fotos, instellingen, dbtest, ics (calendar subscription by secret token), google-auth + google-callback.
+
+## Google Agenda koppeling (lib/gcal.php)
+- Per account (Instellingen → 📆 Google Agenda): OAuth via google-auth.php → google-callback.php, scope
+  `calendar.app.created` (only calendars we made). We create a calendar "Familie Planner" (or "· Kaila" when the
+  account chose one member) in their Google account. Tokens + sync state are columns on fp_users (google_*).
+- The OAuth client (client id/secret) is app-wide: shared table `fp_app_settings`, set by site admins in beheer.php
+  (which also shows the redirect URI for the Google Cloud Console). Consent screen must be "In production",
+  otherwise refresh tokens die after 7 days.
+- Push = diff: `gcal_wanted()` builds every occurrence (−7 days … +12 months, same text as ics.php via
+  `event_feed_text()`) + birthdays, keyed e12 / e12-2026-10-08 / bm3-2026-05-01; `fp_gcal_events` (per family,
+  per user) holds what was sent (google_id, payload hash, times). Only differences go to Google, soonest first,
+  max GCAL_BUDGET seconds per run; the rest next run (fp_users.google_pending). No save path needs a hook.
+- Pull = Google sync token: a planner event moved/deleted in Google → `move_event()` / `delete_event()` with
+  scope 'one' (the row is re-keyed to the detached event). Text edits in Google are ignored; birthdays are put back.
+  Our own pushes come back in the pull too and are recognised by unchanged times.
+- `gcal_schedule()` (require_login + api.php) syncs after the response (`fastcgi_finish_request`): always after a
+  POST, otherwise when an account is due (GCAL_THROTTLE). MySQL GET_LOCK per account. Calendar deleted in Google
+  = disconnected. fp_gcal_events is deliberately not in the api stamp `$watch` list.
 
 ## Local testing (optional)
 Portable PHP 7.4 + MariaDB + puppeteer-core can be used from a scratchpad to lint (`php -l`), run the app with
