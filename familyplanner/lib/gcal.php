@@ -372,7 +372,11 @@ function gcal_push(array $u, string $token, string $cal, float $deadline): int
             $code = 0;
             $body = null;
             if ($op === 'update') {
-                [$code, $body] = gcal_http('PATCH', $url . '/' . rawurlencode($sent[$key]['google_id']), $token, gcal_patch_body($it['payload']));
+                $eventUrl = $url . '/' . rawurlencode($sent[$key]['google_id']);
+                [$code, $body] = gcal_http('PATCH', $eventUrl, $token, gcal_patch_body($it['payload']));
+                if ($code === 400) {
+                    [$code, $body] = gcal_http('PUT', $eventUrl, $token, $it['payload']); // replace it as a whole instead
+                }
             }
             if ($op === 'insert' || $code === 404 || $code === 410) {
                 [$code, $body] = gcal_http('POST', $url, $token, $it['payload']);
@@ -382,7 +386,9 @@ function gcal_push(array $u, string $token, string $cal, float $deadline): int
                 continue;
             }
         }
-        gcal_error($u, $code, $body, 'Google weigerde een afspraak');
+        $what = $op === 'delete' ? 'het weghalen van een afspraak'
+            : '“' . ($wanted[$key]['payload']['summary'] ?? $key) . '” (' . format_date_short($wanted[$key]['start_at']) . ')';
+        gcal_error($u, $code, $body, 'Google weigerde ' . $what);
         if ($code !== 400) {
             return count($ops) - $i; // rate limit, no access, Google down…: try again next time
         }
@@ -517,7 +523,7 @@ function gcal_sync_user(array $u, bool $force): void
             return;
         }
         $left = gcal_push($u, $token, $cal, microtime(true) + GCAL_BUDGET);
-        db()->prepare('UPDATE fp_users SET google_synced_at = NOW(), google_pending = ? WHERE id = ?')->execute([$left, $u['id']]);
+        db()->prepare('UPDATE fp_users SET google_synced_at = ?, google_pending = ? WHERE id = ?')->execute([date('Y-m-d H:i:s'), $left, $u['id']]); // PHP time: MySQL runs in UTC
         if (gcal_error_count() === $errors) {
             db()->prepare('UPDATE fp_users SET google_error = NULL WHERE id = ?')->execute([$u['id']]);
         }
