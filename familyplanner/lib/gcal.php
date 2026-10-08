@@ -275,6 +275,22 @@ function gcal_item(string $start, string $end, bool $allDay, array $fields): arr
 }
 
 /**
+ * A PATCH merges start/end with what Google has: an all-day event that gets a time would keep its 'date' next to
+ * the new 'dateTime' (Google: "Invalid start time"). So clear the other kind explicitly. Not part of the hash.
+ */
+function gcal_patch_body(array $payload): array
+{
+    foreach (['start', 'end'] as $k) {
+        if (isset($payload[$k]['date'])) {
+            $payload[$k] += ['dateTime' => null, 'timeZone' => null];
+        } else {
+            $payload[$k] += ['date' => null];
+        }
+    }
+    return $payload;
+}
+
+/**
  * What should be in this account's calendar between $from and $to: item key => gcal_item().
  * Keys: e12 (single event 12), e12-2026-10-08 (occurrence of repeating event 12), bm3-… / bc7-… (birthdays).
  */
@@ -356,7 +372,7 @@ function gcal_push(array $u, string $token, string $cal, float $deadline): int
             $code = 0;
             $body = null;
             if ($op === 'update') {
-                [$code, $body] = gcal_http('PATCH', $url . '/' . rawurlencode($sent[$key]['google_id']), $token, $it['payload']);
+                [$code, $body] = gcal_http('PATCH', $url . '/' . rawurlencode($sent[$key]['google_id']), $token, gcal_patch_body($it['payload']));
             }
             if ($op === 'insert' || $code === 404 || $code === 410) {
                 [$code, $body] = gcal_http('POST', $url, $token, $it['payload']);
