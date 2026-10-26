@@ -302,6 +302,7 @@ function suggest_recipe(string $day, array $weekMeals, bool $busy): ?array
     }
     $best = null;
     $bestScore = -999;
+    $wishes = meal_wishes();
     foreach (recipes() as $id => $r) {
         if (isset($used[$id])) {
             continue;
@@ -309,6 +310,7 @@ function suggest_recipe(string $day, array $weekMeals, bool $busy): ?array
         $kids = recipe_kids($r);
         $tags = recipe_tags($r);
         $score = mt_rand(0, 30) / 10 + $kids['likes'] * 2 - count($kids['dislikes']) * 6 - count(recipe_allergy_warnings($r)) * 10;
+        $score += count($wishes[$id] ?? []) * 4; // a child wished for it
         if ($r['last'] && $r['last'] > date('Y-m-d', strtotime("$day -10 day"))) {
             $score -= 5;
         }
@@ -606,4 +608,40 @@ function download_photo(?string $url): ?string
     } finally {
         @unlink($tmp);
     }
+}
+
+// ---------- Wishes: children pick what they'd like to eat ----------
+
+/** recipe id => [member ids that wish it], oldest wish first. */
+function meal_wishes(): array
+{
+    $out = [];
+    foreach (db()->query('SELECT recipe_id, member_id FROM fp_meal_wishes ORDER BY created_at') as $w) {
+        $out[(int) $w['recipe_id']][] = (int) $w['member_id'];
+    }
+    return $out;
+}
+
+/** A recipe is on the menu now: the wishes for it came true. */
+function wishes_fulfilled(int $recipeId): void
+{
+    db()->prepare('DELETE FROM fp_meal_wishes WHERE recipe_id = ?')->execute([$recipeId]);
+}
+
+/** Does this recipe contain something member $m is allergic to? */
+function allergic_to(array $r, array $m): bool
+{
+    foreach (recipe_allergy_warnings($r) as $w) {
+        if (strpos($w, $m['name'] . ': ') === 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** A soft colour per recipe for tiles without a photo. */
+function recipe_color(array $r): string
+{
+    $colors = ['#FFE3B3', '#FFD1DC', '#D4F1C5', '#CDE7FF', '#E8DAFF', '#FFF1A8', '#FFD8C2', '#C9F2EC'];
+    return $colors[crc32($r['name']) % count($colors)];
 }

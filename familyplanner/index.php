@@ -204,7 +204,7 @@ if ($incomplete): ?>
             <?php else: ?><a class="title" href="eten.php#d<?= e($d) ?>">Nog niets gekozen →</a><?php endif; ?></div></li>
         <?php endforeach; ?>
       </ul>
-      <p style="margin:8px 0 0"><a class="btn small secondary" href="eten.php?tab=lijst">🛒 Boodschappen<?= $toBuy ? ' (' . $toBuy . ')' : '' ?></a></p>
+      <p style="margin:8px 0 0"><a class="btn small secondary" href="eten.php?tab=lijst">🛒 Boodschappen<?= $toBuy ? ' (' . $toBuy . ')' : '' ?></a> <a class="btn small secondary" href="kiezen.php">🙋 Kinderen kiezen</a></p>
     </div>
 
     <div class="card">

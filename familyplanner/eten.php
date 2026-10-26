@@ -22,6 +22,9 @@ if (is_post()) {
         db()->prepare('INSERT INTO fp_meals (day, recipe_id, title, cook_member_id) VALUES (?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE recipe_id = VALUES(recipe_id), title = VALUES(title), cook_member_id = VALUES(cook_member_id), on_list = 0')
             ->execute([$day, $recipeId, $title, $cook]);
+        if ($recipeId) {
+            wishes_fulfilled($recipeId);
+        }
     };
     if ($action === 'set_meal' && $day) {
         $rid = isset(recipes()[post_int('recipe_id')]) ? post_int('recipe_id') : null;
@@ -29,6 +32,9 @@ if (is_post()) {
         if ($rid || $title) {
             $saveMeal($day, $rid, $rid ? null : $title); // a chosen recipe wins over the typed text
         }
+    } elseif ($action === 'plan_wish' && $day && isset(recipes()[post_int('recipe_id')])) {
+        $saveMeal($day, post_int('recipe_id'), null);
+        flash('📅 ' . recipes()[post_int('recipe_id')]['name'] . ' staat op ' . format_date($day) . '. Wens vervuld! ⭐');
     } elseif ($action === 'clear_meal' && $day) {
         db()->prepare('DELETE FROM fp_meals WHERE day = ?')->execute([$day]);
     } elseif ($action === 'suggest' || $action === 'suggest_week') {
@@ -136,6 +142,7 @@ page_header('🍽️ Eten & boodschappen', 'Wat eten we deze week, is het gezond
   <a href="eten.php" class="<?= $tab === 'menu' ? 'on' : '' ?>">📅 Weekmenu</a>
   <a href="eten.php?tab=lijst" class="<?= $tab === 'lijst' ? 'on' : '' ?>">🛒 Boodschappen<?php $open = (int) db()->query('SELECT COUNT(*) FROM fp_shopping WHERE done_at IS NULL')->fetchColumn(); echo $open ? ' (' . $open . ')' : ''; ?></a>
   <a href="eten.php?tab=gerechten" class="<?= $tab === 'gerechten' ? 'on' : '' ?>">📖 Gerechten (<?= count($recipes) ?>)</a>
+  <a href="kiezen.php">🙋 Kinderen kiezen</a>
 </div>
 
 <?php if ($tab === 'menu'):
@@ -184,6 +191,27 @@ page_header('🍽️ Eten & boodschappen', 'Wat eten we deze week, is het gezond
       <?php endfor; ?>
     </div>
     <div class="stack">
+      <?php $wishes = meal_wishes(); ?>
+      <div class="card">
+        <div class="section-title" style="margin-top:0"><h2>🙋 Wensen van de kinderen</h2><a href="kiezen.php">kiezen</a></div>
+        <?php if (!$wishes): ?>
+          <p class="muted small" style="margin:0">Nog geen wensen. Laat de kinderen bij <a href="kiezen.php">🙋 Kinderen kiezen</a> op de plaatjes tikken wat ze graag willen eten.</p>
+        <?php else: ?>
+          <ul class="list compact">
+            <?php foreach ($wishes as $rid => $who): $wr = $recipes[$rid] ?? null; if (!$wr) { continue; } ?>
+              <li style="flex-wrap:wrap"><span style="font-size:24px"><?= e($wr['emoji'] ?: '🍽️') ?></span>
+                <div class="grow"><a class="title" href="recept.php?id=<?= (int) $rid ?>" style="color:inherit"><?= e($wr['name']) ?></a>
+                  <span class="meta"><?php foreach ($who as $mid): if ($wm = member($mid)): ?><?= avatar($wm, 20) ?> <?php endif; endforeach; ?></span></div>
+                <form method="post" class="inline" style="display:flex;gap:4px"><?= csrf_field() ?><input type="hidden" name="action" value="plan_wish"><input type="hidden" name="recipe_id" value="<?= (int) $rid ?>">
+                  <select name="day" style="width:auto;min-height:32px;padding:2px 6px">
+                    <?php for ($i = 0; $i < 7; $i++): $wd = date('Y-m-d', strtotime("$weekStart +$i day")); if ($wd < today()) { continue; } ?>
+                      <option value="<?= e($wd) ?>"><?= e(DAYS_SHORT[(int) date('w', strtotime($wd))] . ' ' . (int) substr($wd, 8)) ?><?= isset($meals[$wd]) ? ' (vol)' : '' ?></option>
+                    <?php endfor; ?>
+                  </select><button class="btn small">📅</button></form></li>
+            <?php endforeach; ?>
+          </ul>
+        <?php endif; ?>
+      </div>
       <div class="card">
         <h2>🥗 Gezond deze week?</h2>
         <p class="muted small" style="margin-top:0">Volgens de Schijf van Vijf van het Voedingscentrum.</p>

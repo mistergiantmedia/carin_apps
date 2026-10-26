@@ -49,6 +49,7 @@ if (is_post()) {
         if ($action === 'plan' && $r && strtotime(post('day'))) {
             $day = date('Y-m-d', strtotime(post('day')));
             db()->prepare('INSERT INTO fp_meals (day, recipe_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE recipe_id = VALUES(recipe_id), title = NULL, on_list = 0')->execute([$day, $id]);
+            wishes_fulfilled($id);
             flash('📅 ' . $r['name'] . ' staat op het menu voor ' . format_date($day));
             redirect('eten.php?week=' . (int) round((strtotime('monday this week', strtotime($day)) - strtotime('monday this week', strtotime(today()))) / 604800) . '#d' . $day);
         }

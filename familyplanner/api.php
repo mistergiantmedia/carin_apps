@@ -125,6 +125,7 @@ try {
                 'fp_shopping' => 'id, name, amount, done_at',
                 'fp_recipes' => 'id, name, emoji, tags, photo',
                 'fp_recipe_likes' => 'recipe_id, member_id, verdict',
+                'fp_meal_wishes' => 'member_id, recipe_id',
                 'fp_event_shares' => 'event_id, friend_family',
                 'fp_family_links' => 'id, status',
                 'fp_family_shares' => 'owner_family, friend_family, what',

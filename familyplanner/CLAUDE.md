@@ -146,3 +146,6 @@ Hand-written ES5 helpers for old browsers are in `_legacy/dom.js`, extra layout 
   category/allergy matching only match at a word start (has_word: "ham" ≠ champignons).
 - Recipe import from a link (recept.php action=import): fetch_public_url() (http/https only, refuses private/reserved
   IPs, 3 MB cap) → schema.org Recipe JSON-LD → name, ingredients, time, steps, photo (download_photo), guessed tags.
+- Kinderen kiezen (kiezen.php, migration 026 fp_meal_wishes): kids tap pictures of recipes as wishes; wishes show on
+  the week menu with a plan button, boost suggest_recipe, and are removed when that recipe goes on the menu
+  (wishes_fulfilled).

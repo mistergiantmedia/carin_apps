@@ -676,6 +676,24 @@ kbd{background:var(--card2);border:1px solid var(--line);border-radius:6px;paddi
 .recipe-card:hover{text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.12)}
 .recipe-card img{width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:12px}
 .recipe-emoji{font-size:44px;line-height:1}
+.pick-title{font-size:30px;margin:0}
+.pick-who{display:flex;gap:22px;flex-wrap:wrap;margin-top:18px}
+.pick-face{display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px;border-radius:24px;background:var(--card);border:3px solid color-mix(in srgb,var(--c) 45%,transparent);color:inherit;font-size:20px;min-width:170px}
+.pick-face:hover{text-decoration:none;transform:scale(1.04)}
+.pick-head{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:18px;padding:14px 18px;border-radius:20px;background:color-mix(in srgb,var(--c) 14%,var(--card))}
+.pick-head p{margin:4px 0 0;font-size:17px}
+.pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px}
+.pick-card{margin:0}
+.pick-card button{position:relative;width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px;border-radius:22px;border:4px solid transparent;background:var(--card);color:var(--ink);cursor:pointer;font:inherit;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.pick-card button:hover{transform:scale(1.03)}
+.pick-card img,.pick-emoji{width:100%;aspect-ratio:1;border-radius:16px;object-fit:cover}
+.pick-emoji{display:flex;align-items:center;justify-content:center;font-size:84px}
+.pick-card b{font-size:17px;text-align:center;line-height:1.2}
+.pick-card.wished button{border-color:#F5B700;background:color-mix(in srgb,#F5B700 14%,var(--card))}
+.pick-star{position:absolute;top:6px;right:8px;font-size:40px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.25))}
+.pick-note{font-size:13px;font-weight:700;display:flex;align-items:center;gap:3px}
+.pick-card.meh{opacity:.55}
+.pick-card button[disabled]{cursor:not-allowed}
 .gezin-head{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
 .gezin-head h1{margin:0 0 6px}
 .gezin-head p{margin:4px 0}
