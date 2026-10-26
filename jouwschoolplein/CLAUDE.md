@@ -11,6 +11,8 @@ The person working on this project is **not a programmer**. Explain what you cha
 ## Files
 - `lib/app.php`: loaded by every page. Session, login (`require_login()`), CSRF (`csrf_field()` in every form, `is_post()` to handle it), current square (`current_school()`), permissions (`is_school_admin()`), Dutch date formatting, and the layout (`page_start()` / `page_end()`). Escape all output with `e()`.
 - Pages: `index.php` (the square, tabs Plein/Agenda/Community/Meehelpen), `activiteit.php` (details, join with children, conversation), `activiteit-bewerken.php` (new/edit), `profiel.php` (details, children, password, delete account), `beheer.php` (approve activities, square settings, members, new squares), `register.php`, `login.php`, `logout.php`.
+- `klassen.php`: class lists. Beheerders create classes in `beheer.php` (`classes` table); parents pick one per child in `profiel.php` (`children.class_id`, plus optional `last_name`, `address`, `birth_date`). Parents only see classes where they have a child, and birthdays without the year; beheerders see everything. Keep it that way: this is children's personal data.
+- `reset.php`: one-time password reset link; site admins create links in `beheer.php` (no email sending).
 - `style.css`: all styling. Colours are the variables at the top.
 - `db.php`: `db()` returns the shared PDO connection. Always use prepared statements for user input.
 - `config.php`: DB password. Exists **only on the server**, gitignored (the repo is public). Never commit secrets.

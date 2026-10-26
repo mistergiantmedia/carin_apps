@@ -62,6 +62,23 @@ if (is_post()) {
             flash('Lid verwijderd van dit schoolplein.');
             redirect('beheer.php#leden');
         }
+    } elseif ($action === 'class_add') {
+        $className = limit_text(post('class_name'), 80);
+        $stmt = $pdo->prepare('SELECT 1 FROM classes WHERE school_id = ? AND name = ?');
+        $stmt->execute([$schoolId, $className]);
+        if ($className === '') {
+            $error = 'Vul een naam in voor de klas.';
+        } elseif ($stmt->fetchColumn()) {
+            $error = 'Deze klas bestaat al.';
+        } else {
+            $pdo->prepare('INSERT INTO classes (school_id, name) VALUES (?, ?)')->execute([$schoolId, $className]);
+            flash('Klas "' . $className . '" aangemaakt.');
+            redirect('beheer.php#klassen');
+        }
+    } elseif ($action === 'class_delete') {
+        $pdo->prepare('DELETE FROM classes WHERE id = ? AND school_id = ?')->execute([(int) post('class_id'), $schoolId]);
+        flash('Klas verwijderd. De kinderen blijven bestaan, maar zitten niet meer in een klas.');
+        redirect('beheer.php#klassen');
     } elseif ($action === 'reset_link' && is_site_admin()) {
         $stmt = $pdo->prepare('SELECT id, name, email FROM users WHERE email = ?');
         $stmt->execute([strtolower(post('reset_email'))]);
@@ -93,6 +110,10 @@ if (is_post()) {
 $stmt = db()->prepare("SELECT a.id, a.title, a.start_at, a.end_at, u.name AS creator_name FROM activities a LEFT JOIN users u ON u.id = a.created_by WHERE a.school_id = ? AND a.status = 'PENDING' ORDER BY a.start_at");
 $stmt->execute([$schoolId]);
 $pending = $stmt->fetchAll();
+
+$stmt = db()->prepare('SELECT k.id, k.name, (SELECT COUNT(*) FROM children c WHERE c.class_id = k.id) AS kids FROM classes k WHERE k.school_id = ? ORDER BY k.name');
+$stmt->execute([$schoolId]);
+$classList = $stmt->fetchAll();
 
 $stmt = db()->prepare('SELECT u.id, u.name, u.email, u.role AS site_role, m.role, m.created_at,
         (SELECT COUNT(*) FROM children c WHERE c.user_id = u.id) AS kids
@@ -144,6 +165,26 @@ page_start('Beheer', ['narrow' => true]);
     <input id="join_code" name="join_code" value="<?= e($school['join_code']) ?>" maxlength="40" autocomplete="off">
 
     <button class="btn" name="action" value="settings">Opslaan</button>
+  </form>
+</article>
+
+<article class="card" id="klassen">
+  <h2>Klassen</h2>
+  <p class="hint">Ouders kiezen bij hun kind een van deze klassen. Per klas zien alleen de ouders van die klas en de beheerders de gegevens (<a href="klassen.php">bekijk de lijsten</a>).</p>
+  <?php foreach ($classList as $k): ?>
+    <div class="list-row">
+      <span><b><?= e($k['name']) ?></b> <small><?= (int) $k['kids'] ?> <?= (int) $k['kids'] === 1 ? 'kind' : 'kinderen' ?></small></span>
+      <form method="post" class="buttons">
+        <?= csrf_field() ?><input type="hidden" name="class_id" value="<?= (int) $k['id'] ?>">
+        <button class="link" name="action" value="class_delete" onclick="return confirm(<?= e(json_encode($k['name'] . ' verwijderen? De kinderen blijven bestaan, maar zitten dan in geen klas meer.')) ?>)">verwijderen</button>
+      </form>
+    </div>
+  <?php endforeach; ?>
+  <form method="post" class="form">
+    <?= csrf_field() ?>
+    <label for="class_name">Nieuwe klas</label>
+    <input id="class_name" name="class_name" maxlength="80" placeholder="bijv. Grachtenvaarders" required>
+    <button class="btn secondary" name="action" value="class_add">Klas toevoegen</button>
   </form>
 </article>
 

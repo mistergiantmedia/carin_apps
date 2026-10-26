@@ -342,6 +342,7 @@ function page_start(string $title, array $options = []): void
             <button name="role" value="admin"<?= viewing_as_parent() ? '' : ' class="on" disabled' ?>>🛠 Beheerder</button>
           </form>
         <?php endif; ?>
+        <?php if ($school): ?><a href="klassen.php">Klassen</a><?php endif; ?>
         <?php if (is_school_admin($school)): ?><a href="beheer.php">Beheer</a><?php endif; ?>
         <a class="avatar" href="profiel.php" title="Mijn profiel"><?= e(initial($user['name'])) ?></a>
       </nav>

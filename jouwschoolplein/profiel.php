@@ -3,6 +3,7 @@ require __DIR__ . '/lib/app.php';
 require __DIR__ . '/lib/chat.php';
 
 $user = require_login();
+$school = current_school();
 $error = null;
 
 if (is_post()) {
@@ -25,15 +26,39 @@ if (is_post()) {
             flash('Je gegevens zijn opgeslagen.');
             redirect('profiel.php');
         }
-    } elseif ($action === 'add_child') {
+    } elseif ($action === 'add_child' || $action === 'edit_child') {
         $firstName = post('first_name');
+        $birth = post('birth_date');
+        $birthDate = $birth !== '' ? DateTime::createFromFormat('Y-m-d', $birth) : null;
+        $classRow = null;
+        if ((int) post('class_id') > 0 && $school) {
+            $stmt = $pdo->prepare('SELECT id, name FROM classes WHERE id = ? AND school_id = ?');
+            $stmt->execute([(int) post('class_id'), $school['id']]);
+            $classRow = $stmt->fetch() ?: null;
+        }
         if ($firstName === '') {
             $error = 'Vul de voornaam van je kind in.';
+        } elseif ($birth !== '' && (!$birthDate || $birthDate->format('Y-m-d') !== $birth || $birth > date('Y-m-d'))) {
+            $error = 'Vul een geldige geboortedatum in.';
         } else {
-            $group = post('group_name');
-            $pdo->prepare('INSERT INTO children (user_id, first_name, group_name) VALUES (?, ?, ?)')
-                ->execute([$user['id'], limit_text($firstName, 80), $group !== '' ? limit_text($group, 80) : null]);
-            flash(limit_text($firstName, 80) . ' is toegevoegd.');
+            $group = $classRow ? $classRow['name'] : post('group_name');
+            $values = [
+                limit_text($firstName, 80),
+                post('last_name') !== '' ? limit_text(post('last_name'), 80) : null,
+                post('address') !== '' ? limit_text(post('address'), 200) : null,
+                $birth !== '' ? $birth : null,
+                $classRow ? $classRow['id'] : null,
+                $group !== '' ? limit_text($group, 80) : null,
+            ];
+            if ($action === 'add_child') {
+                $pdo->prepare('INSERT INTO children (first_name, last_name, address, birth_date, class_id, group_name, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
+                    ->execute(array_merge($values, [$user['id']]));
+                flash(limit_text($firstName, 80) . ' is toegevoegd.');
+            } else {
+                $pdo->prepare('UPDATE children SET first_name = ?, last_name = ?, address = ?, birth_date = ?, class_id = ?, group_name = ? WHERE id = ? AND user_id = ?')
+                    ->execute(array_merge($values, [(int) post('child_id'), $user['id']]));
+                flash('Gegevens van ' . limit_text($firstName, 80) . ' zijn opgeslagen.');
+            }
             redirect('profiel.php#kinderen');
         }
     } elseif ($action === 'delete_child') {
@@ -72,9 +97,49 @@ if (is_post()) {
     }
 }
 
-$stmt = db()->prepare('SELECT id, first_name, group_name FROM children WHERE user_id = ? ORDER BY first_name');
+$stmt = db()->prepare('SELECT id, first_name, last_name, address, birth_date, class_id, group_name FROM children WHERE user_id = ? ORDER BY first_name');
 $stmt->execute([$user['id']]);
 $children = $stmt->fetchAll();
+
+$classes = [];
+if ($school) {
+    $stmt = db()->prepare('SELECT id, name FROM classes WHERE school_id = ? ORDER BY name');
+    $stmt->execute([$school['id']]);
+    $classes = $stmt->fetchAll();
+}
+
+// The fields of the child form, filled with $c when editing.
+function child_fields(?array $c, array $classes, string $prefix): void
+{
+    $v = function (string $key) use ($c) {
+        return e($c[$key] ?? '');
+    };
+    ?>
+    <div class="row">
+      <div><label for="<?= $prefix ?>first">Voornaam</label><input id="<?= $prefix ?>first" name="first_name" maxlength="80" value="<?= $v('first_name') ?>" required></div>
+      <div><label for="<?= $prefix ?>last">Achternaam</label><input id="<?= $prefix ?>last" name="last_name" maxlength="80" value="<?= $v('last_name') ?>"></div>
+    </div>
+    <div class="row">
+      <div>
+        <?php if ($classes): ?>
+          <label for="<?= $prefix ?>class">Klas</label>
+          <select id="<?= $prefix ?>class" name="class_id">
+            <option value="">— kies een klas —</option>
+            <?php foreach ($classes as $k): ?>
+              <option value="<?= (int) $k['id'] ?>"<?= $c && (int) $c['class_id'] === (int) $k['id'] ? ' selected' : '' ?>><?= e($k['name']) ?></option>
+            <?php endforeach; ?>
+          </select>
+        <?php else: ?>
+          <label for="<?= $prefix ?>group">Groep <small>(optioneel)</small></label>
+          <input id="<?= $prefix ?>group" name="group_name" maxlength="80" value="<?= $v('group_name') ?>" placeholder="bijv. Grachtenvaarders, groep 5">
+        <?php endif; ?>
+      </div>
+      <div><label for="<?= $prefix ?>birth">Geboortedatum</label><input id="<?= $prefix ?>birth" name="birth_date" type="date" max="<?= date('Y-m-d') ?>" value="<?= $v('birth_date') ?>"></div>
+    </div>
+    <label for="<?= $prefix ?>address">Adres <small>(straat, huisnummer, plaats)</small></label>
+    <input id="<?= $prefix ?>address" name="address" maxlength="200" value="<?= $v('address') ?>" autocomplete="off">
+    <?php
+}
 
 page_start('Mijn profiel', ['narrow' => true]);
 ?>
@@ -83,22 +148,24 @@ page_start('Mijn profiel', ['narrow' => true]);
 
 <article class="card" id="kinderen">
   <h2>Jouw kinderen</h2>
-  <p class="hint">Alleen de voornaam en groep. Bij een activiteit kies je wie er meegaat.</p>
+  <p class="hint">Alleen de voornaam is verplicht. Adres en geboortedatum zijn alleen zichtbaar voor de ouders van dezelfde klas en de beheerders (zie <a href="klassen.php">Klassen</a>). Bij een activiteit kies je wie er meegaat.</p>
   <?php foreach ($children as $c): ?>
-    <div class="list-row">
-      <span><b><?= e($c['first_name']) ?></b><?= $c['group_name'] ? ' <small>' . e($c['group_name']) . '</small>' : '' ?></span>
+    <details class="list-row" style="display:block">
+      <summary><b><?= e(trim($c['first_name'] . ' ' . $c['last_name'])) ?></b><?= $c['group_name'] ? ' <small>' . e($c['group_name']) . '</small>' : '' ?> <small>— gegevens wijzigen</small></summary>
+      <form method="post" class="form">
+        <?= csrf_field() ?><input type="hidden" name="child_id" value="<?= (int) $c['id'] ?>">
+        <?php child_fields($c, $classes, 'c' . (int) $c['id']); ?>
+        <button class="btn" name="action" value="edit_child">Opslaan</button>
+      </form>
       <form method="post" onsubmit="return confirm(<?= e(json_encode($c['first_name'] . ' verwijderen? Aanmeldingen voor activiteiten vervallen ook.')) ?>)">
         <?= csrf_field() ?><input type="hidden" name="child_id" value="<?= (int) $c['id'] ?>">
         <button class="link" name="action" value="delete_child">verwijderen</button>
       </form>
-    </div>
+    </details>
   <?php endforeach; ?>
   <form method="post" class="form">
     <?= csrf_field() ?>
-    <div class="row">
-      <div><label for="first_name">Voornaam</label><input id="first_name" name="first_name" maxlength="80" required></div>
-      <div><label for="group_name">Groep <small>(optioneel)</small></label><input id="group_name" name="group_name" maxlength="80" placeholder="bijv. Grachtenvaarders, groep 5, oud-leerling"></div>
-    </div>
+    <?php child_fields(null, $classes, 'new'); ?>
     <button class="btn" name="action" value="add_child">＋ Kind toevoegen</button>
   </form>
 </article>
@@ -107,7 +174,7 @@ page_start('Mijn profiel', ['narrow' => true]);
   <h2>Jouw gegevens</h2>
   <form method="post" class="form">
     <?= csrf_field() ?>
-    <label for="name">Naam</label><input id="name" name="name" value="<?= e($user['name']) ?>" maxlength="100" required>
+    <label for="name">Voor- en achternaam</label><input id="name" name="name" value="<?= e($user['name']) ?>" maxlength="100" required>
     <label for="email">E-mailadres</label><input id="email" name="email" type="email" value="<?= e($user['email']) ?>" required>
     <button class="btn" name="action" value="details">Opslaan</button>
   </form>
