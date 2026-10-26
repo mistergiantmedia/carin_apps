@@ -6,6 +6,7 @@ require __DIR__ . '/lib/events.php';
 require __DIR__ . '/lib/tasks.php';
 require __DIR__ . '/lib/suggestions.php';
 require __DIR__ . '/lib/weather.php';
+require __DIR__ . '/lib/meals.php';
 $user = require_login();
 
 $today = today();
@@ -192,6 +193,20 @@ if ($incomplete): ?>
   </div>
 
   <div class="stack">
+    <?php $dinner = meals_between($today, $tomorrow); $toBuy = (int) db()->query('SELECT COUNT(*) FROM fp_shopping WHERE done_at IS NULL')->fetchColumn(); ?>
+    <div class="card">
+      <div class="section-title" style="margin-top:0"><h2>🍽️ Wat eten we?</h2><a href="eten.php">weekmenu</a></div>
+      <ul class="list compact">
+        <?php foreach ([$today => 'Vanavond', $tomorrow => 'Morgen'] as $d => $label): $meal = $dinner[$d] ?? null; ?>
+          <li><span style="font-size:24px"><?= $meal ? meal_emoji($meal) : '❓' ?></span><div class="grow"><span class="meta"><?= e($label) ?></span>
+            <?php if ($meal && $meal['recipe']): ?><a class="title" href="recept.php?id=<?= (int) $meal['recipe']['id'] ?>" style="color:inherit"><?= e($meal['recipe']['name']) ?></a>
+            <?php elseif ($meal): ?><span class="title"><?= e(meal_title($meal)) ?></span>
+            <?php else: ?><a class="title" href="eten.php#d<?= e($d) ?>">Nog niets gekozen →</a><?php endif; ?></div></li>
+        <?php endforeach; ?>
+      </ul>
+      <p style="margin:8px 0 0"><a class="btn small secondary" href="eten.php?tab=lijst">🛒 Boodschappen<?= $toBuy ? ' (' . $toBuy . ')' : '' ?></a></p>
+    </div>
+
     <div class="card">
       <div class="section-title" style="margin-top:0"><h2>💡 Attent zijn</h2><a href="ideeen.php?tab=attent">alles</a></div>
       <?php foreach ($suggestions as $s): ?><?= suggestion_html($s) ?><?php endforeach; ?>

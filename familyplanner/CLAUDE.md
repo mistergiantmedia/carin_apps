@@ -137,3 +137,10 @@ Hand-written ES5 helpers for old browsers are in `_legacy/dom.js`, extra layout 
   gezinnen_v1). Don't reintroduce "huishouden/adressen" wording.
 - Weather (lib/weather.php): Open-Meteo (no key), place = setting 'city', geocode + forecast cached in
   fp_settings (value is TEXT since migration 020). weather_forecast() never throws.
+- Eten & boodschappen (eten.php ?tab=menu|lijst|gerechten, recept.php, lib/meals.php; migration 025):
+  fp_recipes (+ fp_recipe_ingredients with a shop category, fp_recipe_likes per member), fp_meals (one dinner per
+  day: recipe or free title, cook, on_list), fp_shopping (shared list; same open item → amounts merged).
+  Starter recipes seeded once per planner family (setting recipes_v1). week_health() = Schijf van Vijf checks from
+  recipe tags (FISH, LEGUMES, REDMEAT, VEG…); suggest_recipe() avoids child dislikes/allergies (fp_members.allergies
+  via ALLERGY_WORDS) and prefers QUICK on busy evenings (busy_evenings from the agenda). Short words in
+  category/allergy matching only match at a word start (has_word: "ham" ≠ champignons).

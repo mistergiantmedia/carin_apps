@@ -452,6 +452,7 @@ function nav_items(): array
         ['gezin.php', '👨‍👩‍👧‍👦', 'Gezin'],
         ['vriendjes.php', '🧸', 'Vriendjes'],
         ['taken.php', '✅', 'Wie doet wat'],
+        ['eten.php', '🍽️', 'Eten & boodschappen'],
         ['verjaardagen.php', '🎂', 'Verjaardagen'],
         ['mensen.php', '📇', 'Adresboek'],
         ['groepen.php', '🏫', 'Groepen & klassen'],

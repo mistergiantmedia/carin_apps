@@ -13,8 +13,9 @@ if (!preg_match('/^[a-f0-9]{24}\.jpg$/', $name)) {
     exit;
 }
 // Only photos that belong to the logged-in family
-$own = db()->prepare('SELECT 1 FROM fp_members WHERE photo = ? UNION SELECT 1 FROM fp_contacts WHERE photo = ? UNION SELECT 1 FROM fp_photos WHERE file = ? LIMIT 1');
-$own->execute([$name, $name, $name]);
+$own = db()->prepare('SELECT 1 FROM fp_members WHERE photo = ? UNION SELECT 1 FROM fp_contacts WHERE photo = ? UNION SELECT 1 FROM fp_photos WHERE file = ?
+    UNION SELECT 1 FROM fp_households WHERE photo = ? UNION SELECT 1 FROM fp_recipes WHERE photo = ? LIMIT 1');
+$own->execute([$name, $name, $name, $name, $name]);
 if (!$own->fetchColumn() && !photo_shared_with_me($name) && !family_photo_visible($name)) {
     http_response_code(404);
     exit;
