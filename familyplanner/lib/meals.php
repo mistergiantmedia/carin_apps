@@ -387,3 +387,223 @@ function shopping_list(): array
     $done = db()->query('SELECT * FROM fp_shopping WHERE done_at IS NOT NULL ORDER BY done_at DESC LIMIT 40')->fetchAll();
     return [array_filter($open), $done];
 }
+
+// ---------- Import a recipe from a link ----------
+
+/** Fetch a public web page (http/https only, never internal addresses), max 3 MB. Returns the body or null. */
+function fetch_public_url(string $url, int $maxBytes = 3000000): ?string
+{
+    $parts = parse_url($url);
+    if (!$parts || !in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true) || empty($parts['host'])) {
+        return null;
+    }
+    $ips = @gethostbynamel($parts['host']) ?: [];
+    if (!$ips) {
+        return null;
+    }
+    foreach ($ips as $ip) {
+        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            return null; // the server itself or the local network: not allowed
+        }
+    }
+    if (!function_exists('curl_init')) {
+        return null;
+    }
+    $body = '';
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => false, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 3, CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS, CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (FamiliePlanner recipe import)', CURLOPT_ENCODING => '',
+        CURLOPT_HTTPHEADER => ['Accept: text/html,application/xhtml+xml,image/*;q=0.9,*/*;q=0.8', 'Accept-Language: nl,en;q=0.8'],
+        CURLOPT_WRITEFUNCTION => function ($ch, $chunk) use (&$body, $maxBytes) {
+            $body .= $chunk;
+            return strlen($body) > $maxBytes ? 0 : strlen($chunk); // stop when too big
+        },
+    ]);
+    curl_exec($ch);
+    $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    curl_close($ch);
+    return $code >= 200 && $code < 300 && $body !== '' ? $body : null;
+}
+
+/** "PT1H30M" → 90. */
+function iso_minutes($duration): ?int
+{
+    if (!is_string($duration) || !preg_match('/P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/i', $duration, $m)) {
+        return null;
+    }
+    $min = (int) ($m[1] ?? 0) * 1440 + (int) ($m[2] ?? 0) * 60 + (int) ($m[3] ?? 0);
+    return $min > 0 ? $min : null;
+}
+
+/** Find the schema.org Recipe in the page's JSON-LD (most recipe sites have one). */
+function find_recipe_jsonld(string $html): ?array
+{
+    if (!preg_match_all('#<script[^>]+application/ld\+json[^>]*>(.*?)</script>#is', $html, $m)) {
+        return null;
+    }
+    $isRecipe = function ($node) {
+        if (!is_array($node)) {
+            return false;
+        }
+        $t = $node['@type'] ?? '';
+        return $t === 'Recipe' || (is_array($t) && in_array('Recipe', $t, true));
+    };
+    foreach ($m[1] as $json) {
+        $data = json_decode(trim($json), true);
+        if (!is_array($data)) {
+            $data = json_decode(html_entity_decode(trim($json), ENT_QUOTES | ENT_HTML5, 'UTF-8'), true);
+        }
+        if (!is_array($data)) {
+            continue;
+        }
+        if (isset($data['@graph']) && is_array($data['@graph'])) {
+            $candidates = $data['@graph'];
+        } elseif ($data && array_keys($data) === range(0, count($data) - 1)) {
+            $candidates = $data;
+        } else {
+            $candidates = [$data];
+        }
+        foreach ($candidates as $node) {
+            if ($isRecipe($node)) {
+                return $node;
+            }
+        }
+    }
+    return null;
+}
+
+function clean_text($s): string
+{
+    return trim(preg_replace('/[ \t]+/u', ' ', html_entity_decode(strip_tags((string) $s), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+}
+
+/** Steps from recipeInstructions (text, HowToStep list or HowToSection list) as numbered lines. */
+function recipe_steps($instructions): string
+{
+    if (is_string($instructions)) {
+        return clean_text(str_replace(['<br>', '<br/>', '<br />', '</p>', '</li>'], "\n", $instructions));
+    }
+    $lines = [];
+    $walk = function ($items) use (&$walk, &$lines) {
+        foreach ((array) $items as $it) {
+            if (is_string($it)) {
+                $lines[] = clean_text($it);
+            } elseif (is_array($it) && isset($it['itemListElement'])) {
+                if (!empty($it['name'])) {
+                    $lines[] = '— ' . clean_text($it['name']) . ' —';
+                }
+                $walk($it['itemListElement']);
+            } elseif (is_array($it) && (isset($it['text']) || isset($it['name']))) {
+                $lines[] = clean_text($it['text'] ?? $it['name']);
+            }
+        }
+    };
+    $walk($instructions);
+    $n = 0;
+    $out = [];
+    foreach ($lines as $l) {
+        if ($l === '') {
+            continue;
+        }
+        $out[] = strpos($l, '—') === 0 ? $l : (++$n) . '. ' . $l;
+    }
+    return implode("\n", $out);
+}
+
+/** Guess tags from the ingredients: fish, legumes, red meat, vegetarian, whole grain, quick. */
+function guess_recipe_tags(array $ingredientNames, ?int $minutes): string
+{
+    $text = mb_strtolower(implode(' | ', $ingredientNames));
+    $has = function (array $words) use ($text) {
+        foreach ($words as $w) {
+            if (has_word($text, $w)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    $fish = $has(['zalm', 'kabeljauw', 'tonijn', 'vis', 'garnalen', 'makreel', 'koolvis', 'pangasius', 'forel', 'mosselen']);
+    $red = $has(['rundergehakt', 'gehakt', 'biefstuk', 'rundvlees', 'varkens', 'speklap', 'spek', 'worst', 'ham', 'lamsvlees', 'shoarma', 'chorizo', 'salami']);
+    $meat = $red || $has(['kip', 'kalkoen', 'eend']);
+    $tags = [];
+    if ($fish) {
+        $tags[] = 'FISH';
+    }
+    if ($has(['linzen', 'kikkererwten', 'bonen', 'spliterwten', 'kidneybonen'])) {
+        $tags[] = 'LEGUMES';
+    }
+    if ($red) {
+        $tags[] = 'REDMEAT';
+    }
+    if (!$fish && !$meat) {
+        $tags[] = 'VEG';
+    }
+    if ($has(['volkoren', 'zilvervlies'])) {
+        $tags[] = 'WHOLEGRAIN';
+    }
+    if ($minutes && $minutes <= 30) {
+        $tags[] = 'QUICK';
+    }
+    return implode(',', $tags);
+}
+
+/**
+ * Read a recipe from a recipe site (schema.org JSON-LD). Returns ['name', 'minutes', 'ingredients' => [[amount, name]],
+ * 'method', 'image', 'tags']. Throws RuntimeException with a Dutch message when it can't.
+ */
+function import_recipe_from_url(string $url): array
+{
+    $html = fetch_public_url($url);
+    if ($html === null) {
+        throw new RuntimeException('Deze website kon niet worden geopend. Klopt de link?');
+    }
+    $r = find_recipe_jsonld($html);
+    if (!$r) {
+        throw new RuntimeException('Op deze pagina staat geen recept dat de app kan lezen. Vul het gerecht zelf in en zet de link erbij.');
+    }
+    $ingredients = [];
+    foreach ((array) ($r['recipeIngredient'] ?? $r['ingredients'] ?? []) as $line) {
+        $line = clean_text($line);
+        if ($line !== '') {
+            $ingredients[] = parse_ingredient($line);
+        }
+    }
+    $minutes = iso_minutes($r['totalTime'] ?? null) ?: iso_minutes($r['cookTime'] ?? null);
+    $image = $r['image'] ?? null;
+    if (is_array($image)) {
+        $first = isset($image['url']) ? $image : ($image[0] ?? null);
+        $image = is_array($first) ? ($first['url'] ?? null) : $first;
+    }
+    $name = clean_text($r['name'] ?? '');
+    return [
+        'name' => $name !== '' ? $name : 'Recept van internet',
+        'minutes' => $minutes,
+        'ingredients' => $ingredients,
+        'method' => recipe_steps($r['recipeInstructions'] ?? ''),
+        'image' => is_string($image) ? $image : null,
+        'tags' => guess_recipe_tags(array_column($ingredients, 1), $minutes),
+    ];
+}
+
+/** Download a picture from the web into the uploads (via save_photo_file). Null when it fails. */
+function download_photo(?string $url): ?string
+{
+    if (!$url || !function_exists('save_photo_file')) {
+        return null;
+    }
+    $data = fetch_public_url($url, 8000000);
+    if ($data === null) {
+        return null;
+    }
+    $tmp = tempnam(sys_get_temp_dir(), 'fpimg');
+    file_put_contents($tmp, $data);
+    try {
+        return save_photo_file($tmp);
+    } catch (RuntimeException $e) {
+        return null;
+    } finally {
+        @unlink($tmp);
+    }
+}

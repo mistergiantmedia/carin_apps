@@ -276,6 +276,12 @@ page_header('🍽️ Eten & boodschappen', 'Wat eten we deze week, is het gezond
     </div>
     <a class="btn" href="recept.php?new=1">＋ Nieuw gerecht</a>
   </form>
+  <form method="post" action="recept.php" class="card form" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding:10px 14px">
+    <?= csrf_field() ?><input type="hidden" name="action" value="import">
+    <b>🔗 Recept van internet:</b>
+    <input name="url" type="url" required placeholder="Plak hier de link van een recept…" style="flex:1;min-width:220px">
+    <button class="btn small">Ophalen</button>
+  </form>
   <div class="grid recipe-grid">
     <?php foreach ($shown as $r): $kids = recipe_kids($r); $warn = recipe_allergy_warnings($r); ?>
       <a class="card recipe-card" href="recept.php?id=<?= (int) $r['id'] ?>">
@@ -284,6 +290,7 @@ page_header('🍽️ Eten & boodschappen', 'Wat eten we deze week, is het gezond
         <div class="meal-meta"><?= tag_icons($r) ?><?= $r['prep_minutes'] ? '<span class="muted small">' . (int) $r['prep_minutes'] . ' min</span>' : '' ?><?= kid_likes_html($r) ?></div>
         <?php if ($kids['all']): ?><span class="badge ok">⭐ Iedereen lust het</span><?php endif; ?>
         <?php if ($warn): ?><span class="small" style="color:var(--bad)">⚠️ <?= e(implode(', ', $warn)) ?></span><?php endif; ?>
+        <?php if ($r['url']): ?><span class="small muted">🔗 recept online</span><?php endif; ?>
         <?php if ($r['last']): ?><span class="small muted">Laatst gegeten <?= e(format_date_short($r['last'])) ?></span><?php endif; ?>
       </a>
     <?php endforeach; ?>

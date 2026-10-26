@@ -144,3 +144,5 @@ Hand-written ES5 helpers for old browsers are in `_legacy/dom.js`, extra layout 
   recipe tags (FISH, LEGUMES, REDMEAT, VEG…); suggest_recipe() avoids child dislikes/allergies (fp_members.allergies
   via ALLERGY_WORDS) and prefers QUICK on busy evenings (busy_evenings from the agenda). Short words in
   category/allergy matching only match at a word start (has_word: "ham" ≠ champignons).
+- Recipe import from a link (recept.php action=import): fetch_public_url() (http/https only, refuses private/reserved
+  IPs, 3 MB cap) → schema.org Recipe JSON-LD → name, ingredients, time, steps, photo (download_photo), guessed tags.

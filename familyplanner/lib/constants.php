@@ -2,7 +2,7 @@
 // Fixed lists used across the app. Labels are Dutch because they are shown to the family.
 
 // Bump when style.css / *.js change, so browsers load the new version.
-const ASSET_VERSION = '46';
+const ASSET_VERSION = '47';
 
 // Calendar event types: label, emoji, colour. Order = order in pickers.
 const EVENT_TYPES = [

@@ -19,6 +19,24 @@ $error = null;
 if (is_post()) {
     $action = post('action');
     try {
+        if ($action === 'import') {
+            // Paste a link from a recipe site: name, ingredients, time, method and photo come along
+            $url = trim(post('url'));
+            if (!filter_var($url, FILTER_VALIDATE_URL)) {
+                throw new RuntimeException('Plak een hele link, die begint met https://');
+            }
+            $imp = import_recipe_from_url($url);
+            $photo = download_photo($imp['image']);
+            db()->prepare('INSERT INTO fp_recipes (name, emoji, prep_minutes, tags, method, url, photo) VALUES (?, ?, ?, ?, ?, ?, ?)')
+                ->execute([mb_cut($imp['name'], 160), null, $imp['minutes'], $imp['tags'], $imp['method'] !== '' ? $imp['method'] : null, mb_cut($url, 255), $photo]);
+            $id = (int) db()->lastInsertId();
+            foreach ($imp['ingredients'] as $n => [$amount, $name]) {
+                db()->prepare('INSERT INTO fp_recipe_ingredients (recipe_id, amount, name, category, sort) VALUES (?, ?, ?, ?, ?)')
+                    ->execute([$id, $amount !== '' ? mb_cut($amount, 40) : null, mb_cut($name, 120), guess_category($name), $n]);
+            }
+            flash('🔗 ' . $imp['name'] . ' is opgehaald met ' . count($imp['ingredients']) . ' ingrediënten. Kijk even of alles klopt (✏️ Bewerken).');
+            redirect('recept.php?id=' . $id);
+        }
         if ($action === 'like' && $r && member(post_int('member_id'))) {
             $verdict = in_array(post('verdict'), ['LIKE', 'DISLIKE'], true) ? post('verdict') : '';
             if ($verdict === '' || ($r['likes'][post_int('member_id')] ?? '') === $verdict) {
@@ -108,6 +126,7 @@ page_start($r ? $r['name'] : 'Nieuw gerecht', ['active' => 'eten.php', 'narrow' 
         <form method="post" class="inline" style="display:flex;gap:6px"><?= csrf_field() ?><input type="hidden" name="action" value="plan">
           <input type="date" name="day" value="<?= e(today()) ?>" style="width:auto;min-height:36px;padding:4px 8px"><button class="btn small">📅 Op het menu</button></form>
         <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="to_list"><button class="btn small secondary">🛒 Op de boodschappenlijst</button></form>
+        <?php if ($r['url']): ?><a class="btn small secondary" href="<?= e($r['url']) ?>" target="_blank" rel="noopener">🔗 Recept online</a><?php endif; ?>
         <a class="btn small secondary" href="recept.php?id=<?= $id ?>&amp;edit=1">✏️ Bewerken</a>
       </div>
     </div>
@@ -153,12 +172,21 @@ page_start($r ? $r['name'] : 'Nieuw gerecht', ['active' => 'eten.php', 'narrow' 
 
 <?php else: ?>
   <?php page_header($r ? '✏️ ' . e($r['name']) : '🍽️ Nieuw gerecht'); ?>
+  <?php if (!$r): ?>
+    <form method="post" class="card form" style="margin-bottom:14px"><?= csrf_field() ?><input type="hidden" name="action" value="import">
+      <h2 style="margin-top:0">🔗 Recept van internet?</h2>
+      <p class="muted small" style="margin-top:0">Plak de link (bijv. van Leukerecepten of 24Kitchen). De app haalt naam, ingrediënten, tijd, bereiding en foto op.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><input name="url" type="url" required placeholder="https://…" style="flex:1;min-width:220px"><button class="btn">Ophalen</button></div>
+    </form>
+    <p class="muted small">…of vul het gerecht hieronder zelf in:</p>
+  <?php endif; ?>
   <form method="post" enctype="multipart/form-data" class="card form">
     <?= csrf_field() ?><input type="hidden" name="action" value="save">
     <div style="display:flex;gap:8px;align-items:flex-end">
       <div style="width:90px"><label for="emoji">Emoji</label><input id="emoji" name="emoji" value="<?= e($f['emoji']) ?>" data-emoji-picker data-default="🍽️"></div>
       <div style="flex:1"><label for="name">Naam van het gerecht</label><input id="name" name="name" value="<?= e($f['name']) ?>" required placeholder="bijv. Lasagne van oma"></div>
     </div>
+    <label for="url">🔗 Link naar het recept <small>(optioneel)</small></label><input id="url" name="url" type="url" value="<?= e($f['url']) ?>" placeholder="https://www.leukerecepten.nl/…">
     <label for="prep">Hoe lang duurt het? <small>(minuten)</small></label><input id="prep" name="prep_minutes" type="number" min="0" max="600" value="<?= e($f['prep_minutes']) ?>" style="max-width:140px">
     <label>Wat voor gerecht?</label>
     <div class="picker"><?php foreach (RECIPE_TAGS as $k => [$te, $tl]): ?><label class="pick sm"><input type="checkbox" name="tags[]" value="<?= e($k) ?>"<?= in_array($k, explode(',', (string) $f['tags']), true) ? ' checked' : '' ?>><span><?= $te ?> <?= e($tl) ?></span></label><?php endforeach; ?></div>
@@ -168,7 +196,6 @@ page_start($r ? $r['name'] : 'Nieuw gerecht', ['active' => 'eten.php', 'narrow' 
     <p class="hint">De app zet ze vanzelf in de goede afdeling van de boodschappenlijst (groente, zuivel, vlees…).</p>
     <label for="method">Zo maak je het <small>(optioneel)</small></label>
     <textarea id="method" name="method" rows="5"><?= e($f['method']) ?></textarea>
-    <label for="url">Link naar het recept <small>(optioneel)</small></label><input id="url" name="url" type="url" value="<?= e($f['url']) ?>" placeholder="https://…">
     <?= photo_field($f['photo'], 'Foto (optioneel)', 'Foto van het gerecht') ?>
     <div class="form-actions"><button class="btn">Opslaan</button><a class="btn secondary" href="<?= $r ? 'recept.php?id=' . $id : 'eten.php?tab=gerechten' ?>">Annuleren</a></div>
   </form>
