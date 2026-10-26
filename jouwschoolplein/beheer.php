@@ -62,6 +62,21 @@ if (is_post()) {
             flash('Lid verwijderd van dit schoolplein.');
             redirect('beheer.php#leden');
         }
+    } elseif ($action === 'reset_link' && is_site_admin()) {
+        $stmt = $pdo->prepare('SELECT id, name, email FROM users WHERE email = ?');
+        $stmt->execute([strtolower(post('reset_email'))]);
+        $target = $stmt->fetch();
+        if (!$target) {
+            $error = 'Er is geen account met dit e-mailadres.';
+        } else {
+            $newToken = bin2hex(random_bytes(32));
+            $pdo->prepare('DELETE FROM password_resets WHERE user_id = ?')->execute([$target['id']]);
+            $pdo->prepare('INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))')
+                ->execute([$target['id'], hash('sha256', $newToken)]);
+            $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+            $resetLink = ($https ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/') . '/reset.php?token=' . $newToken;
+            $resetFor = $target;
+        }
     } elseif ($action === 'new_school' && is_site_admin()) {
         $name = post('new_name');
         if ($name === '') {
@@ -157,6 +172,21 @@ page_start('Beheer', ['narrow' => true]);
 </article>
 
 <?php if (is_site_admin()): ?>
+<article class="card" id="wachtwoord">
+  <h2>Wachtwoord-link maken</h2>
+  <p class="hint">Voor iemand die zijn wachtwoord kwijt is. Je krijgt een link die 24 uur werkt en één keer te gebruiken is. Stuur die zelf naar de persoon.</p>
+  <?php if (!empty($resetLink)): ?>
+    <div class="flash ok">Link voor <?= e($resetFor['name']) ?> (<?= e($resetFor['email']) ?>):</div>
+    <input readonly value="<?= e($resetLink) ?>" onclick="this.select()" style="width:100%">
+  <?php endif; ?>
+  <form method="post" class="form">
+    <?= csrf_field() ?>
+    <label for="reset_email">E-mailadres van het account</label>
+    <input id="reset_email" name="reset_email" type="email" required>
+    <button class="btn secondary" name="action" value="reset_link">Link maken</button>
+  </form>
+</article>
+
 <article class="card">
   <h2>Nieuw schoolplein</h2>
   <p class="hint">Als hoofdbeheerder kun je meerdere schoolpleinen beheren. Wissel bovenaan tussen pleinen.</p>
