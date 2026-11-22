@@ -111,6 +111,11 @@ if (is_post()) {
             flash(post('reset') === 'off' ? 'Agendalink uitgezet' : 'Nieuwe agendalink gemaakt');
             redirect('instellingen.php#telefoon');
         }
+        if ($action === 'mcp') {
+            db()->prepare('UPDATE fp_users SET mcp_token = ? WHERE id = ?')->execute([post('reset') === 'off' ? null : bin2hex(random_bytes(20)), $user['id']]);
+            flash(post('reset') === 'off' ? 'Claude-koppeling uitgezet' : 'Nieuwe Claude-link gemaakt');
+            redirect('instellingen.php#claude');
+        }
         if ($action === 'gcal_member') {
             gcal_set_member(gcal_user((int) $user['id']), post_int('member_id'));
             flash('Opgeslagen. Je Google Agenda wordt over een paar minuten bijgewerkt.');
@@ -141,7 +146,7 @@ if (is_post()) {
     }
 }
 
-$stmt = db()->prepare('SELECT id, name, email, member_id, ics_token FROM fp_users WHERE family_id = ? ORDER BY id');
+$stmt = db()->prepare('SELECT id, name, email, member_id, ics_token, mcp_token FROM fp_users WHERE family_id = ? ORDER BY id');
 $stmt->execute([$user['family_id']]);
 $users = $stmt->fetchAll();
 $me = null;
@@ -152,6 +157,7 @@ foreach ($users as $u) {
 }
 $gcal = gcal_configured() ? gcal_user((int) $user['id']) : null;
 $host = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? '');
+$mcpUrl = $host . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/'), '/') . '/mcp.php?t=' . ($me['mcp_token'] ?? '');
 $icsBase = $host . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/'), '/') . '/ics.php?t=' . ($me['ics_token'] ?? '');
 
 function member_form(array $m): string
@@ -296,6 +302,24 @@ page_header('⚙️ Instellingen');
       <?php endif; ?>
     </div>
     <?php endif; ?>
+
+    <div class="card" id="claude">
+      <h2>🗣️ Praat met Claude</h2>
+      <p class="muted small">Koppel de planner aan Claude, dan kun je gewoon zeggen of typen: “zet zaterdag om 14:00 een speelafspraak met Noah in de agenda” of “zet melk en kaas op de boodschappenlijst”. Claude past dan de planner aan. Deze geheime link is de sleutel: deel hem alleen met mensen die alles in de planner mogen aanpassen.</p>
+      <?php if ($me && $me['mcp_token']): ?>
+        <label class="small"><b>Jouw Claude-link</b></label>
+        <input readonly value="<?= e($mcpUrl) ?>" onclick="this.select()">
+        <ol class="small muted" style="margin:10px 0 0 18px">
+          <li>Open Claude (claude.ai of de app) → Instellingen → Connectors → <i>Aangepaste connector toevoegen</i>.</li>
+          <li>Naam: <b>Familie Planner</b>, plak de link hierboven bij URL en bewaar.</li>
+          <li>Zet de connector aan in een gesprek en praat of typ zoals je wilt.</li>
+        </ol>
+        <form method="post" style="margin-top:10px;display:flex;gap:8px"><?= csrf_field() ?><input type="hidden" name="action" value="mcp">
+          <button class="btn small secondary">🔄 Nieuwe link (oude werkt niet meer)</button><button class="btn small danger" name="reset" value="off">Uitzetten</button></form>
+      <?php else: ?>
+        <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="mcp"><button class="btn">Link maken</button></form>
+      <?php endif; ?>
+    </div>
 
     <div class="card" id="telefoon">
       <h2>📱 Agenda op je telefoon</h2>

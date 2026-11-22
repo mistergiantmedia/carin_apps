@@ -149,3 +149,10 @@ Hand-written ES5 helpers for old browsers are in `_legacy/dom.js`, extra layout 
 - Kinderen kiezen (kiezen.php, migration 026 fp_meal_wishes): kids tap pictures of recipes as wishes; wishes show on
   the week menu with a plan button, boost suggest_recipe, and are removed when that recipe goes on the menu
   (wishes_fulfilled).
+
+### Claude connector (mcp.php, migration 027 fp_users.mcp_token)
+- MCP server (Streamable HTTP, stateless JSON-RPC) so someone can talk to Claude to add/edit/delete: events, tasks,
+  shopping list, dinner menu, address book. Auth = secret token in the URL (`mcp.php?t=…`, or Bearer), made per account in
+  Instellingen → 🗣️ Praat met Claude; added in Claude as a custom connector. Tools call the same lib functions as the
+  pages (save_event, delete_event, add_task, add_shopping_item…), so Google Agenda sync follows (gcal_schedule(true)).
+- New tool = add a `tool_x` function and an entry in `mcp_tools()`; tool errors: throw InvalidArgumentException (shown to Claude).
