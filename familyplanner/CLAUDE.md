@@ -155,4 +155,9 @@ Hand-written ES5 helpers for old browsers are in `_legacy/dom.js`, extra layout 
   shopping list, dinner menu, address book. Auth = secret token in the URL (`mcp.php?t=…`, or Bearer), made per account in
   Instellingen → 🗣️ Praat met Claude; added in Claude as a custom connector. Tools call the same lib functions as the
   pages (save_event, delete_event, add_task, add_shopping_item…), so Google Agenda sync follows (gcal_schedule(true)).
+- Tools live in `mcp.php` (agenda, tasks, shopping, menu, gezinnen) and `lib/mcp_more.php` (address book with relations
+  `set_friend_of` / gezin / groups / vaste week, family members, ideas, bucketlist, recipes). Not in MCP on purpose: photos,
+  login accounts and passwords, Google Agenda, friend-family invitations/sharing, deleting family members.
+- Test locally: `apt-get install mariadb-server`, start `mariadbd` on a scratch datadir, write a throw-away `config.php` (gitignored),
+  `php migrate.php`, `php -S`, then POST JSON-RPC (`tools/call`) to `mcp.php?t=<token>`.
 - New tool = add a `tool_x` function and an entry in `mcp_tools()`; tool errors: throw InvalidArgumentException (shown to Claude).

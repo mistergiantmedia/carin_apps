@@ -222,8 +222,8 @@ function tool_get_overview(array $a): array
     $members = [];
     foreach (members() as $m) {
         $members[] = ['id' => (int) $m['id'], 'name' => $m['name'], 'role' => $m['role'] === 'CHILD' ? 'kind' : 'ouder',
-            'birthday' => $m['birth_day'] ? sprintf('%02d-%02d', $m['birth_month'], $m['birth_day']) . ($m['birth_year'] ? '-' . $m['birth_year'] : '') : null,
-            'allergies' => $m['allergies'] ?? null];
+            'birthday' => mcp_birthday_text($m),
+            'allergies' => $m['allergies'] ?? null, 'phone' => $m['phone'] ?? null, 'email' => $m['email'] ?? null];
     }
     $types = [];
     foreach (EVENT_TYPES as $k => $t) {
@@ -239,7 +239,7 @@ function tool_get_overview(array $a): array
         'repeat_options' => array_filter(RECURRENCES, 'strlen', ARRAY_FILTER_USE_KEY),
         'task_repeat_options' => array_filter(TASK_RECURRENCES, 'strlen', ARRAY_FILTER_USE_KEY),
         'shopping_categories' => array_map(function ($c) {
-            return is_array($c) ? $c[0] : $c;
+            return $c[1];
         }, SHOP_CATEGORIES),
     ];
 }
@@ -379,23 +379,6 @@ function tool_find_contacts(array $a): array
     return ['contacts' => $out];
 }
 
-function tool_add_contact(array $a): array
-{
-    $name = trim((string) ($a['name'] ?? ''));
-    if ($name === '') {
-        throw new InvalidArgumentException('Geef een naam.');
-    }
-    $parts = preg_split('/\s+/', $name, 2);
-    $isChild = !empty($a['is_child']);
-    db()->prepare('INSERT INTO fp_contacts (first_name, last_name, is_child, relation) VALUES (?, ?, ?, ?)')
-        ->execute([mb_cut($parts[0], 80), isset($parts[1]) ? mb_cut($parts[1], 80) : null, $isChild ? 1 : 0, $isChild ? 'FRIEND' : 'OWN_FRIEND']);
-    $cid = (int) db()->lastInsertId();
-    foreach (mcp_member_ids($a['friend_of_member_ids'] ?? []) as $mid) {
-        db()->prepare('INSERT IGNORE INTO fp_contact_members (contact_id, member_id) VALUES (?, ?)')->execute([$cid, $mid]);
-    }
-    return ['added' => ['id' => $cid, 'name' => $name]];
-}
-
 function mcp_gezin_json(int $hid): ?array
 {
     $stmt = db()->prepare('SELECT * FROM fp_households WHERE id = ?');
@@ -468,37 +451,6 @@ function tool_link_to_gezin(array $a): array
         db()->prepare('UPDATE fp_contacts SET household_id = ? WHERE id = ?')->execute([$hid, $id]);
     }
     return ['gezin' => mcp_gezin_json($hid)];
-}
-
-function tool_update_contact(array $a): array
-{
-    $c = find_contact_row((int) ($a['id'] ?? 0));
-    if (!$c) {
-        throw new InvalidArgumentException('Er is geen contact met dit id (gebruik find_contacts).');
-    }
-    $sets = [];
-    $params = [];
-    foreach (['first_name' => 80, 'last_name' => 80, 'nickname' => 80] as $col => $max) {
-        if (array_key_exists($col, $a) && $a[$col] !== null) {
-            $v = trim((string) $a[$col]);
-            if ($col === 'first_name' && $v === '') {
-                throw new InvalidArgumentException('De voornaam mag niet leeg zijn.');
-            }
-            $sets[] = "$col = ?";
-            $params[] = $v === '' ? null : mb_cut($v, $max);
-        }
-    }
-    if (array_key_exists('is_child', $a) && $a['is_child'] !== null) {
-        $sets[] = 'is_child = ?';
-        $params[] = !empty($a['is_child']) ? 1 : 0;
-    }
-    if (!$sets) {
-        throw new InvalidArgumentException('Geef minstens één veld om te wijzigen.');
-    }
-    $params[] = $c['id'];
-    db()->prepare('UPDATE fp_contacts SET ' . implode(', ', $sets) . ' WHERE id = ?')->execute($params);
-    $n = find_contact_row((int) $c['id']);
-    return ['contact' => ['id' => (int) $n['id'], 'name' => contact_name($n), 'child' => (bool) $n['is_child']]];
 }
 
 function tool_rename_gezin(array $a): array
@@ -581,7 +533,7 @@ function tool_get_shopping_list(array $a): array
     };
     $out = [];
     foreach ($open as $cat => $items) {
-        $out[SHOP_CATEGORIES[$cat][0] ?? $cat] = array_map($fmt, $items);
+        $out[SHOP_CATEGORIES[$cat][1] ?? $cat] = array_map($fmt, $items);
     }
     return ['open' => $out, 'recently_ticked' => array_map($fmt, array_slice($done, 0, 15))];
 }
@@ -726,6 +678,11 @@ function mcp_event_props(): array
 
 function mcp_tools(): array
 {
+    return array_merge(mcp_core_tools(), mcp_more_tools());
+}
+
+function mcp_core_tools(): array
+{
     $obj = function (array $props, array $required = []) {
         return ['type' => 'object', 'properties' => $props ?: new stdClass(), 'required' => $required];
     };
@@ -737,10 +694,8 @@ function mcp_tools(): array
         ['name' => 'update_event', 'handler' => 'tool_update_event', 'description' => 'Change an agenda item; only the fields you pass change. For a repeating event pass occ (date of the occurrence from list_events) and scope: "one" (just that day) or "all" (the whole series).', 'inputSchema' => $obj(array_merge($ev, ['id' => ['type' => 'integer'], 'occ' => ['type' => 'string', 'description' => 'YYYY-MM-DD of the occurrence, for repeating events.'], 'scope' => ['type' => 'string', 'enum' => ['one', 'all']], 'start' => ['type' => 'string', 'description' => 'New start; the length is kept unless end is also given.'], 'end' => ['type' => 'string']]), ['id'])],
         ['name' => 'delete_event', 'handler' => 'tool_delete_event', 'description' => 'Delete an agenda item. For repeating events: scope "one" (only occ), "future" (occ and later) or "all". Confirm with the user first when it is not completely clear which item.', 'inputSchema' => $obj(['id' => ['type' => 'integer'], 'occ' => ['type' => 'string', 'description' => 'YYYY-MM-DD, needed for scope one/future.'], 'scope' => ['type' => 'string', 'enum' => ['one', 'future', 'all']]], ['id'])],
         ['name' => 'find_contacts', 'handler' => 'tool_find_contacts', 'description' => 'Search the address book (friends, classmates, family, babysitters) by name to get contact ids for guests.', 'inputSchema' => $obj(['query' => ['type' => 'string'], 'id' => ['type' => 'integer', 'description' => 'Look up one contact by id.']])],
-        ['name' => 'add_contact', 'handler' => 'tool_add_contact', 'description' => 'Quickly add a new person to the address book (first and last name in one string).', 'inputSchema' => $obj(['name' => ['type' => 'string'], 'is_child' => ['type' => 'boolean'], 'friend_of_member_ids' => MCP_MEMBER_IDS], ['name'])],
         ['name' => 'list_gezinnen', 'handler' => 'tool_list_gezinnen', 'description' => 'All gezinnen (one family at one address in the address book) with their people.', 'inputSchema' => $obj([])],
         ['name' => 'link_to_gezin', 'handler' => 'tool_link_to_gezin', 'description' => 'Put address-book people (e.g. a mother and her children) together in one gezin. Uses the gezin they are already in, a given gezin_id, or creates a new one (gezin_name, default: the children\'s names). Always verify the contact ids with find_contacts first.', 'inputSchema' => $obj(['contact_ids' => ['type' => 'array', 'items' => ['type' => 'integer']], 'gezin_id' => ['type' => 'integer'], 'gezin_name' => ['type' => 'string']], ['contact_ids'])],
-        ['name' => 'update_contact', 'handler' => 'tool_update_contact', 'description' => 'Change the name of an address-book person (first_name, last_name, nickname) or set is_child. Only the fields you pass change.', 'inputSchema' => $obj(['id' => ['type' => 'integer'], 'first_name' => ['type' => 'string'], 'last_name' => ['type' => 'string'], 'nickname' => ['type' => 'string'], 'is_child' => ['type' => 'boolean']], ['id'])],
         ['name' => 'rename_gezin', 'handler' => 'tool_rename_gezin', 'description' => 'Rename a gezin (e.g. to the family surname).', 'inputSchema' => $obj(['gezin_id' => ['type' => 'integer'], 'name' => ['type' => 'string']], ['gezin_id', 'name'])],
         ['name' => 'list_tasks', 'handler' => 'tool_list_tasks', 'description' => 'Open to-dos / chores ("wie doet wat"), optionally for one family member.', 'inputSchema' => $obj(['member_id' => ['type' => 'integer'], 'include_done' => ['type' => 'boolean', 'description' => 'Also tasks ticked off in the last 7 days.']])],
         ['name' => 'add_task', 'handler' => 'tool_add_task', 'description' => 'Add a to-do or chore.', 'inputSchema' => $obj(['title' => ['type' => 'string'], 'member_id' => ['type' => 'integer', 'description' => 'Who does it.'], 'due' => ['type' => 'string', 'description' => 'YYYY-MM-DD'], 'repeats' => ['type' => 'string', 'enum' => ['', 'DAILY', 'WEEKLY', 'MONTHLY']], 'notes' => ['type' => 'string'], 'event_id' => ['type' => 'integer', 'description' => 'Put it on the checklist of this event.']], ['title'])],
@@ -758,10 +713,12 @@ function mcp_tools(): array
     ];
 }
 
+require __DIR__ . '/lib/mcp_more.php'; // address book relations, groups, ideas, bucketlist, recipes…
+
 const MCP_INSTRUCTIONS = 'This is the Familie Planner of a Dutch family (parents and children). The user usually speaks Dutch: answer in Dutch, short and friendly. '
     . 'Call get_overview first to learn today\'s date and the member ids. Convert relative dates ("morgen", "zaterdag") to YYYY-MM-DD yourself and use 24h local time. '
     . 'Before editing or deleting, look the item up (list_events / list_tasks / get_shopping_list) to get the right id; if several items match, ask which one. '
-    . 'After a change, tell the user in one sentence what you did (title, day, time). Never invent ids.';
+    . 'The address book has relations: a person can be in a gezin (one family at one address), a vriendje/vriendin OF a family member (set_friend_of), and in groups (class, team, club). Search (find_contacts) before adding a person to avoid duplicates, and check ids with get_contact. After a change, tell the user in one sentence what you did (title, day, time). Never invent ids.';
 
 function mcp_call(string $name, array $args): array
 {
