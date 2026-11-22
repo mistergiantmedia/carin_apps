@@ -470,6 +470,48 @@ function tool_link_to_gezin(array $a): array
     return ['gezin' => mcp_gezin_json($hid)];
 }
 
+function tool_update_contact(array $a): array
+{
+    $c = find_contact_row((int) ($a['id'] ?? 0));
+    if (!$c) {
+        throw new InvalidArgumentException('Er is geen contact met dit id (gebruik find_contacts).');
+    }
+    $sets = [];
+    $params = [];
+    foreach (['first_name' => 80, 'last_name' => 80, 'nickname' => 80] as $col => $max) {
+        if (array_key_exists($col, $a) && $a[$col] !== null) {
+            $v = trim((string) $a[$col]);
+            if ($col === 'first_name' && $v === '') {
+                throw new InvalidArgumentException('De voornaam mag niet leeg zijn.');
+            }
+            $sets[] = "$col = ?";
+            $params[] = $v === '' ? null : mb_cut($v, $max);
+        }
+    }
+    if (array_key_exists('is_child', $a) && $a['is_child'] !== null) {
+        $sets[] = 'is_child = ?';
+        $params[] = !empty($a['is_child']) ? 1 : 0;
+    }
+    if (!$sets) {
+        throw new InvalidArgumentException('Geef minstens één veld om te wijzigen.');
+    }
+    $params[] = $c['id'];
+    db()->prepare('UPDATE fp_contacts SET ' . implode(', ', $sets) . ' WHERE id = ?')->execute($params);
+    $n = find_contact_row((int) $c['id']);
+    return ['contact' => ['id' => (int) $n['id'], 'name' => contact_name($n), 'child' => (bool) $n['is_child']]];
+}
+
+function tool_rename_gezin(array $a): array
+{
+    $hid = (int) ($a['gezin_id'] ?? 0);
+    $name = trim((string) ($a['name'] ?? ''));
+    if (!mcp_gezin_json($hid) || $name === '') {
+        throw new InvalidArgumentException('Geef een bestaand gezin_id (list_gezinnen) en een nieuwe naam.');
+    }
+    db()->prepare('UPDATE fp_households SET name = ? WHERE id = ?')->execute([mb_cut($name, 120), $hid]);
+    return ['gezin' => mcp_gezin_json($hid)];
+}
+
 function tool_list_tasks(array $a): array
 {
     $opt = [];
@@ -698,6 +740,8 @@ function mcp_tools(): array
         ['name' => 'add_contact', 'handler' => 'tool_add_contact', 'description' => 'Quickly add a new person to the address book (first and last name in one string).', 'inputSchema' => $obj(['name' => ['type' => 'string'], 'is_child' => ['type' => 'boolean'], 'friend_of_member_ids' => MCP_MEMBER_IDS], ['name'])],
         ['name' => 'list_gezinnen', 'handler' => 'tool_list_gezinnen', 'description' => 'All gezinnen (one family at one address in the address book) with their people.', 'inputSchema' => $obj([])],
         ['name' => 'link_to_gezin', 'handler' => 'tool_link_to_gezin', 'description' => 'Put address-book people (e.g. a mother and her children) together in one gezin. Uses the gezin they are already in, a given gezin_id, or creates a new one (gezin_name, default: the children\'s names). Always verify the contact ids with find_contacts first.', 'inputSchema' => $obj(['contact_ids' => ['type' => 'array', 'items' => ['type' => 'integer']], 'gezin_id' => ['type' => 'integer'], 'gezin_name' => ['type' => 'string']], ['contact_ids'])],
+        ['name' => 'update_contact', 'handler' => 'tool_update_contact', 'description' => 'Change the name of an address-book person (first_name, last_name, nickname) or set is_child. Only the fields you pass change.', 'inputSchema' => $obj(['id' => ['type' => 'integer'], 'first_name' => ['type' => 'string'], 'last_name' => ['type' => 'string'], 'nickname' => ['type' => 'string'], 'is_child' => ['type' => 'boolean']], ['id'])],
+        ['name' => 'rename_gezin', 'handler' => 'tool_rename_gezin', 'description' => 'Rename a gezin (e.g. to the family surname).', 'inputSchema' => $obj(['gezin_id' => ['type' => 'integer'], 'name' => ['type' => 'string']], ['gezin_id', 'name'])],
         ['name' => 'list_tasks', 'handler' => 'tool_list_tasks', 'description' => 'Open to-dos / chores ("wie doet wat"), optionally for one family member.', 'inputSchema' => $obj(['member_id' => ['type' => 'integer'], 'include_done' => ['type' => 'boolean', 'description' => 'Also tasks ticked off in the last 7 days.']])],
         ['name' => 'add_task', 'handler' => 'tool_add_task', 'description' => 'Add a to-do or chore.', 'inputSchema' => $obj(['title' => ['type' => 'string'], 'member_id' => ['type' => 'integer', 'description' => 'Who does it.'], 'due' => ['type' => 'string', 'description' => 'YYYY-MM-DD'], 'repeats' => ['type' => 'string', 'enum' => ['', 'DAILY', 'WEEKLY', 'MONTHLY']], 'notes' => ['type' => 'string'], 'event_id' => ['type' => 'integer', 'description' => 'Put it on the checklist of this event.']], ['title'])],
         ['name' => 'update_task', 'handler' => 'tool_update_task', 'description' => 'Change a task or tick it off (done: true). A repeating task moves on to its next date. Pass member_id 0 / due "" to clear them.', 'inputSchema' => $obj(['id' => ['type' => 'integer'], 'title' => ['type' => 'string'], 'member_id' => ['type' => 'integer'], 'due' => ['type' => 'string'], 'done' => ['type' => 'boolean']], ['id'])],
