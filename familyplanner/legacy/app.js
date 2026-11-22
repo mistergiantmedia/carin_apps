@@ -1426,7 +1426,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
   }());
 
   // ---------- Auto refresh (handy on a tablet or smart TV) ----------
-  // Every minute: ask the server for a fingerprint of the data. When someone else changed something,
+  // Every 10 seconds: ask the server for a fingerprint of the data. When someone else changed something,
   // or the day changed, refresh — but never while someone is busy on this screen.
   var dirty = false;
   document.addEventListener('input', function (e) {
@@ -1494,7 +1494,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     api('stamp').then(function (r) {
       lastStamp = r.stamp;
     }).catch(function () {});
-    setInterval(checkForChanges, 60000);
+    setInterval(checkForChanges, 10000);
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden) checkForChanges();
     });

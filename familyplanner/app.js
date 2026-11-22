@@ -715,7 +715,7 @@
   });
 
   // ---------- Auto refresh (handy on a tablet or smart TV) ----------
-  // Every minute: ask the server for a fingerprint of the data. When someone else changed something,
+  // Every 10 seconds: ask the server for a fingerprint of the data. When someone else changed something,
   // or the day changed, refresh — but never while someone is busy on this screen.
   let dirty = false;
   document.addEventListener('input', (e) => { if (e.target.closest('form') && !e.target.closest('.cal-filters')) dirty = true; });
@@ -737,7 +737,7 @@
   }
   if (DATA.today) {
     api('stamp').then((r) => { lastStamp = r.stamp; }).catch(() => {});
-    setInterval(checkForChanges, 60000);
+    setInterval(checkForChanges, 10000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForChanges(); });
   }
 
