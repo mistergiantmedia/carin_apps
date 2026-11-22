@@ -1,4 +1,4 @@
-always push to git when ready
+always push to git when ready: straight to `main` (see ../CLAUDE.md)
 
 the user making jouwschoolplein on my claude account does not know a single thing about programming.
 all prompts in Dutch are the user with no programming knowledge
