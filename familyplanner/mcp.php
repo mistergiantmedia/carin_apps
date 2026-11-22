@@ -360,7 +360,10 @@ function tool_find_contacts(array $a): array
     $q = trim((string) ($a['query'] ?? ''));
     $sql = 'SELECT c.*, h.name AS household_name FROM fp_contacts c LEFT JOIN fp_households h ON h.id = c.household_id';
     $params = [];
-    if ($q !== '') {
+    if (!empty($a['id'])) {
+        $sql .= ' WHERE c.id = ?';
+        $params[] = (int) $a['id'];
+    } elseif ($q !== '') {
         $sql .= ' WHERE CONCAT_WS(\' \', c.first_name, c.last_name, c.nickname, h.name) LIKE ?';
         $params[] = '%' . $q . '%';
     }
@@ -369,7 +372,7 @@ function tool_find_contacts(array $a): array
     $out = [];
     foreach ($stmt as $c) {
         $out[] = array_filter(['id' => (int) $c['id'], 'name' => contact_name($c), 'child' => (bool) $c['is_child'],
-            'relation' => RELATIONS[$c['relation']][0] ?? null, 'family' => $c['household_name']], function ($v) {
+            'relation' => RELATIONS[$c['relation']][0] ?? null, 'family' => $c['household_name'], 'family_id' => $c['household_id'] ? (int) $c['household_id'] : null], function ($v) {
             return $v !== null && $v !== '';
         });
     }
@@ -391,6 +394,80 @@ function tool_add_contact(array $a): array
         db()->prepare('INSERT IGNORE INTO fp_contact_members (contact_id, member_id) VALUES (?, ?)')->execute([$cid, $mid]);
     }
     return ['added' => ['id' => $cid, 'name' => $name]];
+}
+
+function mcp_gezin_json(int $hid): ?array
+{
+    $stmt = db()->prepare('SELECT * FROM fp_households WHERE id = ?');
+    $stmt->execute([$hid]);
+    if (!($h = $stmt->fetch())) {
+        return null;
+    }
+    $stmt = db()->prepare('SELECT * FROM fp_contacts WHERE household_id = ? ORDER BY is_child, first_name');
+    $stmt->execute([$hid]);
+    $people = [];
+    foreach ($stmt as $c) {
+        $people[] = ['id' => (int) $c['id'], 'name' => contact_name($c), 'child' => (bool) $c['is_child']];
+    }
+    return ['id' => (int) $h['id'], 'name' => $h['name'], 'people' => $people];
+}
+
+function tool_list_gezinnen(array $a): array
+{
+    $out = [];
+    foreach (db()->query('SELECT id FROM fp_households ORDER BY name') as $r) {
+        $out[] = mcp_gezin_json((int) $r['id']);
+    }
+    return ['gezinnen' => $out];
+}
+
+function tool_link_to_gezin(array $a): array
+{
+    $ids = mcp_ids($a['contact_ids'] ?? []);
+    if (count($ids) < 1) {
+        throw new InvalidArgumentException('Geef contact_ids (bijv. de moeder en haar kinderen).');
+    }
+    $rows = [];
+    foreach ($ids as $id) {
+        $c = find_contact_row($id);
+        if (!$c) {
+            throw new InvalidArgumentException("Er is geen contact met id $id (gebruik find_contacts).");
+        }
+        $rows[$id] = $c;
+    }
+    $hid = !empty($a['gezin_id']) ? (int) $a['gezin_id'] : 0;
+    if ($hid && !mcp_gezin_json($hid)) {
+        throw new InvalidArgumentException("Er is geen gezin met id $hid (gebruik list_gezinnen).");
+    }
+    if (!$hid) {
+        $existing = array_values(array_unique(array_filter(array_map(function ($c) {
+            return (int) $c['household_id'];
+        }, $rows))));
+        if (count($existing) > 1) {
+            throw new InvalidArgumentException('Deze mensen zitten al in verschillende gezinnen (' . implode(', ', $existing) . '). Kies er een met gezin_id.');
+        }
+        if ($existing) {
+            $hid = $existing[0];
+        } else {
+            $name = trim((string) ($a['gezin_name'] ?? ''));
+            if ($name === '') {
+                $kids = array_map(function ($c) {
+                    return contact_name($c, false);
+                }, array_filter($rows, function ($c) {
+                    return $c['is_child'];
+                }));
+                $name = implode('/', $kids) ?: implode('/', array_map(function ($c) {
+                    return contact_name($c, false);
+                }, $rows));
+            }
+            db()->prepare('INSERT INTO fp_households (name) VALUES (?)')->execute([mb_cut($name, 120)]);
+            $hid = (int) db()->lastInsertId();
+        }
+    }
+    foreach ($ids as $id) {
+        db()->prepare('UPDATE fp_contacts SET household_id = ? WHERE id = ?')->execute([$hid, $id]);
+    }
+    return ['gezin' => mcp_gezin_json($hid)];
 }
 
 function tool_list_tasks(array $a): array
@@ -617,8 +694,10 @@ function mcp_tools(): array
         ['name' => 'add_event', 'handler' => 'tool_add_event', 'description' => 'Add an agenda item. Times are Dutch local time. Resolve relative dates ("zaterdag") with get_overview\'s today. Check list_events first for conflicts when it matters.', 'inputSchema' => $obj(array_merge($ev, ['start' => ['type' => 'string', 'description' => 'YYYY-MM-DD HH:MM (or only YYYY-MM-DD for an all-day item).'], 'end' => ['type' => 'string', 'description' => 'YYYY-MM-DD HH:MM (default: start + 1 hour).']]), ['title', 'start'])],
         ['name' => 'update_event', 'handler' => 'tool_update_event', 'description' => 'Change an agenda item; only the fields you pass change. For a repeating event pass occ (date of the occurrence from list_events) and scope: "one" (just that day) or "all" (the whole series).', 'inputSchema' => $obj(array_merge($ev, ['id' => ['type' => 'integer'], 'occ' => ['type' => 'string', 'description' => 'YYYY-MM-DD of the occurrence, for repeating events.'], 'scope' => ['type' => 'string', 'enum' => ['one', 'all']], 'start' => ['type' => 'string', 'description' => 'New start; the length is kept unless end is also given.'], 'end' => ['type' => 'string']]), ['id'])],
         ['name' => 'delete_event', 'handler' => 'tool_delete_event', 'description' => 'Delete an agenda item. For repeating events: scope "one" (only occ), "future" (occ and later) or "all". Confirm with the user first when it is not completely clear which item.', 'inputSchema' => $obj(['id' => ['type' => 'integer'], 'occ' => ['type' => 'string', 'description' => 'YYYY-MM-DD, needed for scope one/future.'], 'scope' => ['type' => 'string', 'enum' => ['one', 'future', 'all']]], ['id'])],
-        ['name' => 'find_contacts', 'handler' => 'tool_find_contacts', 'description' => 'Search the address book (friends, classmates, family, babysitters) by name to get contact ids for guests.', 'inputSchema' => $obj(['query' => ['type' => 'string']])],
+        ['name' => 'find_contacts', 'handler' => 'tool_find_contacts', 'description' => 'Search the address book (friends, classmates, family, babysitters) by name to get contact ids for guests.', 'inputSchema' => $obj(['query' => ['type' => 'string'], 'id' => ['type' => 'integer', 'description' => 'Look up one contact by id.']])],
         ['name' => 'add_contact', 'handler' => 'tool_add_contact', 'description' => 'Quickly add a new person to the address book (first and last name in one string).', 'inputSchema' => $obj(['name' => ['type' => 'string'], 'is_child' => ['type' => 'boolean'], 'friend_of_member_ids' => MCP_MEMBER_IDS], ['name'])],
+        ['name' => 'list_gezinnen', 'handler' => 'tool_list_gezinnen', 'description' => 'All gezinnen (one family at one address in the address book) with their people.', 'inputSchema' => $obj([])],
+        ['name' => 'link_to_gezin', 'handler' => 'tool_link_to_gezin', 'description' => 'Put address-book people (e.g. a mother and her children) together in one gezin. Uses the gezin they are already in, a given gezin_id, or creates a new one (gezin_name, default: the children\'s names). Always verify the contact ids with find_contacts first.', 'inputSchema' => $obj(['contact_ids' => ['type' => 'array', 'items' => ['type' => 'integer']], 'gezin_id' => ['type' => 'integer'], 'gezin_name' => ['type' => 'string']], ['contact_ids'])],
         ['name' => 'list_tasks', 'handler' => 'tool_list_tasks', 'description' => 'Open to-dos / chores ("wie doet wat"), optionally for one family member.', 'inputSchema' => $obj(['member_id' => ['type' => 'integer'], 'include_done' => ['type' => 'boolean', 'description' => 'Also tasks ticked off in the last 7 days.']])],
         ['name' => 'add_task', 'handler' => 'tool_add_task', 'description' => 'Add a to-do or chore.', 'inputSchema' => $obj(['title' => ['type' => 'string'], 'member_id' => ['type' => 'integer', 'description' => 'Who does it.'], 'due' => ['type' => 'string', 'description' => 'YYYY-MM-DD'], 'repeats' => ['type' => 'string', 'enum' => ['', 'DAILY', 'WEEKLY', 'MONTHLY']], 'notes' => ['type' => 'string'], 'event_id' => ['type' => 'integer', 'description' => 'Put it on the checklist of this event.']], ['title'])],
         ['name' => 'update_task', 'handler' => 'tool_update_task', 'description' => 'Change a task or tick it off (done: true). A repeating task moves on to its next date. Pass member_id 0 / due "" to clear them.', 'inputSchema' => $obj(['id' => ['type' => 'integer'], 'title' => ['type' => 'string'], 'member_id' => ['type' => 'integer'], 'due' => ['type' => 'string'], 'done' => ['type' => 'boolean']], ['id'])],
