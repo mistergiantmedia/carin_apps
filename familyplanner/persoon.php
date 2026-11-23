@@ -72,17 +72,16 @@ page_start($m['name'], ['active' => 'gezin.php']);
   </div>
   <?= kid_week_board($m, $weekStart, true, 9, $isKid ? null : $mine) ?>
 
-<?php if ($isKid):
-    $tasks = load_tasks(['member' => $id, 'until' => $weekLast]);
-    $friends = friends_of($id, true);
+<?php
+    $tasks = load_tasks($isKid ? ['member' => $id, 'until' => $weekLast] : ['member' => $id]);
+    $friends = friends_of($id, $isKid);
     $stats = playdate_stats($id);
 ?>
-
   <div class="cols" style="margin-top:18px">
     <div class="card">
       <h2>⭐ Mijn klusjes</h2>
       <ul class="list"><?php foreach ($tasks as $t): ?><?= task_item($t, 'persoon.php?id=' . $id, false) ?><?php endforeach; ?></ul>
-      <?php if (!$tasks): ?><p class="muted">Geen klusjes deze week. 🎉</p><?php endif; ?>
+      <?php if (!$tasks): ?><p class="muted"><?= $isKid ? 'Geen klusjes deze week. 🎉' : 'Geen klusjes. 🎉' ?></p><?php endif; ?>
       <form method="post" action="taken.php" class="form no-print" style="display:flex;gap:8px;margin-top:10px">
         <?= csrf_field() ?><input type="hidden" name="action" value="add"><input type="hidden" name="members[]" value="<?= $id ?>"><input type="hidden" name="next" value="persoon.php?id=<?= $id ?>">
         <input name="title" placeholder="Nieuw klusje, bijv. Kamer opruimen" required><input type="hidden" name="due_date" value="<?= e(today()) ?>">
@@ -93,7 +92,7 @@ page_start($m['name'], ['active' => 'gezin.php']);
       <div class="section-title" style="margin-top:0"><h2>🎯 Mijn clubjes</h2><a href="clubjes.php">alles</a></div>
       <?php $clubs = member_clubs($id); ?>
       <ul class="list compact">
-        <?php foreach ($clubs as $club): $mates = array_filter(friends_doing($club['title']), function ($r) { return $r['is_child']; }); ?>
+        <?php foreach ($clubs as $club): $mates = array_filter(friends_doing($club['title']), function ($r) use ($isKid) { return !$isKid || $r['is_child']; }); ?>
           <li><span style="font-size:24px"><?= e(event_emoji($club)) ?></span><div class="grow"><a class="title" href="event.php?id=<?= (int) $club['id'] ?>" style="color:inherit"><?= e($club['title']) ?></a>
             <span class="meta"><?= e(WEEKDAYS[$club['weekday']]) ?><?= $club['time'] ? ' · ' . e($club['time']) : '' ?><?= $mates ? ' · ook: ' . e(implode(', ', array_unique(array_map(function ($r) { return contact_name($r, false); }, $mates)))) : '' ?></span></div></li>
         <?php endforeach; ?>
@@ -114,21 +113,21 @@ page_start($m['name'], ['active' => 'gezin.php']);
       <?php if (!$wishes): ?><p class="muted">Nog geen wensen. <a href="bucketlist.php#nieuw">＋ Wens toevoegen</a></p><?php endif; ?>
     </div>
     <div class="card">
-      <div class="section-title" style="margin-top:0"><h2>🧸 Mijn vriendjes</h2><a href="vriendjes.php?kid=<?= $id ?>">bingo & meer</a></div>
+      <div class="section-title" style="margin-top:0"><h2>🧸 Mijn vriendjes</h2><?php if ($isKid): ?><a href="vriendjes.php?kid=<?= $id ?>">bingo & meer</a><?php endif; ?></div>
       <?php if ($friends): ?>
         <div class="faces" style="grid-template-columns:repeat(auto-fill,minmax(92px,1fr))">
           <?php foreach ($friends as $f): $s = $stats[(int) $f['id']] ?? null; ?>
             <a class="face" href="contact.php?id=<?= (int) $f['id'] ?>"><?= avatar($f, 56) ?><b><?= e(contact_name($f, false)) ?></b>
-              <small><?= $s ? ($s['home'] + $s['away'] + $s['other']) . '× gespeeld' : 'nog niet gespeeld' ?></small></a>
+              <small><?= $s ? ($s['home'] + $s['away'] + $s['other']) . '× ' . ($isKid ? 'gespeeld' : 'afgesproken') : ($isKid ? 'nog niet gespeeld' : 'nog niet afgesproken') ?></small></a>
           <?php endforeach; ?>
         </div>
       <?php else: ?>
-        <?= empty_state('🧸', 'Nog geen vriendjes toegevoegd.', '<a class="btn soft" href="contact.php?new=1&amp;child=1&amp;member=' . $id . '">＋ Vriendje toevoegen</a>') ?>
+        <?= empty_state('🧸', 'Nog geen vriendjes toegevoegd.', '<a class="btn soft" href="contact.php?new=1' . ($isKid ? '&amp;child=1' : '') . '&amp;member=' . $id . '">＋ Vriendje toevoegen</a>') ?>
       <?php endif; ?>
     </div>
   </div>
 
-<?php else:
+<?php if (!$isKid):
     $view = in_array($_GET['view'] ?? '', ['month', 'year'], true) ? $_GET['view'] : 'month';
     $ym = preg_match('/^\d{4}-\d{2}$/', (string) ($_GET['m'] ?? '')) ? $_GET['m'] : date('Y-m');
     $year = (int) substr($ym, 0, 4);
@@ -149,9 +148,8 @@ page_start($m['name'], ['active' => 'gezin.php']);
     $friendBdays = array_values(array_filter(load_birthdays(today(), date('Y-m-d', strtotime('+60 day')), ['members' => [$id]]), function ($b) {
         return $b['kind'] === 'contact' && empty($b['person']['is_child']);
     }));
-    $tasks = load_tasks(['member' => $id]);
 ?>
-  <div class="section-title">
+  <div class="section-title" style="margin-top:18px">
     <div class="tabs">
       <a href="?id=<?= $id ?>&amp;view=month&amp;m=<?= e($ym) ?>" class="<?= $view === 'month' ? 'on' : '' ?>">Maand</a>
       <a href="?id=<?= $id ?>&amp;view=year&amp;m=<?= e($ym) ?>" class="<?= $view === 'year' ? 'on' : '' ?>">Jaar</a>
@@ -192,11 +190,6 @@ page_start($m['name'], ['active' => 'gezin.php']);
           <?php endforeach; ?>
         </ul>
         <?php if (!$friendBdays): ?><p class="muted">Geen verjaardagen de komende twee maanden.</p><?php endif; ?>
-      </div>
-      <div class="card">
-        <div class="section-title" style="margin-top:0"><h2>✅ Mijn taken</h2><a href="taken.php?member=<?= $id ?>">alles</a></div>
-        <ul class="list"><?php foreach (array_slice($tasks, 0, 8) as $t): ?><?= task_item($t, 'persoon.php?id=' . $id, false) ?><?php endforeach; ?></ul>
-        <?php if (!$tasks): ?><p class="muted">Geen open taken.</p><?php endif; ?>
       </div>
     </div>
   </div>
