@@ -30,13 +30,17 @@ function where_text(array $ev): string
     return $ev['location'] ? '📍 ' . $ev['location'] : '';
 }
 
-/** Colourful board of $days days for a child (default Saturday to the Sunday after: two weekends), with big friend photos. */
-function kid_week_board(array $kid, string $weekStart, bool $showDone = true, int $days = 9): string
+/**
+ * Colourful board of $days days for a child (default Saturday to the Sunday after: two weekends), with big friend photos.
+ * Also used for the parents: pass $filter (which events are theirs, e.g. also when they bring or pick up).
+ */
+function kid_week_board(array $kid, string $weekStart, bool $showDone = true, int $days = 9, ?callable $filter = null): string
 {
     $weekEnd = date('Y-m-d', strtotime("$weekStart +$days day"));
-    $events = array_values(array_filter(with_shared_events(load_events($weekStart, $weekEnd), $weekStart, $weekEnd), function ($ev) use ($kid) {
+    $events = array_values(array_filter(with_shared_events(load_events($weekStart, $weekEnd), $weekStart, $weekEnd), $filter ?: function ($ev) use ($kid) {
         return in_array((int) $kid['id'], $ev['members'], true);
     }));
+    $isParent = ($kid['role'] ?? '') === 'PARENT';
     $birthdays = load_birthdays($weekStart, $weekEnd, ['members' => [(int) $kid['id']]]);
     $byDay = group_by_day($events, $birthdays, $weekStart, $weekEnd);
     require_once __DIR__ . '/freedays.php';
@@ -81,7 +85,10 @@ function kid_week_board(array $kid, string $weekStart, bool $showDone = true, in
                 . ($time ? '<div class="ki-time">' . e($time) . '</div>' : '')
                 . ($friends ? '<div class="ki-friends">' . $friends . '</div>' : '')
                 . ($where ? '<div class="ki-where">' . e($where) . '</div>' : '')
-                . (($pick = driver_person($ev, 'pickup')) ? '<div class="ki-where">' . e($pick['emoji'] . ' ' . $pick['name']) . ' haalt je op</div>' : '')
+                . (($pick = driver_person($ev, 'pickup')) ? '<div class="ki-where">' . e($pick['emoji'] . ' ' . ($isParent
+                    ? ((string) $pick['value'] === (string) (int) $kid['id'] ? 'Jij haalt op' : $pick['name'] . ' haalt op')
+                    : $pick['name'] . ' haalt je op')) . '</div>' : '')
+                . ($isParent && ($drop = driver_person($ev, 'drop')) ? '<div class="ki-where">' . e($drop['emoji'] . ' ' . ((string) $drop['value'] === (string) (int) $kid['id'] ? 'Jij brengt' : $drop['name'] . ' brengt')) . '</div>' : '')
                 . '</a>';
         }
         if (!$items) {

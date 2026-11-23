@@ -55,15 +55,12 @@ page_start($m['name'], ['active' => 'gezin.php']);
   </div>
 </div>
 
-<?php if ($isKid):
+<?php
     $weekOffset = (int) ($_GET['week'] ?? 0);
-    // Saturday to the Sunday after (two weekends): on Saturday the children see the whole coming week
+    // Saturday to the Sunday after (two weekends): on Saturday the whole coming week is visible
     $saturday = date('w') === '6' ? today() : date('Y-m-d', strtotime('last saturday', strtotime(today())));
     $weekStart = date('Y-m-d', strtotime($saturday . ' ' . ($weekOffset >= 0 ? '+' : '') . ($weekOffset * 7) . ' day'));
     $weekLast = date('Y-m-d', strtotime("$weekStart +8 day"));
-    $tasks = load_tasks(['member' => $id, 'until' => $weekLast]);
-    $friends = friends_of($id, true);
-    $stats = playdate_stats($id);
 ?>
   <div class="section-title">
     <h2>🗓 <?= $weekOffset === 0 ? 'Mijn week' : ($weekOffset === 1 ? 'Volgende week' : 'Week ' . (int) date('W', strtotime("$weekStart +2 day"))) ?> <span class="muted small" style="font-weight:600"><?= e(format_date_short($weekStart)) ?> – <?= e(format_date_short($weekLast)) ?></span></h2>
@@ -73,7 +70,13 @@ page_start($m['name'], ['active' => 'gezin.php']);
       <a class="btn secondary small" href="?id=<?= $id ?>&amp;week=<?= $weekOffset + 1 ?>">volgende ›</a>
     </div>
   </div>
-  <?= kid_week_board($m, $weekStart) ?>
+  <?= kid_week_board($m, $weekStart, true, 9, $isKid ? null : $mine) ?>
+
+<?php if ($isKid):
+    $tasks = load_tasks(['member' => $id, 'until' => $weekLast]);
+    $friends = friends_of($id, true);
+    $stats = playdate_stats($id);
+?>
 
   <div class="cols" style="margin-top:18px">
     <div class="card">
