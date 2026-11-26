@@ -718,7 +718,7 @@ require __DIR__ . '/lib/mcp_more.php'; // address book relations, groups, ideas,
 const MCP_INSTRUCTIONS = 'This is the Familie Planner of a Dutch family (parents and children). The user usually speaks Dutch: answer in Dutch, short and friendly. '
     . 'Call get_overview first to learn today\'s date and the member ids. Convert relative dates ("morgen", "zaterdag") to YYYY-MM-DD yourself and use 24h local time. '
     . 'Before editing or deleting, look the item up (list_events / list_tasks / get_shopping_list) to get the right id; if several items match, ask which one. '
-    . 'The address book has relations: a person can be in a gezin (one family at one address), a vriendje/vriendin OF a family member (set_friend_of), and in groups (class, team, club). Search (find_contacts) before adding a person to avoid duplicates, and check ids with get_contact. After a change, tell the user in one sentence what you did (title, day, time). Never invent ids.';
+    . 'The address book has relations: a person can be in a gezin (one family at one address), a vriendje/vriendin OF a family member (set_friend_of), and in groups (class, team, club). Search (find_contacts) before adding a person to avoid duplicates, and check ids with get_contact. For "zet dit op de lijst / voeg deze link toe aan de lijst over X": use add_list_item (a link with a price = OPTION, only a link or concept = INSPIRATION, a thing to do = TODO); look at list_lists first. After a change, tell the user in one sentence what you did (title, day, time). Never invent ids.';
 
 function mcp_call(string $name, array $args): array
 {

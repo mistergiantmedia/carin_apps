@@ -115,6 +115,8 @@ try {
                 'fp_friendbook' => 'id, returned_on',
                 'fp_birthday_checks' => 'subject, year, item',
                 'fp_photos' => 'id',
+                'fp_lists' => 'id, title, emoji, done_at',
+                'fp_list_items' => 'id, list_id, kind, title, url, price, chosen, done_at',
                 'fp_bucket' => 'id, title, emoji, event_id, done_on',
                 'fp_bucket_votes' => 'bucket_id, member_id',
                 'fp_bucket_contacts' => 'bucket_id, contact_id',

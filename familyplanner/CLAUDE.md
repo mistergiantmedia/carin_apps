@@ -150,6 +150,12 @@ Hand-written ES5 helpers for old browsers are in `_legacy/dom.js`, extra layout 
   the week menu with a plan button, boost suggest_recipe, and are removed when that recipe goes on the menu
   (wishes_fulfilled).
 
+- Lijstjes (lijsten.php, lib/lists.php, migration 028): `fp_lists` (one per thing to sort out) with `fp_list_items`, kind TODO
+  (tick box, who), OPTION (url, price + price_note "per maand", pros/cons one per line, `chosen` = our pick, cheapest badge)
+  or INSPIRATION (link/concept). `save_list_item()` is shared by the page and MCP (link without title → page title via
+  fetch_public_url). MCP: list_lists, get_list, save_list, delete_list, add_list_item (list_id or list_name, create_list),
+  update_list_item, delete_list_item.
+
 ### Claude connector (mcp.php, migration 027 fp_users.mcp_token)
 - MCP server (Streamable HTTP, stateless JSON-RPC) so someone can talk to Claude to add/edit/delete: events, tasks,
   shopping list, dinner menu, address book. Auth = secret token in the URL (`mcp.php?t=…`, or Bearer), made per account in

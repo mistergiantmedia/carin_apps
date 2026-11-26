@@ -747,3 +747,40 @@ kbd{background:var(--card2);border:1px solid var(--line);border-radius:6px;paddi
 .fd-body{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:12px}
 .fd-col h4{font-size:12.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin:0 0 6px}
 .fd-col ul{margin:0;padding-left:18px;line-height:1.7;font-size:14px}
+
+/* ---------- Lijstjes (lijsten.php) ---------- */
+.list-grid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.list-card{display:flex;flex-direction:column;gap:8px;color:var(--ink);text-decoration:none}
+.list-card:hover{text-decoration:none;border-color:var(--accent)}
+.list-card.done{opacity:.6}
+.list-emoji{font-size:40px;line-height:1}
+.list-counts{display:flex;flex-wrap:wrap;gap:6px}
+.list-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.item-form .item-row{display:flex;gap:8px;flex-wrap:wrap}
+.item-form .item-row input{flex:1 1 220px}
+.item-form .item-row select{flex:0 1 140px}
+.item-form input,.item-form textarea{margin-top:6px}
+.list-todos{margin-bottom:10px}
+.list-todos>li{flex-wrap:wrap}
+.item-more>summary{list-style:none;cursor:pointer}
+.item-more>summary::-webkit-details-marker{display:none}
+.item-more[open]{flex-basis:100%;order:10;width:100%}
+.item-edit{background:var(--card2);border:1px solid var(--line);border-radius:16px;padding:12px;margin-top:8px}
+.item-edit .inline{display:inline-block;margin-top:8px;margin-left:8px}
+.add-more>summary.btn{display:inline-flex;margin:14px 0 4px}
+.add-more>summary.btn::before{content:'＋ '}
+.add-more[open]>summary.btn::before{content:'－ '}
+.option-grid{grid-template-columns:repeat(auto-fill,minmax(280px,1fr));margin-top:14px}
+.option-card{background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.option-card.picked{border-color:var(--warn);background:var(--warn-soft)}
+.option-card h3{font-size:17px}
+.option-card p{margin:0}
+.option-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.option-card .price{font-size:22px;font-weight:900;letter-spacing:-.5px}
+.option-card .price small{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:0}
+.proscons{list-style:none;margin:0;padding:0;font-size:14px}
+.proscons li{display:flex;gap:6px;padding:2px 0}
+.option-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;margin-top:auto}
+.btn.warn-btn{background:var(--warn);color:#fff}
+table.compare tr.picked td{background:var(--warn-soft)}
+table.compare td small{color:var(--muted);font-weight:500}

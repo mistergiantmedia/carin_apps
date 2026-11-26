@@ -1,11 +1,12 @@
 <?php
 // More MCP tools (see mcp.php): the address book with all its relations (vriendje van, gezin, groepen, vaste week),
-// family members, ideas, bucketlist and recipes. Everything the pages can do, through the same tables.
+// family members, ideas, bucketlist, lijstjes and recipes. Everything the pages can do, through the same tables.
 // Loaded by mcp.php after its own helpers. Keep this PHP 7.4 compatible.
 require_once __DIR__ . '/groups.php';
 require_once __DIR__ . '/upload.php';
 require_once __DIR__ . '/bucket.php';
 require_once __DIR__ . '/week.php';
+require_once __DIR__ . '/lists.php';
 require_once __DIR__ . '/friends.php';
 
 function mcp_clean(array $a): array
@@ -657,6 +658,163 @@ function tool_delete_bucket(array $a): array
     return ['deleted' => $b['title']];
 }
 
+// ---------- Lijstjes (to-do dossiers with options, links, prices, pros and cons) ----------
+
+function mcp_list_item(array $i): array
+{
+    return mcp_clean(['id' => (int) $i['id'], 'kind' => $i['kind'], 'title' => $i['title'], 'url' => $i['url'],
+        'price' => $i['price'] !== null ? (float) $i['price'] : null, 'price_note' => $i['price_note'],
+        'pros' => list_lines($i['pros']), 'cons' => list_lines($i['cons']), 'notes' => $i['notes'],
+        'who' => !empty($i['member_id']) ? ($i['member_id'] && member((int) $i['member_id']) ? member((int) $i['member_id'])['name'] : null) : null,
+        'our_pick' => !empty($i['chosen']) ? true : null, 'done' => $i['kind'] === 'TODO' ? $i['done_at'] !== null : null]);
+}
+
+function mcp_list(array $l, bool $withItems = false): array
+{
+    $out = mcp_clean(['id' => (int) $l['id'], 'title' => $l['title'], 'emoji' => $l['emoji'], 'notes' => $l['notes'], 'finished' => $l['done_at'] !== null ? true : null]);
+    if ($withItems) {
+        $items = load_list_items((int) $l['id']);
+        $cheap = cheapest_options($items['OPTION']);
+        $out['todos'] = array_map('mcp_list_item', $items['TODO']);
+        $out['options'] = array_map(function ($o) use ($cheap) {
+            $r = mcp_list_item($o);
+            if (in_array((int) $o['id'], $cheap, true)) {
+                $r['cheapest'] = true;
+            }
+            return $r;
+        }, $items['OPTION']);
+        $out['inspiration'] = array_map('mcp_list_item', $items['INSPIRATION']);
+    } else {
+        $out['todos_open'] = (int) $l['todos'] - (int) $l['todos_done'];
+        $out['options'] = (int) $l['options'];
+        $out['inspiration'] = (int) $l['inspiration'];
+    }
+    return $out;
+}
+
+function tool_list_lists(array $a): array
+{
+    return ['lists' => array_map('mcp_list', load_lists(!empty($a['finished'])))];
+}
+
+function tool_get_list(array $a): array
+{
+    return ['list' => mcp_list(resolve_list(isset($a['id']) ? (int) $a['id'] : null, (string) ($a['name'] ?? '')), true)];
+}
+
+function tool_save_list(array $a): array
+{
+    $id = (int) ($a['id'] ?? 0);
+    $old = $id ? find_list($id) : null;
+    if ($id && !$old) {
+        throw new InvalidArgumentException('Deze lijst bestaat niet (gebruik list_lists).');
+    }
+    $title = array_key_exists('title', $a) ? trim((string) $a['title']) : (string) ($old['title'] ?? '');
+    if ($title === '') {
+        throw new InvalidArgumentException('Geef een title voor de lijst.');
+    }
+    $emoji = array_key_exists('emoji', $a) ? trim((string) $a['emoji']) : (string) ($old['emoji'] ?? '');
+    $notes = array_key_exists('notes', $a) ? trim((string) $a['notes']) : (string) ($old['notes'] ?? '');
+    $emoji = $emoji !== '' ? mb_cut($emoji, 16) : null;
+    $notes = $notes !== '' ? $notes : null;
+    if ($old) {
+        db()->prepare('UPDATE fp_lists SET title = ?, emoji = ?, notes = ? WHERE id = ?')->execute([mb_cut($title, 160), $emoji, $notes, $id]);
+        if (isset($a['finished'])) {
+            db()->prepare('UPDATE fp_lists SET done_at = ? WHERE id = ?')->execute([!empty($a['finished']) ? date('Y-m-d H:i:s') : null, $id]);
+        }
+    } else {
+        // Don't make a second list with the same name: return the existing one
+        $stmt = db()->prepare('SELECT id FROM fp_lists WHERE LOWER(title) = LOWER(?) AND done_at IS NULL LIMIT 1');
+        $stmt->execute([mb_cut($title, 160)]);
+        if ($dup = $stmt->fetchColumn()) {
+            return ['list' => mcp_list(find_list((int) $dup), true), 'note' => 'Deze lijst bestond al; er is geen nieuwe gemaakt.'];
+        }
+        db()->prepare('INSERT INTO fp_lists (title, emoji, notes, created_by) VALUES (?, ?, ?, ?)')->execute([mb_cut($title, 160), $emoji, $notes, current_user()['id']]);
+        $id = (int) db()->lastInsertId();
+    }
+    return ['list' => mcp_list(find_list($id), true)];
+}
+
+function tool_delete_list(array $a): array
+{
+    $l = resolve_list((int) ($a['id'] ?? 0));
+    db()->prepare('DELETE FROM fp_lists WHERE id = ?')->execute([$l['id']]);
+    return ['deleted' => $l['title']];
+}
+
+function tool_add_list_item(array $a): array
+{
+    $created = false;
+    try {
+        $list = resolve_list(isset($a['list_id']) ? (int) $a['list_id'] : null, (string) ($a['list_name'] ?? ''));
+    } catch (InvalidArgumentException $e) {
+        // "Add this to the list X" for a list that doesn't exist yet: make it when asked to
+        if (empty($a['create_list']) || trim((string) ($a['list_name'] ?? '')) === '' || !empty($a['list_id'])) {
+            throw $e;
+        }
+        $stmt = db()->prepare('SELECT COUNT(*) FROM fp_lists WHERE done_at IS NULL AND LOWER(title) LIKE ?');
+        $stmt->execute(['%' . mb_strtolower(trim((string) $a['list_name'])) . '%']);
+        if ((int) $stmt->fetchColumn() > 0) {
+            throw $e; // several candidates: ask which one instead of creating a duplicate
+        }
+        db()->prepare('INSERT INTO fp_lists (title, created_by) VALUES (?, ?)')->execute([mb_cut(trim((string) $a['list_name']), 160), current_user()['id']]);
+        $list = find_list((int) db()->lastInsertId());
+        $created = true;
+    }
+    $d = $a;
+    if (isset($d['kind']) || !isset($a['url'])) {
+        $d['kind'] = $d['kind'] ?? 'TODO';
+    } else {
+        $d['kind'] = 'INSPIRATION'; // only a link: inspiration unless a price / pros / cons say it is an option
+        if (isset($a['price']) || isset($a['pros']) || isset($a['cons'])) {
+            $d['kind'] = 'OPTION';
+        }
+    }
+    foreach (['pros', 'cons'] as $k) {
+        if (isset($d[$k]) && is_array($d[$k])) {
+            $d[$k] = implode("\n", array_map('strval', $d[$k]));
+        }
+    }
+    $itemId = save_list_item((int) $list['id'], $d);
+    $item = find_list_item($itemId);
+    return ['added_to' => $list['title'], 'list_id' => (int) $list['id'], 'list_created' => $created ?: null, 'item' => mcp_list_item($item)];
+}
+
+function tool_update_list_item(array $a): array
+{
+    $item = find_list_item((int) ($a['id'] ?? 0));
+    if (!$item) {
+        throw new InvalidArgumentException('Dit onderdeel bestaat niet (gebruik get_list).');
+    }
+    $d = $a;
+    unset($d['id']);
+    foreach (['pros', 'cons'] as $k) {
+        if (isset($d[$k]) && is_array($d[$k])) {
+            $d[$k] = implode("\n", array_map('strval', $d[$k]));
+        }
+    }
+    if (isset($d['list_id']) && (int) $d['list_id'] !== (int) $item['list_id']) { // move to another list
+        if (!find_list((int) $d['list_id'])) {
+            throw new InvalidArgumentException('Die lijst bestaat niet.');
+        }
+        db()->prepare('UPDATE fp_list_items SET list_id = ?, chosen = 0 WHERE id = ?')->execute([(int) $d['list_id'], $item['id']]);
+        $item['list_id'] = (int) $d['list_id'];
+    }
+    unset($d['list_id']);
+    save_list_item((int) $item['list_id'], $d, (int) $item['id']);
+    return ['item' => mcp_list_item(find_list_item((int) $item['id']))];
+}
+
+function tool_delete_list_item(array $a): array
+{
+    $item = find_list_item((int) ($a['id'] ?? 0));
+    if (!$item) {
+        throw new InvalidArgumentException('Dit onderdeel bestaat niet (gebruik get_list).');
+    }
+    db()->prepare('DELETE FROM fp_list_items WHERE id = ?')->execute([$item['id']]);
+    return ['deleted' => $item['title']];
+}
+
 // ---------- Recipes ----------
 
 function mcp_recipe(array $r): array
@@ -867,6 +1025,21 @@ function mcp_more_tools(): array
         ['name' => 'list_bucket', 'handler' => 'tool_list_bucket', 'description' => 'The bucketlist (things we want to do), with who wants it and who joins.', 'inputSchema' => $o(['done' => ['type' => 'boolean', 'description' => 'true = only done, false = only open']])],
         ['name' => 'save_bucket', 'handler' => 'tool_save_bucket', 'description' => 'Add (no id) or change (id) a bucketlist wish. member_ids = who wants it, contact_ids = friends who join, done = tick off, event_id = planned event.', 'inputSchema' => $o(['id' => $int, 'title' => $str, 'emoji' => $str, 'notes' => $str, 'member_ids' => $ids('Who wants it'), 'contact_ids' => $ids('Friends who join'), 'done' => ['type' => 'boolean'], 'done_on' => $str, 'event_id' => $int])],
         ['name' => 'delete_bucket', 'handler' => 'tool_delete_bucket', 'description' => 'Delete a bucketlist wish.', 'inputSchema' => $o(['id' => $int], ['id'])],
+        ['name' => 'list_lists', 'handler' => 'tool_list_lists', 'description' => 'The "Lijstjes": one list per thing to sort out (energie overstappen, dekbedden kopen…), each with to-dos, options to compare and inspiration. Counts only; use get_list for the content.', 'inputSchema' => $o(['finished' => ['type' => 'boolean', 'description' => 'true = the finished lists']])],
+        ['name' => 'get_list', 'handler' => 'tool_get_list', 'description' => 'One list with all its to-dos, options (link, price, pros, cons, our_pick, cheapest) and inspiration. Give id or (part of) the name.', 'inputSchema' => $o(['id' => $int, 'name' => $str])],
+        ['name' => 'save_list', 'handler' => 'tool_save_list', 'description' => 'Create a list (no id) or change one (id): title, emoji, notes, finished (true = done, hidden from the active lists).', 'inputSchema' => $o(['id' => $int, 'title' => $str, 'emoji' => $str, 'notes' => $str, 'finished' => ['type' => 'boolean']])],
+        ['name' => 'delete_list', 'handler' => 'tool_delete_list', 'description' => 'DELETE a list with everything in it. Confirm first.', 'inputSchema' => $o(['id' => $int], ['id'])],
+        ['name' => 'add_list_item', 'handler' => 'tool_add_list_item', 'description' => 'Add something to a list (list_id, or list_name = part of its title; create_list: true makes the list when it does not exist). kind TODO = a to-do (default), OPTION = something to compare (give url, price, price_note like "per maand", pros, cons), INSPIRATION = a link/product/concept to remember. With only a url (no kind) it becomes INSPIRATION, with a price/pros/cons an OPTION. Without a title the page title of the link is used.', 'inputSchema' => $o([
+            'list_id' => $int, 'list_name' => $str, 'create_list' => ['type' => 'boolean'],
+            'kind' => ['type' => 'string', 'enum' => ['TODO', 'OPTION', 'INSPIRATION']], 'title' => $str, 'url' => $str,
+            'price' => ['type' => 'number', 'description' => 'Euro, e.g. 49.95'], 'price_note' => ['type' => 'string', 'description' => 'e.g. "per maand", "eenmalig"'],
+            'pros' => ['type' => 'array', 'items' => $str, 'description' => 'Advantages, one string each'], 'cons' => ['type' => 'array', 'items' => $str, 'description' => 'Disadvantages, one string each'],
+            'notes' => $str, 'member_id' => ['type' => 'integer', 'description' => 'Who does this to-do']])],
+        ['name' => 'update_list_item', 'handler' => 'tool_update_list_item', 'description' => 'Change an item (id from get_list): any field, done (tick a to-do), chosen (mark an option as our pick), list_id (move to another list). Only the fields you pass change; pros/cons REPLACE the old ones.', 'inputSchema' => $o([
+            'id' => $int, 'title' => $str, 'url' => $str, 'price' => ['type' => 'number'], 'price_note' => $str, 'kind' => ['type' => 'string', 'enum' => ['TODO', 'OPTION', 'INSPIRATION']],
+            'pros' => ['type' => 'array', 'items' => $str], 'cons' => ['type' => 'array', 'items' => $str], 'notes' => $str, 'member_id' => $int,
+            'done' => ['type' => 'boolean'], 'chosen' => ['type' => 'boolean'], 'list_id' => $int], ['id'])],
+        ['name' => 'delete_list_item', 'handler' => 'tool_delete_list_item', 'description' => 'Remove one item from a list.', 'inputSchema' => $o(['id' => $int], ['id'])],
         ['name' => 'get_recipe', 'handler' => 'tool_get_recipe', 'description' => 'One recipe with ingredients, method and who likes it.', 'inputSchema' => $o(['id' => $int], ['id'])],
         ['name' => 'save_recipe', 'handler' => 'tool_save_recipe', 'description' => 'Add (no id) or change (id) a recipe. ingredients: one string per line, e.g. "500 g gehakt". tags: VEG, FISH, LEGUMES, REDMEAT, QUICK… (the app guesses categories for the shopping list).', 'inputSchema' => $o(['id' => $int, 'name' => $str, 'emoji' => $str, 'minutes' => $int, 'tags' => ['type' => 'array', 'items' => $str], 'method' => $str, 'url' => $str, 'ingredients' => ['type' => 'array', 'items' => $str]])],
         ['name' => 'import_recipe', 'handler' => 'tool_import_recipe', 'description' => 'Add a recipe from a web link (name, ingredients, time, method, photo are read from the page).', 'inputSchema' => $o(['url' => $str], ['url'])],
