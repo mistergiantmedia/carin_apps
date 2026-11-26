@@ -800,13 +800,21 @@ table.cmp .big small{font-size:12px;font-weight:600;color:#76737F}
 .cmp-edit:hover{opacity:1}
 .stars{color:#F2A33A;letter-spacing:1px;white-space:nowrap}
 .stars .off{color:#ECE5DC}
-.modal{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(20,18,28,.55);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:4vh 12px;overflow-y:auto}
-.modal[hidden]{display:none}
-.modal-box{position:relative;background:#fff;border-radius:22px;padding:22px;width:100%;max-width:560px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
-.modal-box h2{margin:0 36px 12px 0}
-.modal-x{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;border:0;background:#FBF6EF;cursor:pointer;font-size:16px}
-body.modal-open{overflow:hidden}
-.modal .inline{display:inline-block;margin-top:10px;margin-left:8px}
+.lmodal{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(20,18,28,.55);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:4vh 12px;overflow-y:auto}
+.lmodal[hidden]{display:none}
+.lmodal-box{position:relative;background:#fff;border-radius:22px;padding:22px;width:100%;max-width:560px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.lmodal-box h2{margin:0 36px 12px 0}
+.lmodal-x{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;border:0;background:#FBF6EF;cursor:pointer;font-size:16px}
+body.lmodal-open{overflow:hidden}
+.lmodal .inline{display:inline-block;margin-top:10px;margin-left:8px}
+
+.img-pick{margin-top:12px;padding:10px;border:2px dashed #ECE5DC;border-radius:14px;background:#FBF6EF}
+.img-pick.img-got{border-color:#2BA879}
+.img-pick-body{display:flex;gap:12px;margin-top:8px;align-items:flex-start}
+.img-pick-prev{flex:0 0 90px;height:90px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.img-pick-prev[hidden]{display:none}
+.img-pick-prev img{max-width:100%;max-height:90px}
+.img-pick-fields{flex:1;min-width:0}
 
 /* Appended to legacy/style.css by build.js. Only old browsers (no ES modules) load that file.
    Old engines (Chrome 38 on webOS 3.x) have no CSS grid and no flex "gap": flexbox layouts with margins. */

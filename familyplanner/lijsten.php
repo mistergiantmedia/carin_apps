@@ -3,6 +3,7 @@
 // options to compare (link, price, pros and cons, our pick) and inspiration. ?id=<list> opens one list.
 require __DIR__ . '/lib/app.php';
 require __DIR__ . '/lib/lists.php';
+require __DIR__ . '/lib/upload.php';
 $user = require_login();
 
 $listId = get_int('id');
@@ -16,6 +17,16 @@ if (is_post()) {
     $action = post('action');
     $id = post_int('id');
     try {
+        $img = [];
+        if (in_array($action, ['add_item', 'edit_item'], true)) {
+            if ($file = save_photo('photo')) {
+                $img['image_file'] = $file;
+            } elseif (post('remove_image')) {
+                $img['image_url'] = '';
+            } elseif (post('image_url') !== '') {
+                $img['image_url'] = post('image_url');
+            }
+        }
         if ($action === 'add_list' && post('title') !== '') {
             db()->prepare('INSERT INTO fp_lists (title, emoji, notes, created_by) VALUES (?, ?, ?, ?)')
                 ->execute([mb_cut(post('title'), 160), post('emoji') !== '' ? mb_cut(post('emoji'), 16) : null, post_or_null('notes'), $user['id']]);
@@ -40,16 +51,16 @@ if (is_post()) {
             save_list_item((int) $list['id'], [
                 'kind' => post('kind'), 'title' => post('title'), 'url' => post('url'), 'price' => post('price'), 'price_note' => post('price_note'),
                 'pros' => post('pros'), 'cons' => post('cons'), 'notes' => post('notes'), 'member_id' => post_int('member_id') ?: null,
-                'specs' => post('specs'), 'rating' => post('rating'), 'image_url' => post('image_url'),
-            ]);
+                'specs' => post('specs'), 'rating' => post('rating'),
+            ] + $img);
             flash(['TODO' => 'Op de lijst gezet ✅', 'OPTION' => 'Optie toegevoegd 🛒', 'INSPIRATION' => 'Inspiratie bewaard 💡'][post('kind')] ?? 'Toegevoegd');
         }
         if ($list && $action === 'edit_item' && $id) {
             save_list_item((int) $list['id'], [
                 'title' => post('title'), 'url' => post('url'), 'price' => post('price'), 'price_note' => post('price_note'),
                 'pros' => post('pros'), 'cons' => post('cons'), 'notes' => post('notes'), 'member_id' => post_int('member_id') ?: 0,
-                'specs' => post('specs'), 'rating' => post('rating'), 'image_url' => post('image_url'),
-            ], $id);
+                'specs' => post('specs'), 'rating' => post('rating'),
+            ] + $img, $id);
             flash('Aangepast');
         }
         if ($list && $action === 'toggle' && $id) {
@@ -60,10 +71,15 @@ if (is_post()) {
             set_list_choice((int) $list['id'], $id, $it && !$it['chosen']);
         }
         if ($list && $action === 'delete_item' && $id) {
+            if (($gone = find_list_item($id)) && is_local_image($gone['image_url'])) {
+                delete_photo($gone['image_url']);
+            }
             db()->prepare('DELETE FROM fp_list_items WHERE id = ? AND list_id = ?')->execute([$id, $list['id']]);
             flash('Verwijderd');
         }
     } catch (InvalidArgumentException $e) {
+        flash($e->getMessage(), 'error');
+    } catch (RuntimeException $e) {
         flash($e->getMessage(), 'error');
     }
     redirect($here . ($id ? '#i' . $id : ''));
@@ -76,7 +92,7 @@ function item_form(array $list, string $kind, ?array $it = null): string
     $v = function ($k) use ($it) {
         return e($it[$k] ?? '');
     };
-    $h = '<form method="post" class="form item-form">' . csrf_field()
+    $h = '<form method="post" class="form item-form" enctype="multipart/form-data">' . csrf_field()
         . '<input type="hidden" name="action" value="' . ($new ? 'add_item' : 'edit_item') . '">'
         . '<input type="hidden" name="id" value="' . (int) ($it['id'] ?? 0) . '">'
         . '<input type="hidden" name="kind" value="' . e($kind) . '">'
@@ -100,9 +116,10 @@ function item_form(array $list, string $kind, ?array $it = null): string
                 . implode('', array_map(function ($n) use ($it) {
                     return '<option value="' . $n . '"' . ((int) ($it['rating'] ?? 0) === $n ? ' selected' : '') . '>' . str_repeat('★', $n) . str_repeat('☆', 5 - $n) . '</option>';
                 }, [5, 4, 3, 2, 1])) . '</select></div>'
-                . '<div><label>Afbeelding <small>(link, leeg = automatisch van de pagina)</small></label><input name="image_url" value="' . $v('image_url') . '" inputmode="url" placeholder="https://…"></div></div>';
+                . '</div>';
         }
-        $h .= '<textarea name="notes" rows="2" placeholder="' . ($kind === 'OPTION' ? 'Opmerking' : 'Waarom is dit mooi of handig?') . '">' . $v('notes') . '</textarea>';
+        $h .= '<textarea name="notes" rows="2" placeholder="' . ($kind === 'OPTION' ? 'Opmerking' : 'Waarom is dit mooi of handig?') . '">' . $v('notes') . '</textarea>'
+            . image_picker($it);
     }
     return $h . '<button class="btn small" style="margin-top:10px">' . ($new ? '＋ Toevoegen' : 'Opslaan') . '</button></form>';
 }
@@ -131,10 +148,22 @@ function price_text(array $o): string
     return $o['price'] === null ? '' : money((float) $o['price']) . ($o['price_note'] ? ' <small>' . e($o['price_note']) . '</small>' : '');
 }
 
+/** Picture of an option: paste (Ctrl+V), drop or choose a file, or give a link. Empty = taken from the item's link. */
+function image_picker(?array $it): string
+{
+    $cur = $it['image_url'] ?? null;
+    $local = is_local_image($cur);
+    return '<div class="img-pick" data-img-pick><div class="img-pick-head"><b>🖼️ Plaatje</b> <small>Druk Ctrl+V om een plaatje te plakken, of kies een bestand</small></div>'
+        . '<div class="img-pick-body"><div class="img-pick-prev"' . ($cur ? '' : ' hidden') . '><img src="' . e($cur ? item_image_src($cur) : '') . '" alt=""></div>'
+        . '<div class="img-pick-fields"><input type="file" name="photo" accept="image/*" disabled data-photo-label="plaatje van deze optie">'
+        . '<input name="image_url" value="' . e($cur && !$local ? $cur : '') . '" inputmode="url" placeholder="of een link naar een plaatje (leeg = automatisch van de pagina)">'
+        . ($cur ? '<label class="check small"><input type="checkbox" name="remove_image" value="1"> Plaatje verwijderen</label>' : '') . '</div></div></div>';
+}
+
 /** Hidden modal; opened by any element with data-modal="<id>". */
 function modal(string $id, string $title, string $body): string
 {
-    return '<div class="modal" id="' . e($id) . '" hidden><div class="modal-box" role="dialog" aria-label="' . e($title) . '"><button type="button" class="modal-x" data-close aria-label="Sluiten">✕</button><h2>' . e($title) . '</h2>' . $body . '</div></div>';
+    return '<div class="lmodal" id="' . e($id) . '" hidden><div class="lmodal-box" role="dialog" aria-label="' . e($title) . '"><button type="button" class="lmodal-x" data-close aria-label="Sluiten">✕</button><h2>' . e($title) . '</h2>' . $body . '</div></div>';
 }
 
 function stars(?int $n): string
@@ -259,7 +288,7 @@ page_header(($list['emoji'] ?: '📋') . ' ' . $list['title'], $list['notes'] ?:
         <?php foreach ($opts as $o): ?>
           <th class="optcol<?= $o['chosen'] ? ' picked' : '' ?>" id="i<?= (int) $o['id'] ?>">
             <button type="button" class="cmp-edit" data-modal="m<?= (int) $o['id'] ?>" title="Aanpassen">✏️</button>
-            <?php if ($o['image_url']): ?><div class="cmp-img"><img src="<?= e($o['image_url']) ?>" alt="" loading="lazy" onerror="this.parentNode.style.display='none'"></div><?php endif; ?>
+            <?php if ($o['image_url']): ?><div class="cmp-img"><img src="<?= e(item_image_src($o['image_url'])) ?>" alt="" loading="lazy" onerror="this.parentNode.style.display='none'"></div><?php endif; ?>
             <div class="cmp-title"><?= $o['url'] ? '<a href="' . e($o['url']) . '" target="_blank" rel="noopener">' . e($o['title']) . '</a>' : e($o['title']) ?></div>
             <?php if ($o['chosen']): ?><span class="badge warn">⭐ Onze keuze</span><?php endif; ?>
           </th>
@@ -309,7 +338,7 @@ page_header(($list['emoji'] ?: '📋') . ' ' . $list['title'], $list['notes'] ?:
     <div class="grid option-grid">
       <?php foreach ($items['INSPIRATION'] as $o): ?>
         <div class="option-card" id="i<?= (int) $o['id'] ?>">
-          <?php if ($o['image_url']): ?><div class="cmp-img"><img src="<?= e($o['image_url']) ?>" alt="" loading="lazy" onerror="this.parentNode.style.display='none'"></div><?php endif; ?>
+          <?php if ($o['image_url']): ?><div class="cmp-img"><img src="<?= e(item_image_src($o['image_url'])) ?>" alt="" loading="lazy" onerror="this.parentNode.style.display='none'"></div><?php endif; ?>
           <h3><?= e($o['title']) ?></h3>
           <?php if ($o['url']): ?><a class="small" href="<?= e($o['url']) ?>" target="_blank" rel="noopener">🔗 <?= e(link_host($o['url'])) ?> ↗</a><?php endif; ?>
           <?php if ($o['notes']): ?><p class="muted small"><?= nl2br(e($o['notes'])) ?></p><?php endif; ?>
@@ -338,10 +367,13 @@ page_header(($list['emoji'] ?: '📋') . ' ' . $list['title'], $list['notes'] ?:
 <script>
 // ES5 on purpose (old TVs). Modals: [data-modal=id] opens, ✕ / backdrop / Esc closes.
 (function () {
+  // photo.js (Ctrl+V / drop / choose, with cropping) works on every enabled photo field of the page:
+  // only the field of the open modal may be enabled, so a paste always lands in the right form.
+  function fileOn(m, on) { var f = m.querySelectorAll('input[type=file]'); for (var i = 0; i < f.length; i++) f[i].disabled = !on; }
   function closeAll() {
-    var m = document.querySelectorAll('.modal');
-    for (var i = 0; i < m.length; i++) m[i].hidden = true;
-    document.body.className = document.body.className.replace(/\s?modal-open/, '');
+    var m = document.querySelectorAll('.lmodal');
+    for (var i = 0; i < m.length; i++) { m[i].hidden = true; fileOn(m[i], false); }
+    document.body.className = document.body.className.replace(/\s?lmodal-open/, '');
   }
   document.addEventListener('click', function (e) {
     var t = e.target, open = null;
@@ -353,15 +385,21 @@ page_header(($list['emoji'] ?: '📋') . ' ' . $list['title'], $list['notes'] ?:
     if (open) {
       closeAll();
       var m = document.getElementById(open.getAttribute('data-modal'));
-      if (m) { m.hidden = false; document.body.className += ' modal-open'; var f = m.querySelector('input[name=url],input[name=title]'); if (f && !f.value) f.focus(); }
+      if (m) { m.hidden = false; fileOn(m, true); document.body.className += ' lmodal-open'; var f = m.querySelector('input[name=url],input[name=title]'); if (f && !f.value) f.focus(); }
       return;
     }
-    if (e.target.className && /(^| )modal( |$)/.test(e.target.className)) closeAll();
+    if (e.target.className && /(^| )lmodal( |$)/.test(e.target.className)) closeAll();
   });
   document.addEventListener('keydown', function (e) { if (e.keyCode === 27) closeAll(); });
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (t.type === 'file' && t.name === 'photo' && t.files && t.files[0]) {
+      var pick = t.closest('[data-img-pick]'); var f = t.files[0], prev = pick.querySelector('.img-pick-prev');
+      var r = new FileReader(); r.onload = function () { prev.querySelector('img').src = r.result; prev.hidden = false; }; r.readAsDataURL(f);
+    }
+  });
   var od = document.getElementById('only-diff'), cmp = document.getElementById('cmp');
   if (od && cmp) od.addEventListener('change', function () { cmp.className = 'cmp' + (od.checked ? ' only-diff' : ''); });
-  if (location.hash.indexOf('#m') === 0) { var h = document.getElementById(location.hash.slice(1)); if (h && h.className.indexOf('modal') > -1) { h.hidden = false; document.body.className += ' modal-open'; } }
+  if (location.hash.indexOf('#m') === 0) { var h = document.getElementById(location.hash.slice(1)); if (h && h.className.indexOf('lmodal') > -1) { h.hidden = false; fileOn(h, true); document.body.className += ' lmodal-open'; } }
 })();
 </script>
 <?php page_end();

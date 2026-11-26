@@ -132,6 +132,18 @@ function list_lines(?string $text): array
     return $out;
 }
 
+/** Picture stored on our own server (file name from lib/upload.php) instead of a link? */
+function is_local_image(?string $v): bool
+{
+    return $v !== null && (bool) preg_match('/^[a-f0-9]{24}\.jpg$/', $v);
+}
+
+/** src for an item's picture: foto.php for our own files, the link otherwise. */
+function item_image_src(?string $v): string
+{
+    return is_local_image($v) ? 'foto.php?f=' . $v : (string) $v;
+}
+
 function find_list(int $id): ?array
 {
     $stmt = db()->prepare('SELECT * FROM fp_lists WHERE id = ?');
@@ -263,10 +275,14 @@ function save_list_item(int $listId, array $d, ?int $id = null): int
     }
     $title = $has('title') ? trim((string) $d['title']) : (string) ($old['title'] ?? '');
     $image = $has('image_url') ? clean_url($d['image_url']) : ($old['image_url'] ?? null);
-    if ($url && ($title === '' || ($image === null && $kind !== 'TODO')) && (!$old || $url !== $old['url'] || $image === null)) {
+    if (!empty($d['image_file']) && preg_match('/^[a-f0-9]{24}\.jpg$/', (string) $d['image_file'])) {
+        $image = (string) $d['image_file']; // an uploaded / pasted picture (lib/upload.php)
+    }
+    $imageCleared = $has('image_url') && trim((string) $d['image_url']) === '' && !empty($old['image_url']);
+    if ($url && ($title === '' || ($image === null && $kind !== 'TODO' && !$imageCleared)) && (!$old || $url !== $old['url'] || $image === null)) {
         $meta = link_meta($url);
         $title = $title !== '' ? $title : ($meta['title'] ?: link_host($url));
-        $image = $image ?: $meta['image'];
+        $image = $image ?: ($imageCleared ? null : $meta['image']);
     }
     if ($title === '') {
         throw new InvalidArgumentException('Geef een titel (of een link).');
@@ -292,6 +308,10 @@ function save_list_item(int $listId, array $d, ?int $id = null): int
         db()->prepare('INSERT INTO fp_list_items (kind, title, url, image_url, rating, specs, price, price_note, pros, cons, notes, member_id, list_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
             ->execute(array_merge($row, [$listId, $user ? $user['id'] : null]));
         $id = (int) db()->lastInsertId();
+    }
+    if ($old && $old['image_url'] !== $image && is_local_image($old['image_url'])) {
+        require_once __DIR__ . '/upload.php';
+        delete_photo($old['image_url']);
     }
     if ($has('done')) {
         db()->prepare('UPDATE fp_list_items SET done_at = ? WHERE id = ?')->execute([!empty($d['done']) ? date('Y-m-d H:i:s') : null, $id]);
