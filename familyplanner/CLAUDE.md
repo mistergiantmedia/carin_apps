@@ -152,7 +152,9 @@ Hand-written ES5 helpers for old browsers are in `_legacy/dom.js`, extra layout 
 
 - Lijstjes (lijsten.php, lib/lists.php, migration 028): `fp_lists` (one per thing to sort out) with `fp_list_items`, kind TODO
   (tick box, who), OPTION (url, price + price_note "per maand", pros/cons one per line, `chosen` = our pick, cheapest badge)
-  or INSPIRATION (link/concept). `save_list_item()` is shared by the page and MCP (link without title → page title via
+  or INSPIRATION (link/concept). Options are shown as a Tweakers-style comparison table (column per option: picture from og:image,
+  price, rating, pros/cons, `specs` = "Label: value" lines that become rows, differing rows highlighted); every add/edit is a modal
+  (`modal()` in lijsten.php, ES5 JS inline; migration 029). `save_list_item()` is shared by the page and MCP (link without title → page title via
   fetch_public_url). MCP: list_lists, get_list, save_list, delete_list, add_list_item (list_id or list_name, create_list),
   update_list_item, delete_list_item.
 

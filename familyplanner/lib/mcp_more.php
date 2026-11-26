@@ -664,7 +664,8 @@ function mcp_list_item(array $i): array
 {
     return mcp_clean(['id' => (int) $i['id'], 'kind' => $i['kind'], 'title' => $i['title'], 'url' => $i['url'],
         'price' => $i['price'] !== null ? (float) $i['price'] : null, 'price_note' => $i['price_note'],
-        'pros' => list_lines($i['pros']), 'cons' => list_lines($i['cons']), 'notes' => $i['notes'],
+        'pros' => list_lines($i['pros']), 'cons' => list_lines($i['cons']), 'specs' => list_specs($i['specs']), 'rating' => $i['rating'] ? (int) $i['rating'] : null,
+        'image_url' => $i['image_url'], 'notes' => $i['notes'],
         'who' => !empty($i['member_id']) ? ($i['member_id'] && member((int) $i['member_id']) ? member((int) $i['member_id'])['name'] : null) : null,
         'our_pick' => !empty($i['chosen']) ? true : null, 'done' => $i['kind'] === 'TODO' ? $i['done_at'] !== null : null]);
 }
@@ -742,6 +743,24 @@ function tool_delete_list(array $a): array
     return ['deleted' => $l['title']];
 }
 
+/** pros/cons as arrays and specs as {label: value} → the text form the page uses. */
+function mcp_list_texts(array $d): array
+{
+    foreach (['pros', 'cons'] as $k) {
+        if (isset($d[$k]) && is_array($d[$k])) {
+            $d[$k] = implode("\n", array_map('strval', $d[$k]));
+        }
+    }
+    if (isset($d['specs']) && is_array($d['specs'])) {
+        $lines = [];
+        foreach ($d['specs'] as $k => $v) {
+            $lines[] = is_int($k) ? (string) $v : $k . ': ' . (is_scalar($v) ? (string) $v : '');
+        }
+        $d['specs'] = implode("\n", $lines);
+    }
+    return $d;
+}
+
 function tool_add_list_item(array $a): array
 {
     $created = false;
@@ -766,15 +785,11 @@ function tool_add_list_item(array $a): array
         $d['kind'] = $d['kind'] ?? 'TODO';
     } else {
         $d['kind'] = 'INSPIRATION'; // only a link: inspiration unless a price / pros / cons say it is an option
-        if (isset($a['price']) || isset($a['pros']) || isset($a['cons'])) {
+        if (isset($a['price']) || isset($a['pros']) || isset($a['cons']) || isset($a['specs'])) {
             $d['kind'] = 'OPTION';
         }
     }
-    foreach (['pros', 'cons'] as $k) {
-        if (isset($d[$k]) && is_array($d[$k])) {
-            $d[$k] = implode("\n", array_map('strval', $d[$k]));
-        }
-    }
+    $d = mcp_list_texts($d);
     $itemId = save_list_item((int) $list['id'], $d);
     $item = find_list_item($itemId);
     return ['added_to' => $list['title'], 'list_id' => (int) $list['id'], 'list_created' => $created ?: null, 'item' => mcp_list_item($item)];
@@ -788,11 +803,7 @@ function tool_update_list_item(array $a): array
     }
     $d = $a;
     unset($d['id']);
-    foreach (['pros', 'cons'] as $k) {
-        if (isset($d[$k]) && is_array($d[$k])) {
-            $d[$k] = implode("\n", array_map('strval', $d[$k]));
-        }
-    }
+    $d = mcp_list_texts($d);
     if (isset($d['list_id']) && (int) $d['list_id'] !== (int) $item['list_id']) { // move to another list
         if (!find_list((int) $d['list_id'])) {
             throw new InvalidArgumentException('Die lijst bestaat niet.');
@@ -1026,7 +1037,7 @@ function mcp_more_tools(): array
         ['name' => 'save_bucket', 'handler' => 'tool_save_bucket', 'description' => 'Add (no id) or change (id) a bucketlist wish. member_ids = who wants it, contact_ids = friends who join, done = tick off, event_id = planned event.', 'inputSchema' => $o(['id' => $int, 'title' => $str, 'emoji' => $str, 'notes' => $str, 'member_ids' => $ids('Who wants it'), 'contact_ids' => $ids('Friends who join'), 'done' => ['type' => 'boolean'], 'done_on' => $str, 'event_id' => $int])],
         ['name' => 'delete_bucket', 'handler' => 'tool_delete_bucket', 'description' => 'Delete a bucketlist wish.', 'inputSchema' => $o(['id' => $int], ['id'])],
         ['name' => 'list_lists', 'handler' => 'tool_list_lists', 'description' => 'The "Lijstjes": one list per thing to sort out (energie overstappen, dekbedden kopen…), each with to-dos, options to compare and inspiration. Counts only; use get_list for the content.', 'inputSchema' => $o(['finished' => ['type' => 'boolean', 'description' => 'true = the finished lists']])],
-        ['name' => 'get_list', 'handler' => 'tool_get_list', 'description' => 'One list with all its to-dos, options (link, price, pros, cons, our_pick, cheapest) and inspiration. Give id or (part of) the name.', 'inputSchema' => $o(['id' => $int, 'name' => $str])],
+        ['name' => 'get_list', 'handler' => 'tool_get_list', 'description' => 'One list with all its to-dos, options (link, image, price, rating, pros, cons, specs, our_pick, cheapest) and inspiration. Give id or (part of) the name.', 'inputSchema' => $o(['id' => $int, 'name' => $str])],
         ['name' => 'save_list', 'handler' => 'tool_save_list', 'description' => 'Create a list (no id) or change one (id): title, emoji, notes, finished (true = done, hidden from the active lists).', 'inputSchema' => $o(['id' => $int, 'title' => $str, 'emoji' => $str, 'notes' => $str, 'finished' => ['type' => 'boolean']])],
         ['name' => 'delete_list', 'handler' => 'tool_delete_list', 'description' => 'DELETE a list with everything in it. Confirm first.', 'inputSchema' => $o(['id' => $int], ['id'])],
         ['name' => 'add_list_item', 'handler' => 'tool_add_list_item', 'description' => 'Add something to a list (list_id, or list_name = part of its title; create_list: true makes the list when it does not exist). kind TODO = a to-do (default), OPTION = something to compare (give url, price, price_note like "per maand", pros, cons), INSPIRATION = a link/product/concept to remember. With only a url (no kind) it becomes INSPIRATION, with a price/pros/cons an OPTION. Without a title the page title of the link is used.', 'inputSchema' => $o([
@@ -1034,10 +1045,12 @@ function mcp_more_tools(): array
             'kind' => ['type' => 'string', 'enum' => ['TODO', 'OPTION', 'INSPIRATION']], 'title' => $str, 'url' => $str,
             'price' => ['type' => 'number', 'description' => 'Euro, e.g. 49.95'], 'price_note' => ['type' => 'string', 'description' => 'e.g. "per maand", "eenmalig"'],
             'pros' => ['type' => 'array', 'items' => $str, 'description' => 'Advantages, one string each'], 'cons' => ['type' => 'array', 'items' => $str, 'description' => 'Disadvantages, one string each'],
+            'specs' => ['type' => 'object', 'description' => 'Properties to compare, e.g. {"Schermgrootte": "11 inch", "Garantie": "2 jaar"}; the same labels across options form the comparison rows'],
+            'rating' => ['type' => 'integer', 'description' => '1-5 stars'], 'image_url' => ['type' => 'string', 'description' => 'Picture; left out = taken from the link'],
             'notes' => $str, 'member_id' => ['type' => 'integer', 'description' => 'Who does this to-do']])],
         ['name' => 'update_list_item', 'handler' => 'tool_update_list_item', 'description' => 'Change an item (id from get_list): any field, done (tick a to-do), chosen (mark an option as our pick), list_id (move to another list). Only the fields you pass change; pros/cons REPLACE the old ones.', 'inputSchema' => $o([
             'id' => $int, 'title' => $str, 'url' => $str, 'price' => ['type' => 'number'], 'price_note' => $str, 'kind' => ['type' => 'string', 'enum' => ['TODO', 'OPTION', 'INSPIRATION']],
-            'pros' => ['type' => 'array', 'items' => $str], 'cons' => ['type' => 'array', 'items' => $str], 'notes' => $str, 'member_id' => $int,
+            'pros' => ['type' => 'array', 'items' => $str], 'cons' => ['type' => 'array', 'items' => $str], 'specs' => ['type' => 'object', 'description' => 'REPLACES the properties: {"label": "value"}'], 'rating' => $int, 'image_url' => $str, 'notes' => $str, 'member_id' => $int,
             'done' => ['type' => 'boolean'], 'chosen' => ['type' => 'boolean'], 'list_id' => $int], ['id'])],
         ['name' => 'delete_list_item', 'handler' => 'tool_delete_list_item', 'description' => 'Remove one item from a list.', 'inputSchema' => $o(['id' => $int], ['id'])],
         ['name' => 'get_recipe', 'handler' => 'tool_get_recipe', 'description' => 'One recipe with ingredients, method and who likes it.', 'inputSchema' => $o(['id' => $int], ['id'])],

@@ -38,25 +38,79 @@ function clean_url($v): ?string
     return preg_match('~^https?://[^\s]+$~i', $v) ? mb_cut($v, 500) : null;
 }
 
-/** Best-effort page title of a link (for when someone only pastes a link). Never throws. */
-function link_title(string $url): ?string
+/** Best-effort title + picture of a link (og:title / <title>, og:image). Never throws; keys can be null. */
+function link_meta(string $url): array
 {
+    $out = ['title' => null, 'image' => null];
     try {
         require_once __DIR__ . '/meals.php';
-        $html = fetch_public_url($url, 400000);
+        $html = fetch_public_url($url, 600000);
         if ($html === null) {
-            return null;
+            return $out;
         }
-        if (preg_match('~<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)~i', $html, $m)
-            || preg_match('~<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:title~i', $html, $m)
-            || preg_match('~<title[^>]*>(.*?)</title>~is', $html, $m)) {
-            $t = trim(preg_replace('/\s+/', ' ', html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-            return $t !== '' ? mb_cut($t, 190) : null;
+        $og = function ($prop) use ($html) {
+            if (preg_match('~<meta[^>]+(?:property|name)=["\']' . $prop . '["\'][^>]+content=["\']([^"\']+)~i', $html, $m)
+                || preg_match('~<meta[^>]+content=["\']([^"\']+)["\'][^>]+(?:property|name)=["\']' . $prop . '["\']~i', $html, $m)) {
+                return trim(html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            }
+            return null;
+        };
+        $t = $og('og:title');
+        if ($t === null && preg_match('~<title[^>]*>(.*?)</title>~is', $html, $m)) {
+            $t = trim(html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        }
+        $out['title'] = $t !== null && $t !== '' ? mb_cut(preg_replace('/\s+/', ' ', $t), 190) : null;
+        $img = $og('og:image') ?: $og('twitter:image');
+        if ($img) {
+            $p = parse_url($url);
+            if (strpos($img, '//') === 0) {
+                $img = $p['scheme'] . ':' . $img;
+            } elseif (isset($img[0]) && $img[0] === '/') {
+                $img = $p['scheme'] . '://' . $p['host'] . $img;
+            }
+            $out['image'] = clean_url($img);
         }
     } catch (Throwable $e) {
-        // fall through: the caller falls back to the host name
+        // best effort only
     }
-    return null;
+    return $out;
+}
+
+/** Specs text ("Label: value" per line) → ordered [label => value]. A line without colon is a yes-feature. */
+function list_specs(?string $text): array
+{
+    $out = [];
+    foreach (preg_split('/\R/u', (string) $text) as $line) {
+        $line = trim($line);
+        if ($line === '') {
+            continue;
+        }
+        if (preg_match('/^([^:]{1,60}):\s*(.*)$/u', $line, $m)) {
+            $out[trim($m[1])] = trim($m[2]) !== '' ? trim($m[2]) : '✓';
+        } else {
+            $out[$line] = '✓';
+        }
+    }
+    return $out;
+}
+
+/** Rows for the comparison: label => [item id => value], in first-seen order. */
+function spec_matrix(array $options): array
+{
+    $rows = [];
+    $key = [];
+    foreach ($options as $o) {
+        foreach (list_specs($o['specs']) as $label => $val) {
+            $k = mb_strtolower($label);
+            $key[$k] = $key[$k] ?? $label;
+            $rows[$k][(int) $o['id']] = $val;
+        }
+    }
+    $out = [];
+    foreach ($rows as $k => $vals) {
+        $out[$key[$k]] = $vals;
+    }
+    return $out;
 }
 
 function link_host(?string $url): string
@@ -208,8 +262,11 @@ function save_list_item(int $listId, array $d, ?int $id = null): int
         throw new InvalidArgumentException('Dit is geen geldige link (begin met https://).');
     }
     $title = $has('title') ? trim((string) $d['title']) : (string) ($old['title'] ?? '');
-    if ($title === '' && $url && !$old) {
-        $title = link_title($url) ?: link_host($url);
+    $image = $has('image_url') ? clean_url($d['image_url']) : ($old['image_url'] ?? null);
+    if ($url && ($title === '' || ($image === null && $kind !== 'TODO')) && (!$old || $url !== $old['url'] || $image === null)) {
+        $meta = link_meta($url);
+        $title = $title !== '' ? $title : ($meta['title'] ?: link_host($url));
+        $image = $image ?: $meta['image'];
     }
     if ($title === '') {
         throw new InvalidArgumentException('Geef een titel (of een link).');
@@ -223,14 +280,16 @@ function save_list_item(int $listId, array $d, ?int $id = null): int
         throw new InvalidArgumentException('Dit bedrag begrijp ik niet. Gebruik bijvoorbeeld 49,95.');
     }
     $member = $has('member_id') ? (member((int) $d['member_id']) ? (int) $d['member_id'] : null) : ($old['member_id'] ?? null);
-    $row = [$kind, mb_cut($title, 190), $url, $price, $text('price_note') !== null ? mb_cut($text('price_note'), 60) : null,
+    $rating = $has('rating') ? (int) $d['rating'] : (isset($old['rating']) ? (int) $old['rating'] : 0);
+    $rating = $rating >= 1 && $rating <= 5 ? $rating : null;
+    $row = [$kind, mb_cut($title, 190), $url, $image, $rating, $text('specs'), $price, $text('price_note') !== null ? mb_cut($text('price_note'), 60) : null,
         $text('pros'), $text('cons'), $text('notes'), $member];
     if ($old) {
-        db()->prepare('UPDATE fp_list_items SET kind = ?, title = ?, url = ?, price = ?, price_note = ?, pros = ?, cons = ?, notes = ?, member_id = ? WHERE id = ?')
+        db()->prepare('UPDATE fp_list_items SET kind = ?, title = ?, url = ?, image_url = ?, rating = ?, specs = ?, price = ?, price_note = ?, pros = ?, cons = ?, notes = ?, member_id = ? WHERE id = ?')
             ->execute(array_merge($row, [$id]));
     } else {
         $user = current_user();
-        db()->prepare('INSERT INTO fp_list_items (kind, title, url, price, price_note, pros, cons, notes, member_id, list_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        db()->prepare('INSERT INTO fp_list_items (kind, title, url, image_url, rating, specs, price, price_note, pros, cons, notes, member_id, list_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
             ->execute(array_merge($row, [$listId, $user ? $user['id'] : null]));
         $id = (int) db()->lastInsertId();
     }

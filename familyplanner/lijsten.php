@@ -40,6 +40,7 @@ if (is_post()) {
             save_list_item((int) $list['id'], [
                 'kind' => post('kind'), 'title' => post('title'), 'url' => post('url'), 'price' => post('price'), 'price_note' => post('price_note'),
                 'pros' => post('pros'), 'cons' => post('cons'), 'notes' => post('notes'), 'member_id' => post_int('member_id') ?: null,
+                'specs' => post('specs'), 'rating' => post('rating'), 'image_url' => post('image_url'),
             ]);
             flash(['TODO' => 'Op de lijst gezet ✅', 'OPTION' => 'Optie toegevoegd 🛒', 'INSPIRATION' => 'Inspiratie bewaard 💡'][post('kind')] ?? 'Toegevoegd');
         }
@@ -47,6 +48,7 @@ if (is_post()) {
             save_list_item((int) $list['id'], [
                 'title' => post('title'), 'url' => post('url'), 'price' => post('price'), 'price_note' => post('price_note'),
                 'pros' => post('pros'), 'cons' => post('cons'), 'notes' => post('notes'), 'member_id' => post_int('member_id') ?: 0,
+                'specs' => post('specs'), 'rating' => post('rating'), 'image_url' => post('image_url'),
             ], $id);
             flash('Aangepast');
         }
@@ -91,7 +93,14 @@ function item_form(array $list, string $kind, ?array $it = null): string
             $h .= '<div class="row2"><div><label>Bedrag (€)</label><input name="price" value="' . ($it && $it['price'] !== null ? e(number_format((float) $it['price'], 2, ',', '')) : '') . '" placeholder="49,95" inputmode="decimal"></div>'
                 . '<div><label>Per</label><input name="price_note" value="' . $v('price_note') . '" list="price-notes" placeholder="eenmalig, per maand, per jaar…"></div></div>'
                 . '<div class="row2"><div><label>👍 Voordelen <small>(één per regel)</small></label><textarea name="pros" rows="3">' . $v('pros') . '</textarea></div>'
-                . '<div><label>👎 Nadelen <small>(één per regel)</small></label><textarea name="cons" rows="3">' . $v('cons') . '</textarea></div></div>';
+                . '<div><label>👎 Nadelen <small>(één per regel)</small></label><textarea name="cons" rows="3">' . $v('cons') . '</textarea></div></div>'
+                . '<label>Eigenschappen <small>(één per regel, bijv. "Schermgrootte: 11 inch" of "Kleur: grijs"; die komen als rijen in de vergelijking)</small></label>'
+                . '<textarea name="specs" rows="4" placeholder="Schermgrootte: 11 inch&#10;Garantie: 2 jaar">' . $v('specs') . '</textarea>'
+                . '<div class="row2"><div><label>Beoordeling</label><select name="rating"><option value="">Geen</option>'
+                . implode('', array_map(function ($n) use ($it) {
+                    return '<option value="' . $n . '"' . ((int) ($it['rating'] ?? 0) === $n ? ' selected' : '') . '>' . str_repeat('★', $n) . str_repeat('☆', 5 - $n) . '</option>';
+                }, [5, 4, 3, 2, 1])) . '</select></div>'
+                . '<div><label>Afbeelding <small>(link, leeg = automatisch van de pagina)</small></label><input name="image_url" value="' . $v('image_url') . '" inputmode="url" placeholder="https://…"></div></div>';
         }
         $h .= '<textarea name="notes" rows="2" placeholder="' . ($kind === 'OPTION' ? 'Opmerking' : 'Waarom is dit mooi of handig?') . '">' . $v('notes') . '</textarea>';
     }
@@ -120,6 +129,22 @@ function lines_html(string $icon, ?string $text): string
 function price_text(array $o): string
 {
     return $o['price'] === null ? '' : money((float) $o['price']) . ($o['price_note'] ? ' <small>' . e($o['price_note']) . '</small>' : '');
+}
+
+/** Hidden modal; opened by any element with data-modal="<id>". */
+function modal(string $id, string $title, string $body): string
+{
+    return '<div class="modal" id="' . e($id) . '" hidden><div class="modal-box" role="dialog" aria-label="' . e($title) . '"><button type="button" class="modal-x" data-close aria-label="Sluiten">✕</button><h2>' . e($title) . '</h2>' . $body . '</div></div>';
+}
+
+function stars(?int $n): string
+{
+    return $n ? '<span class="stars" title="' . (int) $n . ' van 5">' . str_repeat('★', $n) . '<span class="off">' . str_repeat('★', 5 - $n) . '</span></span>' : '';
+}
+
+function edit_modal(array $list, array $it, string $kind): string
+{
+    return modal('m' . (int) $it['id'], $it['title'], item_form($list, $kind, $it) . item_action('delete_item', $it, '🗑 Verwijderen', 'btn small danger', ' data-confirm="Verwijderen?"'));
 }
 
 // ---------------------------------------------------------------- overview
@@ -198,8 +223,8 @@ page_header(($list['emoji'] ?: '📋') . ' ' . $list['title'], $list['notes'] ?:
           <div class="grow"><span class="title"><?= e($t['title']) ?></span>
             <?php if ($t['url'] || $t['notes']): ?><span class="meta"><?php if ($t['url']): ?><a href="<?= e($t['url']) ?>" target="_blank" rel="noopener">🔗 <?= e(link_host($t['url'])) ?></a> <?php endif; ?><?= e($t['notes'] ?? '') ?></span><?php endif; ?></div>
           <?php if ($m): ?><?= avatar($m, 28) ?><?php endif; ?>
-          <details class="item-more"><summary class="btn small secondary" title="Aanpassen">✏️</summary>
-            <div class="item-edit"><?= item_form($list, 'TODO', $t) ?><?= item_action('delete_item', $t, '🗑 Verwijderen', 'btn small danger', ' data-confirm="Verwijderen?"') ?></div></details>
+          <button type="button" class="btn small secondary" data-modal="m<?= (int) $t['id'] ?>" title="Aanpassen">✏️</button>
+          <?= edit_modal($list, $t, 'TODO') ?>
         </li>
       <?php endforeach; ?>
     </ul>
@@ -209,67 +234,92 @@ page_header(($list['emoji'] ?: '📋') . ' ' . $list['title'], $list['notes'] ?:
 
 <!-- Opties -->
 <div class="card" id="opties" style="margin-top:16px">
-  <div class="list-head"><h2>🛒 Opties vergelijken</h2><?php if ($items['OPTION']): ?><span class="badge"><?= count($items['OPTION']) ?></span><?php endif; ?></div>
-  <?php if (count($items['OPTION']) > 1): ?>
-    <div class="table-wrap"><table class="data compare">
-      <thead><tr><th></th><th>Optie</th><th>Bedrag</th><th>👍</th><th>👎</th><th></th></tr></thead>
+  <div class="list-head"><h2>🛒 Opties vergelijken</h2><?php if ($items['OPTION']): ?><span class="badge"><?= count($items['OPTION']) ?></span><?php endif; ?>
+    <span class="grow"></span>
+    <?php if (count($items['OPTION']) > 1): ?><label class="check small" style="margin:0"><input type="checkbox" id="only-diff"> Alleen verschillen</label><?php endif; ?>
+    <button type="button" class="btn small soft" data-modal="m-new-option">＋ Optie</button></div>
+  <?php if ($items['OPTION']):
+      $opts = $items['OPTION'];
+      $matrix = spec_matrix($opts);
+      $cols = count($opts) + 1;
+      $hasNotes = (bool) array_filter($opts, function ($o) { return $o['notes']; });
+      $hasRating = (bool) array_filter($opts, function ($o) { return $o['rating']; });
+      $hasPrice = (bool) array_filter($opts, function ($o) { return $o['price'] !== null; });
+      $hasLink = (bool) array_filter($opts, function ($o) { return $o['url']; });
+      $hasPros = (bool) array_filter($opts, function ($o) { return $o['pros'] || $o['cons']; });
+      $differs = function (array $vals) use ($opts) {
+          $seen = [];
+          foreach ($opts as $o) {
+              $seen[mb_strtolower($vals[(int) $o['id']] ?? '-')] = 1;
+          }
+          return count($seen) > 1;
+      }; ?>
+    <div class="table-wrap"><table class="cmp" id="cmp">
+      <thead><tr><th class="lab"></th>
+        <?php foreach ($opts as $o): ?>
+          <th class="optcol<?= $o['chosen'] ? ' picked' : '' ?>" id="i<?= (int) $o['id'] ?>">
+            <button type="button" class="cmp-edit" data-modal="m<?= (int) $o['id'] ?>" title="Aanpassen">✏️</button>
+            <?php if ($o['image_url']): ?><div class="cmp-img"><img src="<?= e($o['image_url']) ?>" alt="" loading="lazy" onerror="this.parentNode.style.display='none'"></div><?php endif; ?>
+            <div class="cmp-title"><?= $o['url'] ? '<a href="' . e($o['url']) . '" target="_blank" rel="noopener">' . e($o['title']) . '</a>' : e($o['title']) ?></div>
+            <?php if ($o['chosen']): ?><span class="badge warn">⭐ Onze keuze</span><?php endif; ?>
+          </th>
+        <?php endforeach; ?>
+      </tr></thead>
       <tbody>
-      <?php foreach ($items['OPTION'] as $o): ?>
-        <tr<?= $o['chosen'] ? ' class="picked"' : '' ?>>
-          <td><?= $o['chosen'] ? '⭐' : '' ?></td>
-          <td><a href="#i<?= (int) $o['id'] ?>"><?= e($o['title']) ?></a></td>
-          <td class="nowrap"><b><?= price_text($o) ?: '<span class="muted">—</span>' ?></b><?= in_array((int) $o['id'], $cheap, true) ? ' <span class="badge ok">goedkoopst</span>' : '' ?></td>
-          <td><?= count(list_lines($o['pros'])) ?: '' ?></td>
-          <td><?= count(list_lines($o['cons'])) ?: '' ?></td>
-          <td><?php if ($o['url']): ?><a href="<?= e($o['url']) ?>" target="_blank" rel="noopener">↗</a><?php endif; ?></td>
-        </tr>
-      <?php endforeach; ?>
+        <?php if ($hasPrice || $hasRating || $hasLink): ?>
+          <tr class="sec"><th colspan="<?= $cols ?>">Prijs en beoordeling</th></tr>
+          <?php if ($hasPrice): ?><tr class="row"><th class="lab">Prijs</th>
+            <?php foreach ($opts as $o): ?><td class="<?= in_array((int) $o['id'], $cheap, true) ? 'best' : '' ?>"><?php if ($o['price'] !== null): ?><b class="big"><?= price_text($o) ?></b><?= in_array((int) $o['id'], $cheap, true) ? '<br><span class="badge ok">goedkoopst</span>' : '' ?><?php else: ?>–<?php endif; ?></td><?php endforeach; ?></tr><?php endif; ?>
+          <?php if ($hasRating): ?><tr class="row"><th class="lab">Beoordeling</th><?php foreach ($opts as $o): ?><td><?= stars($o['rating'] ? (int) $o['rating'] : null) ?: '–' ?></td><?php endforeach; ?></tr><?php endif; ?>
+          <?php if ($hasLink): ?><tr class="row"><th class="lab">Link</th><?php foreach ($opts as $o): ?><td><?php if ($o['url']): ?><a href="<?= e($o['url']) ?>" target="_blank" rel="noopener" class="btn small soft"><?= e(link_host($o['url'])) ?> ↗</a><?php else: ?>–<?php endif; ?></td><?php endforeach; ?></tr><?php endif; ?>
+        <?php endif; ?>
+        <?php if ($hasPros): ?>
+          <tr class="sec"><th colspan="<?= $cols ?>">Voor- en nadelen</th></tr>
+          <tr class="row"><th class="lab">👍 Voordelen</th><?php foreach ($opts as $o): ?><td><?= lines_html('👍', $o['pros']) ?: '–' ?></td><?php endforeach; ?></tr>
+          <tr class="row"><th class="lab">👎 Nadelen</th><?php foreach ($opts as $o): ?><td><?= lines_html('👎', $o['cons']) ?: '–' ?></td><?php endforeach; ?></tr>
+        <?php endif; ?>
+        <?php if ($matrix): ?>
+          <tr class="sec"><th colspan="<?= $cols ?>">Eigenschappen</th></tr>
+          <?php foreach ($matrix as $label => $vals): ?>
+            <tr class="row spec <?= $differs($vals) ? 'diff' : 'same' ?>"><th class="lab"><?= e($label) ?></th>
+              <?php foreach ($opts as $o): ?><td><?= isset($vals[(int) $o['id']]) ? e($vals[(int) $o['id']]) : '<span class="muted">–</span>' ?></td><?php endforeach; ?></tr>
+          <?php endforeach; ?>
+        <?php endif; ?>
+        <?php if ($hasNotes): ?>
+          <tr class="sec"><th colspan="<?= $cols ?>">Opmerkingen</th></tr>
+          <tr class="row"><th class="lab">Opmerking</th><?php foreach ($opts as $o): ?><td class="small"><?= $o['notes'] ? nl2br(e($o['notes'])) : '–' ?></td><?php endforeach; ?></tr>
+        <?php endif; ?>
+        <tr class="sec"><th colspan="<?= $cols ?>">Keuze</th></tr>
+        <tr class="row"><th class="lab"></th>
+          <?php foreach ($opts as $o): ?><td><?= item_action('choose', $o, $o['chosen'] ? '⭐ Gekozen' : '☆ Dit wordt het', $o['chosen'] ? 'btn small warn-btn' : 'btn small soft') ?></td><?php endforeach; ?></tr>
       </tbody>
     </table></div>
+    <?php foreach ($opts as $o): ?><?= edit_modal($list, $o, 'OPTION') ?><?php endforeach; ?>
+  <?php else: ?>
+    <p class="muted">Nog geen opties. Plak een link en vul bedrag, voor- en nadelen in; dan zie je ze naast elkaar.</p>
   <?php endif; ?>
-  <?php if ($items['OPTION']): ?>
-    <div class="grid option-grid">
-      <?php foreach ($items['OPTION'] as $o): ?>
-        <div class="option-card<?= $o['chosen'] ? ' picked' : '' ?>" id="i<?= (int) $o['id'] ?>">
-          <div class="option-top">
-            <h3><?= e($o['title']) ?></h3>
-            <?php if ($o['chosen']): ?><span class="badge warn">⭐ Onze keuze</span><?php endif; ?>
-          </div>
-          <?php if ($o['price'] !== null): ?><div class="price"><?= price_text($o) ?><?= in_array((int) $o['id'], $cheap, true) ? ' <span class="badge ok">goedkoopst</span>' : '' ?></div><?php endif; ?>
-          <?php if ($o['url']): ?><a class="small" href="<?= e($o['url']) ?>" target="_blank" rel="noopener">🔗 <?= e(link_host($o['url'])) ?> ↗</a><?php endif; ?>
-          <?= lines_html('👍', $o['pros']) ?><?= lines_html('👎', $o['cons']) ?>
-          <?php if ($o['notes']): ?><p class="muted small"><?= nl2br(e($o['notes'])) ?></p><?php endif; ?>
-          <div class="option-actions">
-            <?= item_action('choose', $o, $o['chosen'] ? '⭐ Gekozen' : '☆ Dit wordt het', $o['chosen'] ? 'btn small warn-btn' : 'btn small soft') ?>
-            <details class="item-more"><summary class="btn small secondary" title="Aanpassen">✏️</summary>
-              <div class="item-edit"><?= item_form($list, 'OPTION', $o) ?><?= item_action('delete_item', $o, '🗑 Verwijderen', 'btn small danger', ' data-confirm="Deze optie verwijderen?"') ?></div></details>
-          </div>
-        </div>
-      <?php endforeach; ?>
-    </div>
-  <?php endif; ?>
-  <details class="more add-more"<?= $items['OPTION'] ? '' : ' open' ?>><summary class="btn small soft">Optie toevoegen</summary><?= item_form($list, 'OPTION') ?></details>
+  <?= modal('m-new-option', 'Optie toevoegen', item_form($list, 'OPTION')) ?>
 </div>
 
 <!-- Inspiratie -->
 <div class="card" id="inspiratie" style="margin-top:16px">
-  <div class="list-head"><h2>💡 Inspiratie</h2><?php if ($items['INSPIRATION']): ?><span class="badge"><?= count($items['INSPIRATION']) ?></span><?php endif; ?></div>
+  <div class="list-head"><h2>💡 Inspiratie</h2><?php if ($items['INSPIRATION']): ?><span class="badge"><?= count($items['INSPIRATION']) ?></span><?php endif; ?>
+    <span class="grow"></span><button type="button" class="btn small soft" data-modal="m-new-insp">＋ Inspiratie</button></div>
   <?php if ($items['INSPIRATION']): ?>
     <div class="grid option-grid">
       <?php foreach ($items['INSPIRATION'] as $o): ?>
         <div class="option-card" id="i<?= (int) $o['id'] ?>">
+          <?php if ($o['image_url']): ?><div class="cmp-img"><img src="<?= e($o['image_url']) ?>" alt="" loading="lazy" onerror="this.parentNode.style.display='none'"></div><?php endif; ?>
           <h3><?= e($o['title']) ?></h3>
           <?php if ($o['url']): ?><a class="small" href="<?= e($o['url']) ?>" target="_blank" rel="noopener">🔗 <?= e(link_host($o['url'])) ?> ↗</a><?php endif; ?>
           <?php if ($o['notes']): ?><p class="muted small"><?= nl2br(e($o['notes'])) ?></p><?php endif; ?>
-          <div class="option-actions">
-            <details class="item-more"><summary class="btn small secondary" title="Aanpassen">✏️</summary>
-              <div class="item-edit"><?= item_form($list, 'INSPIRATION', $o) ?><?= item_action('delete_item', $o, '🗑 Verwijderen', 'btn small danger', ' data-confirm="Verwijderen?"') ?></div></details>
-          </div>
+          <div class="option-actions"><button type="button" class="btn small secondary" data-modal="m<?= (int) $o['id'] ?>" title="Aanpassen">✏️</button></div>
+          <?= edit_modal($list, $o, 'INSPIRATION') ?>
         </div>
       <?php endforeach; ?>
     </div>
   <?php endif; ?>
-  <details class="more add-more"<?= $items['INSPIRATION'] ? '' : ' open' ?>><summary class="btn small soft">Inspiratie toevoegen</summary><?= item_form($list, 'INSPIRATION') ?></details>
+  <?= modal('m-new-insp', 'Inspiratie toevoegen', item_form($list, 'INSPIRATION')) ?>
 </div>
 
 <!-- Lijst zelf -->
@@ -285,4 +335,33 @@ page_header(($list['emoji'] ?: '📋') . ' ' . $list['title'], $list['notes'] ?:
     <form method="post" class="inline" data-confirm="De hele lijst met alles erin verwijderen?"><?= csrf_field() ?><input type="hidden" name="action" value="delete_list"><input type="hidden" name="next" value="<?= e($here) ?>"><button class="btn danger">🗑 Verwijderen</button></form>
   </div>
 </details>
+<script>
+// ES5 on purpose (old TVs). Modals: [data-modal=id] opens, ✕ / backdrop / Esc closes.
+(function () {
+  function closeAll() {
+    var m = document.querySelectorAll('.modal');
+    for (var i = 0; i < m.length; i++) m[i].hidden = true;
+    document.body.className = document.body.className.replace(/\s?modal-open/, '');
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target, open = null;
+    while (t && t !== document) {
+      if (t.getAttribute && t.getAttribute('data-modal')) { open = t; break; }
+      if (t.hasAttribute && t.hasAttribute('data-close')) { closeAll(); return; }
+      t = t.parentNode;
+    }
+    if (open) {
+      closeAll();
+      var m = document.getElementById(open.getAttribute('data-modal'));
+      if (m) { m.hidden = false; document.body.className += ' modal-open'; var f = m.querySelector('input[name=url],input[name=title]'); if (f && !f.value) f.focus(); }
+      return;
+    }
+    if (e.target.className && /(^| )modal( |$)/.test(e.target.className)) closeAll();
+  });
+  document.addEventListener('keydown', function (e) { if (e.keyCode === 27) closeAll(); });
+  var od = document.getElementById('only-diff'), cmp = document.getElementById('cmp');
+  if (od && cmp) od.addEventListener('change', function () { cmp.className = 'cmp' + (od.checked ? ' only-diff' : ''); });
+  if (location.hash.indexOf('#m') === 0) { var h = document.getElementById(location.hash.slice(1)); if (h && h.className.indexOf('modal') > -1) { h.hidden = false; document.body.className += ' modal-open'; } }
+})();
+</script>
 <?php page_end();

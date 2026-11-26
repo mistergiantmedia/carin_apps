@@ -784,3 +784,32 @@ kbd{background:var(--card2);border:1px solid var(--line);border-radius:6px;paddi
 .btn.warn-btn{background:var(--warn);color:#fff}
 table.compare tr.picked td{background:var(--warn-soft)}
 table.compare td small{color:var(--muted);font-weight:500}
+
+/* Lijstjes: Tweakers-style comparison + modal */
+.list-head .grow{flex:1}
+table.cmp{border-collapse:separate;border-spacing:0;min-width:100%;font-size:14px}
+table.cmp th,table.cmp td{padding:10px 12px;vertical-align:top;text-align:left;border-bottom:1px solid var(--line2)}
+table.cmp .lab{font-weight:600;color:var(--muted);min-width:130px;width:130px;background:var(--card);position:sticky;left:0;z-index:1}
+table.cmp td{min-width:190px}
+table.cmp thead th.optcol{position:relative;border-bottom:2px solid var(--line);padding-top:30px;min-width:190px}
+table.cmp thead th.optcol.picked{border-bottom-color:var(--warn)}
+table.cmp tr.sec th{background:var(--card2);font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink);border-radius:0}
+table.cmp td.best{background:var(--ok-soft)}
+table.cmp tr.spec.diff td{background:var(--accent-soft)}
+table.cmp.only-diff tr.spec.same{display:none}
+table.cmp .big{font-size:18px;letter-spacing:-.3px}
+table.cmp .big small{font-size:12px;font-weight:600;color:var(--muted)}
+.cmp-title{font-weight:800;font-size:15px;line-height:1.25;margin-top:6px}
+.cmp-img{width:100%;height:120px;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.cmp-img img{max-height:120px;max-width:100%;object-fit:contain}
+.cmp-edit{position:absolute;top:4px;right:6px;border:0;background:none;cursor:pointer;font-size:15px;opacity:.6}
+.cmp-edit:hover{opacity:1}
+.stars{color:#F2A33A;letter-spacing:1px;white-space:nowrap}
+.stars .off{color:var(--line)}
+.modal{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(20,18,28,.55);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:4vh 12px;overflow-y:auto}
+.modal[hidden]{display:none}
+.modal-box{position:relative;background:var(--card);border-radius:22px;padding:22px;width:100%;max-width:560px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.modal-box h2{margin:0 36px 12px 0}
+.modal-x{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;border:0;background:var(--card2);cursor:pointer;font-size:16px}
+body.modal-open{overflow:hidden}
+.modal .inline{display:inline-block;margin-top:10px;margin-left:8px}
