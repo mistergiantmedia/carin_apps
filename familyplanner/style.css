@@ -821,3 +821,8 @@ body.lmodal-open{overflow:hidden}
 .img-pick-prev[hidden]{display:none}
 .img-pick-prev img{max-width:100%;max-height:90px}
 .img-pick-fields{flex:1;min-width:0}
+
+.lists-table tr.clickable{cursor:pointer}
+.lists-table tr.clickable:hover td{background:var(--card2)}
+.lists-table tfoot td{border-top:2px solid var(--line);border-bottom:0;padding-top:12px}
+.lists-table .big{font-size:20px}

@@ -686,6 +686,9 @@ function mcp_list(array $l, bool $withItems = false): array
         }, $items['OPTION']);
         $out['inspiration'] = array_map('mcp_list_item', $items['INSPIRATION']);
     } else {
+        if ($l['chosen_title'] !== null) {
+            $out['our_pick'] = mcp_clean(['title' => $l['chosen_title'], 'price' => $l['chosen_price'] !== null ? (float) $l['chosen_price'] : null, 'price_note' => $l['chosen_note']]);
+        }
         $out['todos_open'] = (int) $l['todos'] - (int) $l['todos_done'];
         $out['options'] = (int) $l['options'];
         $out['inspiration'] = (int) $l['inspiration'];
@@ -695,7 +698,9 @@ function mcp_list(array $l, bool $withItems = false): array
 
 function tool_list_lists(array $a): array
 {
-    return ['lists' => array_map('mcp_list', load_lists(!empty($a['finished'])))];
+    $lists = load_lists(!empty($a['finished']));
+    $t = list_totals($lists);
+    return ['lists' => array_map('mcp_list', $lists), 'total_of_picks_once' => $t['once'], 'recurring_picks' => $t['recurring'], 'lists_still_to_choose' => $t['unpicked']];
 }
 
 function tool_get_list(array $a): array
@@ -1036,7 +1041,7 @@ function mcp_more_tools(): array
         ['name' => 'list_bucket', 'handler' => 'tool_list_bucket', 'description' => 'The bucketlist (things we want to do), with who wants it and who joins.', 'inputSchema' => $o(['done' => ['type' => 'boolean', 'description' => 'true = only done, false = only open']])],
         ['name' => 'save_bucket', 'handler' => 'tool_save_bucket', 'description' => 'Add (no id) or change (id) a bucketlist wish. member_ids = who wants it, contact_ids = friends who join, done = tick off, event_id = planned event.', 'inputSchema' => $o(['id' => $int, 'title' => $str, 'emoji' => $str, 'notes' => $str, 'member_ids' => $ids('Who wants it'), 'contact_ids' => $ids('Friends who join'), 'done' => ['type' => 'boolean'], 'done_on' => $str, 'event_id' => $int])],
         ['name' => 'delete_bucket', 'handler' => 'tool_delete_bucket', 'description' => 'Delete a bucketlist wish.', 'inputSchema' => $o(['id' => $int], ['id'])],
-        ['name' => 'list_lists', 'handler' => 'tool_list_lists', 'description' => 'The "Lijstjes": one list per thing to sort out (energie overstappen, dekbedden kopen…), each with to-dos, options to compare and inspiration. Counts only; use get_list for the content.', 'inputSchema' => $o(['finished' => ['type' => 'boolean', 'description' => 'true = the finished lists']])],
+        ['name' => 'list_lists', 'handler' => 'tool_list_lists', 'description' => 'The "Lijstjes": one list per thing to sort out (energie overstappen, dekbedden kopen…), each with to-dos, options to compare and inspiration. Counts, our picked option with price per list, and the total price of all picks. Use get_list for the content.', 'inputSchema' => $o(['finished' => ['type' => 'boolean', 'description' => 'true = the finished lists']])],
         ['name' => 'get_list', 'handler' => 'tool_get_list', 'description' => 'One list with all its to-dos, options (link, image, price, rating, pros, cons, specs, our_pick, cheapest) and inspiration. Give id or (part of) the name.', 'inputSchema' => $o(['id' => $int, 'name' => $str])],
         ['name' => 'save_list', 'handler' => 'tool_save_list', 'description' => 'Create a list (no id) or change one (id): title, emoji, notes, finished (true = done, hidden from the active lists).', 'inputSchema' => $o(['id' => $int, 'title' => $str, 'emoji' => $str, 'notes' => $str, 'finished' => ['type' => 'boolean']])],
         ['name' => 'delete_list', 'handler' => 'tool_delete_list', 'description' => 'DELETE a list with everything in it. Confirm first.', 'inputSchema' => $o(['id' => $int], ['id'])],

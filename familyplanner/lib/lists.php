@@ -195,7 +195,10 @@ function load_lists(bool $done = false): array
             (SELECT COUNT(*) FROM fp_list_items i WHERE i.list_id = l.id AND i.kind = \'TODO\') AS todos,
             (SELECT COUNT(*) FROM fp_list_items i WHERE i.list_id = l.id AND i.kind = \'TODO\' AND i.done_at IS NOT NULL) AS todos_done,
             (SELECT COUNT(*) FROM fp_list_items i WHERE i.list_id = l.id AND i.kind = \'OPTION\') AS options,
-            (SELECT COUNT(*) FROM fp_list_items i WHERE i.list_id = l.id AND i.kind = \'INSPIRATION\') AS inspiration
+            (SELECT COUNT(*) FROM fp_list_items i WHERE i.list_id = l.id AND i.kind = \'INSPIRATION\') AS inspiration,
+            (SELECT i.title FROM fp_list_items i WHERE i.list_id = l.id AND i.kind = \'OPTION\' AND i.chosen = 1 LIMIT 1) AS chosen_title,
+            (SELECT i.price FROM fp_list_items i WHERE i.list_id = l.id AND i.kind = \'OPTION\' AND i.chosen = 1 LIMIT 1) AS chosen_price,
+            (SELECT i.price_note FROM fp_list_items i WHERE i.list_id = l.id AND i.kind = \'OPTION\' AND i.chosen = 1 LIMIT 1) AS chosen_note
         FROM fp_lists l WHERE l.done_at IS ' . ($done ? 'NOT NULL' : 'NULL') . ' ORDER BY l.created_at DESC, l.id DESC')->fetchAll();
 }
 
@@ -334,4 +337,35 @@ function set_list_choice(int $listId, int $itemId, bool $on): void
 function toggle_list_item(int $id): void
 {
     db()->prepare('UPDATE fp_list_items SET done_at = IF(done_at IS NULL, NOW(), NULL) WHERE id = ?')->execute([$id]);
+}
+
+/** Is this price a one-off (no "per maand" / "per jaar" note)? */
+function is_one_off(?string $note): bool
+{
+    $n = mb_strtolower(trim((string) $note));
+    return $n === '' || in_array($n, ['eenmalig', 'per stuk', 'totaal', 'stuk'], true);
+}
+
+/** Totals of the picked options of lists: one-off sum, plus a sum per recurring kind ("per maand" => 89.5). */
+function list_totals(array $lists): array
+{
+    $once = 0.0;
+    $recurring = [];
+    $unpicked = 0;
+    foreach ($lists as $l) {
+        if ($l['chosen_title'] === null) {
+            $unpicked += (int) $l['options'] > 0 ? 1 : 0;
+            continue;
+        }
+        if ($l['chosen_price'] === null) {
+            continue;
+        }
+        if (is_one_off($l['chosen_note'])) {
+            $once += (float) $l['chosen_price'];
+        } else {
+            $k = mb_strtolower(trim($l['chosen_note']));
+            $recurring[$k] = ($recurring[$k] ?? 0.0) + (float) $l['chosen_price'];
+        }
+    }
+    return ['once' => round($once, 2), 'recurring' => $recurring, 'unpicked' => $unpicked];
 }

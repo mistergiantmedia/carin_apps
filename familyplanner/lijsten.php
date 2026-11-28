@@ -186,22 +186,31 @@ if (!$list) {
     ?>
     <?php if (!$open): ?>
       <div class="card"><?= empty_state('📋', 'Nog geen lijstjes. Begin bijvoorbeeld met "Energie overstappen" of "Nieuwe dekbedden".') ?></div>
-    <?php else: ?>
-      <div class="grid list-grid">
-        <?php foreach ($open as $l): $pct = $l['todos'] ? round($l['todos_done'] / $l['todos'] * 100) : 0; ?>
-          <a class="card list-card" href="lijsten.php?id=<?= (int) $l['id'] ?>">
-            <div class="list-emoji"><?= e($l['emoji'] ?: '📋') ?></div>
-            <h3><?= e($l['title']) ?></h3>
-            <?php if ($l['notes']): ?><p class="muted small"><?= e(excerpt($l['notes'], 90)) ?></p><?php endif; ?>
-            <div class="list-counts">
-              <?php if ($l['todos']): ?><span class="badge <?= $l['todos_done'] == $l['todos'] ? 'ok' : '' ?>">✅ <?= (int) $l['todos_done'] ?>/<?= (int) $l['todos'] ?></span><?php endif; ?>
-              <?php if ($l['options']): ?><span class="badge">🛒 <?= (int) $l['options'] ?> <?= $l['options'] == 1 ? 'optie' : 'opties' ?></span><?php endif; ?>
-              <?php if ($l['inspiration']): ?><span class="badge">💡 <?= (int) $l['inspiration'] ?></span><?php endif; ?>
-              <?php if (!$l['todos'] && !$l['options'] && !$l['inspiration']): ?><span class="badge">nog leeg</span><?php endif; ?>
-            </div>
-            <?php if ($l['todos']): ?><div class="progress"><span style="width:<?= $pct ?>%"></span></div><?php endif; ?>
-          </a>
-        <?php endforeach; ?>
+    <?php else: $tot = list_totals($open); ?>
+      <div class="card" style="padding:6px 14px">
+        <div class="table-wrap"><table class="data lists-table">
+          <thead><tr><th>Lijst</th><th>Onze keuze</th><th class="num">Prijs</th><th class="num">Status</th></tr></thead>
+          <tbody>
+          <?php foreach ($open as $l): $pct = $l['todos'] ? round($l['todos_done'] / $l['todos'] * 100) : 0; ?>
+            <tr class="clickable" onclick="location.href='lijsten.php?id=<?= (int) $l['id'] ?>'">
+              <td><a href="lijsten.php?id=<?= (int) $l['id'] ?>"><b><?= e(($l['emoji'] ?: '📋') . ' ' . $l['title']) ?></b></a></td>
+              <td><?php if ($l['chosen_title'] !== null): ?>⭐ <?= e($l['chosen_title']) ?><?php elseif ($l['options']): ?><span class="muted">nog kiezen uit <?= (int) $l['options'] ?> <?= $l['options'] == 1 ? 'optie' : 'opties' ?></span><?php else: ?><span class="muted">–</span><?php endif; ?></td>
+              <td class="num nowrap"><?php if ($l['chosen_price'] !== null): ?><b><?= e(money((float) $l['chosen_price'])) ?></b><?= $l['chosen_note'] ? ' <small class="muted">' . e($l['chosen_note']) . '</small>' : '' ?><?php else: ?><span class="muted">–</span><?php endif; ?></td>
+              <td class="num nowrap small">
+                <?php if ($l['todos']): ?><span class="badge <?= $l['todos_done'] == $l['todos'] ? 'ok' : '' ?>">✅ <?= (int) $l['todos_done'] ?>/<?= (int) $l['todos'] ?></span><?php endif; ?>
+                <?php if ($l['inspiration']): ?><span class="badge">💡 <?= (int) $l['inspiration'] ?></span><?php endif; ?>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+          <tfoot>
+            <tr><td colspan="2"><b>Totaal van onze keuzes</b><?php if ($tot['unpicked']): ?> <small class="muted">(nog <?= (int) $tot['unpicked'] ?> <?= $tot['unpicked'] == 1 ? 'lijst' : 'lijsten' ?> te kiezen)</small><?php endif; ?></td>
+              <td class="num nowrap"><b class="big"><?= $tot['once'] > 0 || !$tot['recurring'] ? e(money($tot['once'])) : '–' ?></b></td><td></td></tr>
+            <?php foreach ($tot['recurring'] as $note => $sum): ?>
+              <tr><td colspan="2" class="muted small">Daarnaast, doorlopend</td><td class="num nowrap"><b><?= e(money($sum)) ?></b> <small class="muted"><?= e($note) ?></small></td><td></td></tr>
+            <?php endforeach; ?>
+          </tfoot>
+        </table></div>
       </div>
     <?php endif; ?>
 
